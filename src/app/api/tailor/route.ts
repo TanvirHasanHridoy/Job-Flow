@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
@@ -11,7 +12,9 @@ export async function POST(req: Request) {
       noticePeriod,
       signingLocation,
       customNotes,
-      profile
+      profile,
+      matchStrategy = 'TACTICAL_PIVOT',
+      applicationId = null
     } = await req.json();
 
     if (!jobDescription || !targetLanguage || !profile) {
@@ -57,7 +60,19 @@ export async function POST(req: Request) {
     // System prompt selection
     let systemPrompt = '';
     
+    // Choose match strategy directives
+    let strategyDirective = '';
     if (targetLanguage === 'DE') {
+      if (matchStrategy === 'TACTICAL_PIVOT') {
+        strategyDirective = `
+CRITICAL MATCH STRATEGY - TACTICAL_PIVOT (Ehrliche Begründung):
+Der Benutzer hat Qualifikationslücken für diese Stelle. Halten Sie den Lebenslauf streng faktisch und basierend *nur* auf seinem Profil. Erfinden Sie keine Daten, Zertifikate oder Arbeitgeber. Gehen Sie im Anschreiben explizit auf diese Lücken ein und begründen Sie diese konstruktiv und professionell. Erklären Sie, wie die angrenzenden Fähigkeiten des Benutzers, seine schnelle Auffassungsgabe und sein vorhandenes Kernwissen ihn trotz fehlender Schlüsselwörter zum richtigen Kandidaten machen.`;
+      } else {
+        strategyDirective = `
+CRITICAL MATCH STRATEGY - AGGRESIVE_BRIDGING (Terminologie-Optimierung):
+Der Benutzer möchte eine maximale Abstimmung der Schlüsselwörter für ATS-Filter. Crawlen Sie seine reale Historie intensiv nach übertragbaren Fähigkeiten. Erfinden Sie keine falschen Arbeitgeber, Berufsbezeichnungen oder Abschlüsse. Formulieren Sie die tatsächlichen Errungenschaften des Benutzers jedoch mit genau den Fachbegriffen, technischen Verben und Formulierungen der Stellenbeschreibung um, um strenge ATS-Filter erfolgreich zu durchlaufen.`;
+      }
+
       systemPrompt = `You are an elite DACH-region recruitment expert and ATS optimization engine. Your goal is to write a flawless, professional German Lebenslauf (Resume) and Anschreiben (Cover Letter) based on the user's profile and the target job description.
 
 CRITICAL CONSTRAINTS:
@@ -76,6 +91,7 @@ CRITICAL CONSTRAINTS:
    - Formal salutation ("Sehr geehrte Damen und Herren," or "Sehr geehrte(r) Frau/Herr [Name],").
    - High-quality, tailored paragraphs discussing matching accomplishments factually, concluding with availability/notice period and salary expectations if provided.
    - Formal closing ("Mit freundlichen Grüßen") followed by signature name.
+${strategyDirective}
 
 You must respond with a raw JSON object containing these exact keys:
 {
@@ -134,6 +150,16 @@ You must respond with a raw JSON object containing these exact keys:
   }
 }`;
     } else {
+      if (matchStrategy === 'TACTICAL_PIVOT') {
+        strategyDirective = `
+CRITICAL MATCH STRATEGY - TACTICAL_PIVOT (Honest Justification):
+The user has skill gaps for this job. Keep the CV/Resume strictly factual based *only* on their profile. Do NOT invent data, certifications, or employers. In the Cover Letter, explicitly address these gaps using a constructive, professional justification. Explain how their adjacent skills, rapid learning curve, and existing core expertise make them the right fit despite the missing keywords.`;
+      } else {
+        strategyDirective = `
+CRITICAL MATCH STRATEGY - AGGRESIVE_BRIDGING (Terminology Optimization):
+The user wants maximum keyword alignment. Without fabricating non-existent employers, fake job titles, or fake degrees, aggressively crawl their real history for transferable skills. Rephrase their genuine accomplishments using the exact technical verbs and phrasing found in the job description to pass strict ATS filters.`;
+      }
+
       systemPrompt = `You are an elite international recruitment expert and ATS optimization engine. Your goal is to write a flawless, high-impact English Resume (CV) and Cover Letter optimized for US/UK/International standards.
 
 CRITICAL CONSTRAINTS:
@@ -151,6 +177,7 @@ CRITICAL CONSTRAINTS:
    - Formal, polite opening ("Dear Hiring Manager," or "Dear Mr./Ms. [Name],").
    - 3-4 structured body paragraphs highlighting matching achievements, availability/notice period, and salary expectations if provided.
    - Polite closing ("Sincerely," or "Best regards,") and signature name.
+${strategyDirective}
 
 You must respond with a raw JSON object containing these exact keys:
 {
@@ -248,6 +275,23 @@ ${contextStr}`
     const resJson = await response.json();
     const generatedText = resJson.choices[0].message.content;
     const tailoredResult = JSON.parse(generatedText);
+
+    // 3. Log query diagnostic data into database
+    try {
+      await prisma.tailorDiagnosticLog.create({
+        data: {
+          applicationId: applicationId,
+          rawJobDescription: jobDescription,
+          userProfileSnapshot: JSON.stringify(formattedProfile),
+          matchStrategyUsed: matchStrategy,
+          systemPromptSent: systemPrompt,
+          rawLlmResponse: generatedText
+        }
+      });
+    } catch (logError) {
+      console.error('Failed to create diagnostic log entry:', logError);
+      // We do not fail the tailoring request if logging fails
+    }
 
     return NextResponse.json(tailoredResult);
   } catch (error: any) {

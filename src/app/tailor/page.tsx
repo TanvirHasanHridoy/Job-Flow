@@ -70,6 +70,54 @@ interface TailorResponse {
   tailoredCoverLetter: TailoredCoverLetter;
 }
 
+const getTemplateStyles = (template: 'CLASSIC_CORPORATE' | 'MODERN_MINIMALIST' | 'TECH_CREATIVE') => {
+  switch (template) {
+    case 'MODERN_MINIMALIST':
+      return {
+        fontFamily: 'Outfit, Inter, sans-serif',
+        padding: '24mm',
+        headerBorderBottom: '1px solid #e4e4e7',
+        headingTextTransform: 'lowercase' as const,
+        headingLetterSpacing: '0.025em',
+        sectionSpacing: '28px',
+        accentColor: '#18181b',
+        titleFont: 'Outfit, Inter, sans-serif',
+        titleColor: '#09090b',
+        textColor: '#27272a',
+        borderColor: '#e4e4e7'
+      };
+    case 'TECH_CREATIVE':
+      return {
+        fontFamily: 'Inter, monospace, sans-serif',
+        padding: '18mm',
+        headerBorderBottom: '3px solid #6366f1',
+        headingTextTransform: 'uppercase' as const,
+        headingLetterSpacing: '0.05em',
+        sectionSpacing: '24px',
+        accentColor: '#6366f1',
+        titleFont: 'Outfit, monospace',
+        titleColor: '#312e81',
+        textColor: '#1f2937',
+        borderColor: '#818cf8'
+      };
+    case 'CLASSIC_CORPORATE':
+    default:
+      return {
+        fontFamily: 'Georgia, Cambria, "Times New Roman", Times, serif',
+        padding: '20mm',
+        headerBorderBottom: '2px solid #27272a',
+        headingTextTransform: 'uppercase' as const,
+        headingLetterSpacing: '0.05em',
+        sectionSpacing: '24px',
+        accentColor: '#18181b',
+        titleFont: 'Georgia, serif',
+        titleColor: '#18181b',
+        textColor: '#27272a',
+        borderColor: '#d4d4d8'
+      };
+  }
+};
+
 export default function TailorWorkspace() {
   const [profile, setProfile] = useState<any>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -84,6 +132,11 @@ export default function TailorWorkspace() {
   const [signingLocation, setSigningLocation] = useState('');
   const [customNotes, setCustomNotes] = useState('');
 
+  // Strategy & Style States
+  const [matchStrategy, setMatchStrategy] = useState<'TACTICAL_PIVOT' | 'AGGRESIVE_BRIDGING'>('TACTICAL_PIVOT');
+  const [styleTemplate, setStyleTemplate] = useState<'CLASSIC_CORPORATE' | 'MODERN_MINIMALIST' | 'TECH_CREATIVE'>('CLASSIC_CORPORATE');
+  const [editingAppId, setEditingAppId] = useState<string | null>(null);
+
   // App state
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TailorResponse | null>(null);
@@ -97,6 +150,16 @@ export default function TailorWorkspace() {
 
   useEffect(() => {
     fetchProfile();
+    
+    // Check for appId query parameter in raw location string
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const appId = urlParams.get('appId');
+      if (appId) {
+        setEditingAppId(appId);
+        fetchApplicationForEditing(appId);
+      }
+    }
   }, []);
 
   const fetchProfile = async () => {
@@ -108,7 +171,7 @@ export default function TailorWorkspace() {
         if (data.fullName) {
           setProfile(data);
           // Set default signing location based on profile address
-          if (data.address) {
+          if (data.address && !signingLocation) {
             const parts = data.address.split(',');
             const city = parts[parts.length - 1] || parts[0];
             setSigningLocation(city.trim().replace(/\d+/g, '').trim());
@@ -119,6 +182,38 @@ export default function TailorWorkspace() {
       console.error('Error fetching profile:', err);
     } finally {
       setProfileLoading(false);
+    }
+  };
+
+  const fetchApplicationForEditing = async (appId: string) => {
+    try {
+      const res = await fetch(`/api/applications/${appId}`);
+      if (res.ok) {
+        const app = await res.json();
+        setCompanyName(app.company);
+        setRoleName(app.role);
+        setJobDescription(app.rawJobDescription);
+        setTargetLanguage(app.targetLanguage as 'EN' | 'DE');
+        setSalaryExpectation(app.salaryExpectation || '');
+        setNoticePeriod(app.noticePeriod || '');
+        setSigningLocation(app.signingLocation || '');
+        setCustomNotes(app.customNotes || '');
+        
+        // Locate matching documents
+        const cvDoc = app.documents.find((d: any) => d.type === 'CV');
+        const clDoc = app.documents.find((d: any) => d.type === 'COVER_LETTER');
+        
+        if (cvDoc && clDoc) {
+          setResult({
+            matchScore: app.matchScore,
+            gapAnalysis: app.gapAnalysis,
+            tailoredCv: JSON.parse(cvDoc.content),
+            tailoredCoverLetter: JSON.parse(clDoc.content)
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error loading application details:', err);
     }
   };
 
@@ -140,7 +235,9 @@ export default function TailorWorkspace() {
           noticePeriod,
           signingLocation,
           customNotes,
-          profile
+          profile,
+          matchStrategy,
+          applicationId: editingAppId
         })
       });
 
@@ -173,8 +270,6 @@ export default function TailorWorkspace() {
     if (!element) return;
 
     try {
-      // Dynamic import of html2pdf.js client-side
-      const html2pdf = (await import('html2pdf.js')).default;
       const opt = {
         margin:       10,
         filename:     `${type === 'cv' ? 'Resume' : 'Cover_Letter'}_${companyName.replace(/\s+/g, '_')}_${roleName.replace(/\s+/g, '_')}.pdf`,
@@ -183,7 +278,69 @@ export default function TailorWorkspace() {
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
       };
 
-      html2pdf().from(element).set(opt).save();
+      // 1. Temporarily disable stylesheets containing unsupported CSS functions like oklch or lab
+      const originalStyleStates: { ownerNode: HTMLElement; disabled: boolean }[] = [];
+      const tempStyleElements: HTMLStyleElement[] = [];
+
+      for (let i = 0; i < document.styleSheets.length; i++) {
+        const sheet = document.styleSheets[i] as CSSStyleSheet;
+        try {
+          const rules = sheet.cssRules || sheet.rules;
+          if (!rules) continue;
+
+          let hasUnsupportedColor = false;
+          const rulesTextArray: string[] = [];
+
+          for (let j = 0; j < rules.length; j++) {
+            const ruleText = rules[j].cssText;
+            rulesTextArray.push(ruleText);
+            if (
+              ruleText.includes('oklch') ||
+              ruleText.includes('oklab') ||
+              ruleText.includes('lab(') ||
+              ruleText.includes('lch(')
+            ) {
+              hasUnsupportedColor = true;
+            }
+          }
+
+          if (hasUnsupportedColor) {
+            const ownerNode = sheet.ownerNode as HTMLElement;
+            if (ownerNode) {
+              originalStyleStates.push({
+                ownerNode,
+                disabled: (ownerNode as any).disabled
+              });
+              (ownerNode as any).disabled = true;
+
+              // Clean rules text of modern CSS colors
+              const cleanedText = rulesTextArray.join('\n')
+                .replace(/oklch\([^)]+\)/g, 'rgb(120, 120, 120)')
+                .replace(/oklab\([^)]+\)/g, 'rgb(120, 120, 120)')
+                .replace(/lab\([^)]+\)/g, 'rgb(120, 120, 120)')
+                .replace(/lch\([^)]+\)/g, 'rgb(120, 120, 120)');
+
+              const tempStyle = document.createElement('style');
+              tempStyle.setAttribute('data-temp-clean-css', 'true');
+              tempStyle.innerHTML = cleanedText;
+              document.head.appendChild(tempStyle);
+              tempStyleElements.push(tempStyle);
+            }
+          }
+        } catch (e) {
+          // Skip cross-origin stylesheets that cannot be accessed programmatically
+        }
+      }
+
+      // 2. Load html2pdf and export
+      const html2pdf = (await import('html2pdf.js')).default;
+      await html2pdf().from(element).set(opt).save();
+
+      // 3. Restore all disabled stylesheets
+      originalStyleStates.forEach(({ ownerNode, disabled }) => {
+        (ownerNode as any).disabled = disabled;
+      });
+      tempStyleElements.forEach(el => el.remove());
     } catch (err) {
       console.error('Error generating PDF:', err);
       alert('Failed to generate PDF. Trying default browser print options.');
@@ -196,27 +353,31 @@ export default function TailorWorkspace() {
     setIsSaving(true);
     setSaveSuccess(false);
 
+    const payload = {
+      company: companyName,
+      role: roleName,
+      salaryExpectation,
+      noticePeriod,
+      signingLocation,
+      customNotes,
+      rawJobDescription: jobDescription,
+      matchScore: result.matchScore,
+      gapAnalysis: result.gapAnalysis,
+      targetLanguage,
+      documents: [
+        { type: 'CV', content: JSON.stringify(result.tailoredCv) },
+        { type: 'COVER_LETTER', content: JSON.stringify(result.tailoredCoverLetter) }
+      ]
+    };
+
     try {
-      const res = await fetch('/api/applications', {
-        method: 'POST',
+      const url = editingAppId ? `/api/applications/${editingAppId}` : '/api/applications';
+      const method = editingAppId ? 'PATCH' : 'POST';
+
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          company: companyName,
-          role: roleName,
-          status: 'TAILORED',
-          salaryExpectation,
-          noticePeriod,
-          signingLocation,
-          customNotes,
-          rawJobDescription: jobDescription,
-          matchScore: result.matchScore,
-          gapAnalysis: result.gapAnalysis,
-          targetLanguage,
-          documents: [
-            { type: 'CV', content: JSON.stringify(result.tailoredCv) },
-            { type: 'COVER_LETTER', content: JSON.stringify(result.tailoredCoverLetter) }
-          ]
-        })
+        body: JSON.stringify(payload)
       });
 
       if (res.ok) {
@@ -256,6 +417,106 @@ export default function TailorWorkspace() {
       tailoredCv: {
         ...result.tailoredCv,
         summary: val
+      }
+    });
+  };
+
+  const handleWorkExperienceChange = (expIdx: number, key: 'period' | 'role' | 'company' | 'location', value: string) => {
+    if (!result) return;
+    const newWorkExp = [...result.tailoredCv.workExperience];
+    newWorkExp[expIdx] = {
+      ...newWorkExp[expIdx],
+      [key]: value
+    };
+    setResult({
+      ...result,
+      tailoredCv: {
+        ...result.tailoredCv,
+        workExperience: newWorkExp
+      }
+    });
+  };
+
+  const handleWorkExperienceBulletChange = (expIdx: number, bulletIdx: number, value: string) => {
+    if (!result) return;
+    const newWorkExp = [...result.tailoredCv.workExperience];
+    const newBullets = [...newWorkExp[expIdx].bullets];
+    newBullets[bulletIdx] = value;
+    newWorkExp[expIdx] = {
+      ...newWorkExp[expIdx],
+      bullets: newBullets
+    };
+    setResult({
+      ...result,
+      tailoredCv: {
+        ...result.tailoredCv,
+        workExperience: newWorkExp
+      }
+    });
+  };
+
+  const handleEducationChange = (eduIdx: number, key: 'period' | 'degree' | 'institution' | 'location', value: string) => {
+    if (!result) return;
+    const newEdu = [...result.tailoredCv.education];
+    newEdu[eduIdx] = {
+      ...newEdu[eduIdx],
+      [key]: value
+    };
+    setResult({
+      ...result,
+      tailoredCv: {
+        ...result.tailoredCv,
+        education: newEdu
+      }
+    });
+  };
+
+  const handleSkillsChange = (value: string) => {
+    if (!result) return;
+    const newSkills = value.split(',').map(s => s.trim()).filter(Boolean);
+    setResult({
+      ...result,
+      tailoredCv: {
+        ...result.tailoredCv,
+        skills: newSkills
+      }
+    });
+  };
+
+  const handleLanguagesChange = (idx: number, key: 'language' | 'level', value: string) => {
+    if (!result) return;
+    const newLanguages = [...result.tailoredCv.languages];
+    newLanguages[idx] = {
+      ...newLanguages[idx],
+      [key]: value
+    };
+    setResult({
+      ...result,
+      tailoredCv: {
+        ...result.tailoredCv,
+        languages: newLanguages
+      }
+    });
+  };
+
+  const handleSigningLineChange = (value: string) => {
+    if (!result) return;
+    setResult({
+      ...result,
+      tailoredCv: {
+        ...result.tailoredCv,
+        signingLine: value
+      }
+    });
+  };
+
+  const handleClChange = (key: keyof TailoredCoverLetter, value: string) => {
+    if (!result) return;
+    setResult({
+      ...result,
+      tailoredCoverLetter: {
+        ...result.tailoredCoverLetter,
+        [key]: value
       }
     });
   };
@@ -301,6 +562,8 @@ export default function TailorWorkspace() {
       </div>
     );
   }
+
+  const s = getTemplateStyles(styleTemplate);
 
   return (
     <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 min-h-[calc(100vh-73px)]">
@@ -376,6 +639,57 @@ export default function TailorWorkspace() {
                 German (DIN 5008 / Tabellarisch)
               </button>
             </div>
+          </div>
+
+          {/* Match Strategy Selection */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Match Strategy</label>
+              <span className="text-[9px] text-zinc-500 font-medium">Selects AI prompt logic</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
+              <button
+                type="button"
+                onClick={() => setMatchStrategy('TACTICAL_PIVOT')}
+                className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  matchStrategy === 'TACTICAL_PIVOT' 
+                    ? 'bg-indigo-600 text-white shadow' 
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+                title="Explain skill gaps constructively in the cover letter"
+              >
+                Tactical Pivot
+              </button>
+              <button
+                type="button"
+                onClick={() => setMatchStrategy('AGGRESIVE_BRIDGING')}
+                className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  matchStrategy === 'AGGRESIVE_BRIDGING' 
+                    ? 'bg-indigo-600 text-white shadow' 
+                    : 'text-zinc-400 hover:text-white'
+                }`}
+                title="Optimize terminology aggressively to align with ATS filters"
+              >
+                Aggressive Bridging
+              </button>
+            </div>
+          </div>
+
+          {/* Style Template Selection */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Visual Layout Style</label>
+              <span className="text-[9px] text-zinc-500 font-medium">Selects document design theme</span>
+            </div>
+            <select
+              value={styleTemplate}
+              onChange={e => setStyleTemplate(e.target.value as any)}
+              className="glass-input px-3.5 py-2.5 text-xs w-full cursor-pointer bg-zinc-900 border border-white/10"
+            >
+              <option value="CLASSIC_CORPORATE">Classic Corporate (Serif, formal, standard)</option>
+              <option value="MODERN_MINIMALIST">Modern Minimalist (Sans-serif, lowercase, generous margins)</option>
+              <option value="TECH_CREATIVE">Tech Creative (Sleek accent line, bold title, compact details)</option>
+            </select>
           </div>
 
           <div className="flex flex-col gap-1">
@@ -564,17 +878,17 @@ export default function TailorWorkspace() {
                 {isSaving ? (
                   <>
                     <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    Saving...
+                    {editingAppId ? 'Updating...' : 'Saving...'}
                   </>
                 ) : saveSuccess ? (
                   <>
                     <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    Saved to Tracker!
+                    {editingAppId ? 'Updated in Tracker!' : 'Saved to Tracker!'}
                   </>
                 ) : (
                   <>
                     <Save className="w-3.5 h-3.5" />
-                    Save Application Tracker
+                    {editingAppId ? 'Update Tracked Application' : 'Save Application Tracker'}
                   </>
                 )}
               </button>
@@ -636,57 +950,60 @@ export default function TailorWorkspace() {
                 <div 
                   ref={cvPreviewRef} 
                   id="cv-sheet"
-                  className="w-[210mm] min-h-[297mm] p-[20mm] font-serif relative flex flex-col justify-between"
-                  style={{ pageBreakInside: 'avoid', backgroundColor: '#ffffff', color: '#000000' }}
+                  className="w-[210mm] min-h-[297mm] relative flex flex-col justify-between"
+                  style={{ 
+                    pageBreakInside: 'avoid', 
+                    backgroundColor: '#ffffff', 
+                    color: s.textColor,
+                    fontFamily: s.fontFamily,
+                    padding: s.padding
+                  }}
                 >
                   <div>
                     {/* Header */}
-                    <div style={{ borderBottom: '2px solid #27272a', paddingBottom: '16px', marginBottom: '24px' }}>
+                    <div style={{ borderBottom: s.headerBorderBottom, paddingBottom: '16px', marginBottom: s.sectionSpacing }}>
                       <h1 
                         contentEditable={true} 
                         suppressContentEditableWarning={true}
-                        style={{ fontSize: '1.875rem', fontWeight: 'bold', letterSpacing: '-0.025em', color: '#18181b', marginBottom: '4px' }}
+                        onBlur={(e) => handleCvDetailsChange('fullName', e.target.innerText)}
+                        style={{ fontSize: '1.875rem', fontWeight: 'bold', letterSpacing: '-0.025em', color: s.titleColor, fontFamily: s.titleFont, marginBottom: '4px' }}
                       >
                         {result.tailoredCv.personalDetails.fullName}
                       </h1>
                       <div 
-                        contentEditable={true}
-                        suppressContentEditableWarning={true}
-                        className="flex flex-wrap gap-x-4 gap-y-1 mt-1 font-sans" 
-                        style={{ fontSize: '0.75rem', color: '#52525b' }}
+                        className="flex flex-wrap gap-x-4 gap-y-1 mt-1 font-sans text-xs" 
+                        style={{ color: '#52525b' }}
                       >
-                        <span>Email: {result.tailoredCv.personalDetails.email}</span>
-                        <span>Phone: {result.tailoredCv.personalDetails.phone}</span>
+                        <span>Email: <span contentEditable suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('email', e.target.innerText)}>{result.tailoredCv.personalDetails.email}</span></span>
+                        <span>Phone: <span contentEditable suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('phone', e.target.innerText)}>{result.tailoredCv.personalDetails.phone}</span></span>
                         {result.tailoredCv.personalDetails.address && (
-                          <span>Address: {result.tailoredCv.personalDetails.address}</span>
+                          <span>Address: <span contentEditable suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('address', e.target.innerText)}>{result.tailoredCv.personalDetails.address}</span></span>
                         )}
                         {result.tailoredCv.personalDetails.website && (
-                          <span>Web: {result.tailoredCv.personalDetails.website}</span>
+                          <span>Web: <span contentEditable suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('website', e.target.innerText)}>{result.tailoredCv.personalDetails.website}</span></span>
                         )}
                         {result.tailoredCv.personalDetails.linkedin && (
-                          <span>LinkedIn: {result.tailoredCv.personalDetails.linkedin}</span>
+                          <span>LinkedIn: <span contentEditable suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('linkedin', e.target.innerText)}>{result.tailoredCv.personalDetails.linkedin}</span></span>
                         )}
                         {result.tailoredCv.personalDetails.github && (
-                          <span>GitHub: {result.tailoredCv.personalDetails.github}</span>
+                          <span>GitHub: <span contentEditable suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('github', e.target.innerText)}>{result.tailoredCv.personalDetails.github}</span></span>
                         )}
                       </div>
 
                       {/* DACH Meta Fields, Conditionally display ONLY in German */}
                       {targetLanguage === 'DE' && (
                         <div 
-                          contentEditable={true}
-                          suppressContentEditableWarning={true}
                           className="grid grid-cols-3 font-sans"
                           style={{ fontSize: '11px', color: '#3f3f46', borderTop: '1px solid #f4f4f5', paddingTop: '8px', marginTop: '8px' }}
                         >
                           {result.tailoredCv.personalDetails.dateOfBirth && (
-                            <span>Geburtsdatum: {result.tailoredCv.personalDetails.dateOfBirth}</span>
+                            <span>Geburtsdatum: <span contentEditable suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('dateOfBirth', e.target.innerText)}>{result.tailoredCv.personalDetails.dateOfBirth}</span></span>
                           )}
                           {result.tailoredCv.personalDetails.birthplace && (
-                            <span>Geburtsort: {result.tailoredCv.personalDetails.birthplace}</span>
+                            <span>Geburtsort: <span contentEditable suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('birthplace', e.target.innerText)}>{result.tailoredCv.personalDetails.birthplace}</span></span>
                           )}
                           {result.tailoredCv.personalDetails.nationality && (
-                            <span>Staatsangehörigkeit: {result.tailoredCv.personalDetails.nationality}</span>
+                            <span>Staatsangehörigkeit: <span contentEditable suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('nationality', e.target.innerText)}>{result.tailoredCv.personalDetails.nationality}</span></span>
                           )}
                         </div>
                       )}
@@ -698,7 +1015,8 @@ export default function TailorWorkspace() {
                         <p 
                           contentEditable={true}
                           suppressContentEditableWarning={true}
-                          style={{ fontSize: '0.75rem', fontStyle: 'italic', lineHeight: '1.625', color: '#27272a' }}
+                          onBlur={(e) => handleCvSummaryChange(e.target.innerText)}
+                          style={{ fontSize: '0.75rem', fontStyle: 'italic', lineHeight: '1.625', color: s.textColor }}
                         >
                           {result.tailoredCv.summary}
                         </p>
@@ -712,22 +1030,57 @@ export default function TailorWorkspace() {
                         {/* Work Experience */}
                         <div>
                           <h3 
-                            contentEditable={true}
-                            suppressContentEditableWarning={true}
-                            style={{ fontSize: '0.875rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#18181b', borderBottom: '1px solid #d4d4d8', paddingBottom: '4px', marginBottom: '12px' }}
+                            style={{ 
+                              fontSize: '0.875rem', 
+                              fontWeight: 'bold', 
+                              textTransform: s.headingTextTransform, 
+                              letterSpacing: s.headingLetterSpacing, 
+                              color: s.titleColor, 
+                              borderBottom: `1px solid ${s.borderColor}`, 
+                              paddingBottom: '4px', 
+                              marginBottom: '12px',
+                              fontFamily: s.titleFont 
+                            }}
                           >
                             Beruflicher Werdegang
                           </h3>
                           <div className="space-y-4">
                             {result.tailoredCv.workExperience.map((exp, idx) => (
                               <div key={idx} className="grid grid-cols-12 gap-4 text-xs">
-                                <div contentEditable={true} suppressContentEditableWarning={true} className="col-span-3 font-sans" style={{ color: '#71717a' }}>{exp.period}</div>
+                                <div 
+                                  contentEditable={true} 
+                                  suppressContentEditableWarning={true} 
+                                  onBlur={(e) => handleWorkExperienceChange(idx, 'period', e.target.innerText)}
+                                  className="col-span-3 font-sans" 
+                                  style={{ color: '#71717a' }}
+                                >
+                                  {exp.period}
+                                </div>
                                 <div className="col-span-9">
-                                  <h4 contentEditable={true} suppressContentEditableWarning={true} style={{ fontWeight: 'bold', color: '#18181b' }}>{exp.role}</h4>
-                                  <div contentEditable={true} suppressContentEditableWarning={true} className="italic font-sans mb-1.5" style={{ color: '#52525b' }}>{exp.company}, {exp.location}</div>
-                                  <ul className="list-disc list-outside ml-4 space-y-1" style={{ color: '#27272a' }}>
+                                  <h4 
+                                    contentEditable={true} 
+                                    suppressContentEditableWarning={true} 
+                                    onBlur={(e) => handleWorkExperienceChange(idx, 'role', e.target.innerText)}
+                                    style={{ fontWeight: 'bold', color: s.titleColor }}
+                                  >
+                                    {exp.role}
+                                  </h4>
+                                  <div className="italic font-sans mb-1.5" style={{ color: '#52525b' }}>
+                                    <span contentEditable suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'company', e.target.innerText)}>{exp.company}</span>
+                                    <span>, </span>
+                                    <span contentEditable suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'location', e.target.innerText)}>{exp.location}</span>
+                                  </div>
+                                  <ul className="list-disc list-outside ml-4 space-y-1" style={{ color: s.textColor }}>
                                     {exp.bullets.map((b, bIdx) => (
-                                      <li key={bIdx} contentEditable={true} suppressContentEditableWarning={true} className="leading-relaxed">{b}</li>
+                                      <li 
+                                        key={bIdx} 
+                                        contentEditable={true} 
+                                        suppressContentEditableWarning={true} 
+                                        onBlur={(e) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerText)}
+                                        className="leading-relaxed"
+                                      >
+                                        {b}
+                                      </li>
                                     ))}
                                   </ul>
                                 </div>
@@ -739,19 +1092,46 @@ export default function TailorWorkspace() {
                         {/* Education */}
                         <div>
                           <h3 
-                            contentEditable={true}
-                            suppressContentEditableWarning={true}
-                            style={{ fontSize: '0.875rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#18181b', borderBottom: '1px solid #d4d4d8', paddingBottom: '4px', marginBottom: '12px' }}
+                            style={{ 
+                              fontSize: '0.875rem', 
+                              fontWeight: 'bold', 
+                              textTransform: s.headingTextTransform, 
+                              letterSpacing: s.headingLetterSpacing, 
+                              color: s.titleColor, 
+                              borderBottom: `1px solid ${s.borderColor}`, 
+                              paddingBottom: '4px', 
+                              marginBottom: '12px',
+                              fontFamily: s.titleFont 
+                            }}
                           >
                             Ausbildung
                           </h3>
                           <div className="space-y-3">
                             {result.tailoredCv.education.map((edu, idx) => (
                               <div key={idx} className="grid grid-cols-12 gap-4 text-xs">
-                                <div contentEditable={true} suppressContentEditableWarning={true} className="col-span-3 font-sans" style={{ color: '#71717a' }}>{edu.period}</div>
+                                <div 
+                                  contentEditable={true} 
+                                  suppressContentEditableWarning={true} 
+                                  onBlur={(e) => handleEducationChange(idx, 'period', e.target.innerText)}
+                                  className="col-span-3 font-sans" 
+                                  style={{ color: '#71717a' }}
+                                >
+                                  {edu.period}
+                                </div>
                                 <div className="col-span-9">
-                                  <h4 contentEditable={true} suppressContentEditableWarning={true} style={{ fontWeight: 'bold', color: '#18181b' }}>{edu.degree}</h4>
-                                  <div contentEditable={true} suppressContentEditableWarning={true} className="font-sans" style={{ color: '#52525b' }}>{edu.institution}, {edu.location}</div>
+                                  <h4 
+                                    contentEditable={true} 
+                                    suppressContentEditableWarning={true} 
+                                    onBlur={(e) => handleEducationChange(idx, 'degree', e.target.innerText)}
+                                    style={{ fontWeight: 'bold', color: s.titleColor }}
+                                  >
+                                    {edu.degree}
+                                  </h4>
+                                  <div className="font-sans" style={{ color: '#52525b' }}>
+                                    <span contentEditable suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'institution', e.target.innerText)}>{edu.institution}</span>
+                                    <span>, </span>
+                                    <span contentEditable suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'location', e.target.innerText)}>{edu.location}</span>
+                                  </div>
                                 </div>
                               </div>
                             ))}
@@ -762,37 +1142,49 @@ export default function TailorWorkspace() {
                         <div className="grid grid-cols-2 gap-8 text-xs pt-2">
                           <div>
                             <h3 
-                              contentEditable={true}
-                              suppressContentEditableWarning={true}
-                              style={{ fontWeight: 'bold', textTransform: 'uppercase', color: '#18181b', borderBottom: '1px solid #d4d4d8', paddingBottom: '4px', marginBottom: '8px' }}
+                              style={{ 
+                                fontWeight: 'bold', 
+                                textTransform: s.headingTextTransform, 
+                                color: s.titleColor, 
+                                borderBottom: `1px solid ${s.borderColor}`, 
+                                paddingBottom: '4px', 
+                                marginBottom: '8px',
+                                fontFamily: s.titleFont 
+                              }}
                             >
                               Kenntnisse
                             </h3>
                             <div 
                               contentEditable={true}
                               suppressContentEditableWarning={true}
-                              className="flex flex-wrap gap-1.5 font-sans" 
-                              style={{ color: '#27272a' }}
+                              onBlur={(e) => handleSkillsChange(e.target.innerText)}
+                              className="flex flex-wrap gap-1.5 font-sans leading-relaxed" 
+                              style={{ color: s.textColor }}
                             >
                               {result.tailoredCv.skills.join(', ')}
                             </div>
                           </div>
                           <div>
                             <h3 
-                              contentEditable={true}
-                              suppressContentEditableWarning={true}
-                              style={{ fontWeight: 'bold', textTransform: 'uppercase', color: '#18181b', borderBottom: '1px solid #d4d4d8', paddingBottom: '4px', marginBottom: '8px' }}
+                              style={{ 
+                                fontWeight: 'bold', 
+                                textTransform: s.headingTextTransform, 
+                                color: s.titleColor, 
+                                borderBottom: `1px solid ${s.borderColor}`, 
+                                paddingBottom: '4px', 
+                                marginBottom: '8px',
+                                fontFamily: s.titleFont 
+                              }}
                             >
                               Sprachen
                             </h3>
-                            <div 
-                              contentEditable={true}
-                              suppressContentEditableWarning={true}
-                              className="space-y-0.5 font-sans" 
-                              style={{ color: '#27272a' }}
-                            >
+                            <div className="space-y-0.5 font-sans" style={{ color: s.textColor }}>
                               {result.tailoredCv.languages.map((l, i) => (
-                                <div key={i}>{l.language}: {l.level}</div>
+                                <div key={i} className="flex gap-1">
+                                  <span contentEditable suppressContentEditableWarning onBlur={(e) => handleLanguagesChange(i, 'language', e.target.innerText)}>{l.language}</span>
+                                  <span>: </span>
+                                  <span contentEditable suppressContentEditableWarning onBlur={(e) => handleLanguagesChange(i, 'level', e.target.innerText)}>{l.level}</span>
+                                </div>
                               ))}
                             </div>
                           </div>
@@ -804,9 +1196,17 @@ export default function TailorWorkspace() {
                         {/* Work Experience */}
                         <div>
                           <h3 
-                            contentEditable={true}
-                            suppressContentEditableWarning={true}
-                            style={{ fontSize: '0.875rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#18181b', borderBottom: '1px solid #d4d4d8', paddingBottom: '4px', marginBottom: '12px' }}
+                            style={{ 
+                              fontSize: '0.875rem', 
+                              fontWeight: 'bold', 
+                              textTransform: s.headingTextTransform, 
+                              letterSpacing: s.headingLetterSpacing, 
+                              color: s.titleColor, 
+                              borderBottom: `1px solid ${s.borderColor}`, 
+                              paddingBottom: '4px', 
+                              marginBottom: '12px',
+                              fontFamily: s.titleFont 
+                            }}
                           >
                             Work Experience
                           </h3>
@@ -814,15 +1214,42 @@ export default function TailorWorkspace() {
                             {result.tailoredCv.workExperience.map((exp, idx) => (
                               <div key={idx} className="text-xs">
                                 <div className="flex justify-between items-baseline mb-1">
-                                  <h4 contentEditable={true} suppressContentEditableWarning={true} style={{ fontWeight: 'bold', color: '#18181b', fontSize: '0.875rem' }}>{exp.role}</h4>
-                                  <span contentEditable={true} suppressContentEditableWarning={true} className="font-sans" style={{ color: '#71717a' }}>{exp.period}</span>
+                                  <h4 
+                                    contentEditable={true} 
+                                    suppressContentEditableWarning={true} 
+                                    onBlur={(e) => handleWorkExperienceChange(idx, 'role', e.target.innerText)}
+                                    style={{ fontWeight: 'bold', color: s.titleColor, fontSize: '0.875rem' }}
+                                  >
+                                    {exp.role}
+                                  </h4>
+                                  <span 
+                                    contentEditable={true} 
+                                    suppressContentEditableWarning={true} 
+                                    onBlur={(e) => handleWorkExperienceChange(idx, 'period', e.target.innerText)}
+                                    className="font-sans" 
+                                    style={{ color: '#71717a' }}
+                                  >
+                                    {exp.period}
+                                  </span>
                                 </div>
                                 <div className="flex justify-between items-baseline italic font-sans mb-1.5" style={{ color: '#52525b' }}>
-                                  <span contentEditable={true} suppressContentEditableWarning={true}>{exp.company}, {exp.location}</span>
+                                  <span>
+                                    <span contentEditable suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'company', e.target.innerText)}>{exp.company}</span>
+                                    <span>, </span>
+                                    <span contentEditable suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'location', e.target.innerText)}>{exp.location}</span>
+                                  </span>
                                 </div>
-                                <ul className="list-disc list-outside ml-4 space-y-1" style={{ color: '#27272a' }}>
+                                <ul className="list-disc list-outside ml-4 space-y-1" style={{ color: s.textColor }}>
                                   {exp.bullets.map((b, bIdx) => (
-                                    <li key={bIdx} contentEditable={true} suppressContentEditableWarning={true} className="leading-relaxed">{b}</li>
+                                    <li 
+                                      key={bIdx} 
+                                      contentEditable={true} 
+                                      suppressContentEditableWarning={true} 
+                                      onBlur={(e) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerText)}
+                                      className="leading-relaxed"
+                                    >
+                                      {b}
+                                    </li>
                                   ))}
                                 </ul>
                               </div>
@@ -833,9 +1260,17 @@ export default function TailorWorkspace() {
                         {/* Education */}
                         <div>
                           <h3 
-                            contentEditable={true}
-                            suppressContentEditableWarning={true}
-                            style={{ fontSize: '0.875rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#18181b', borderBottom: '1px solid #d4d4d8', paddingBottom: '4px', marginBottom: '12px' }}
+                            style={{ 
+                              fontSize: '0.875rem', 
+                              fontWeight: 'bold', 
+                              textTransform: s.headingTextTransform, 
+                              letterSpacing: s.headingLetterSpacing, 
+                              color: s.titleColor, 
+                              borderBottom: `1px solid ${s.borderColor}`, 
+                              paddingBottom: '4px', 
+                              marginBottom: '12px',
+                              fontFamily: s.titleFont 
+                            }}
                           >
                             Education
                           </h3>
@@ -843,10 +1278,29 @@ export default function TailorWorkspace() {
                             {result.tailoredCv.education.map((edu, idx) => (
                               <div key={idx} className="text-xs">
                                 <div className="flex justify-between items-baseline">
-                                  <h4 contentEditable={true} suppressContentEditableWarning={true} style={{ fontWeight: 'bold', color: '#18181b' }}>{edu.degree}</h4>
-                                  <span contentEditable={true} suppressContentEditableWarning={true} className="font-sans" style={{ color: '#71717a' }}>{edu.period}</span>
+                                  <h4 
+                                    contentEditable={true} 
+                                    suppressContentEditableWarning={true} 
+                                    onBlur={(e) => handleEducationChange(idx, 'degree', e.target.innerText)}
+                                    style={{ fontWeight: 'bold', color: s.titleColor }}
+                                  >
+                                    {edu.degree}
+                                  </h4>
+                                  <span 
+                                    contentEditable={true} 
+                                    suppressContentEditableWarning={true} 
+                                    onBlur={(e) => handleEducationChange(idx, 'period', e.target.innerText)}
+                                    className="font-sans" 
+                                    style={{ color: '#71717a' }}
+                                  >
+                                    {edu.period}
+                                  </span>
                                 </div>
-                                <div contentEditable={true} suppressContentEditableWarning={true} className="font-sans" style={{ color: '#52525b' }}>{edu.institution}, {edu.location}</div>
+                                <div className="font-sans" style={{ color: '#52525b' }}>
+                                  <span contentEditable suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'institution', e.target.innerText)}>{edu.institution}</span>
+                                  <span>, </span>
+                                  <span contentEditable suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'location', e.target.innerText)}>{edu.location}</span>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -856,37 +1310,49 @@ export default function TailorWorkspace() {
                         <div className="grid grid-cols-2 gap-8 text-xs pt-2">
                           <div>
                             <h3 
-                              contentEditable={true}
-                              suppressContentEditableWarning={true}
-                              style={{ fontWeight: 'bold', textTransform: 'uppercase', color: '#18181b', borderBottom: '1px solid #d4d4d8', paddingBottom: '4px', marginBottom: '8px' }}
+                              style={{ 
+                                fontWeight: 'bold', 
+                                textTransform: s.headingTextTransform, 
+                                color: s.titleColor, 
+                                borderBottom: `1px solid ${s.borderColor}`, 
+                                paddingBottom: '4px', 
+                                marginBottom: '8px',
+                                fontFamily: s.titleFont 
+                              }}
                             >
                               Technical Skills
                             </h3>
                             <div 
                               contentEditable={true}
                               suppressContentEditableWarning={true}
+                              onBlur={(e) => handleSkillsChange(e.target.innerText)}
                               className="flex flex-wrap gap-1 font-sans leading-relaxed" 
-                              style={{ color: '#27272a' }}
+                              style={{ color: s.textColor }}
                             >
                               {result.tailoredCv.skills.join(', ')}
                             </div>
                           </div>
                           <div>
                             <h3 
-                              contentEditable={true}
-                              suppressContentEditableWarning={true}
-                              style={{ fontWeight: 'bold', textTransform: 'uppercase', color: '#18181b', borderBottom: '1px solid #d4d4d8', paddingBottom: '4px', marginBottom: '8px' }}
+                              style={{ 
+                                fontWeight: 'bold', 
+                                textTransform: s.headingTextTransform, 
+                                color: s.titleColor, 
+                                borderBottom: `1px solid ${s.borderColor}`, 
+                                paddingBottom: '4px', 
+                                marginBottom: '8px',
+                                fontFamily: s.titleFont 
+                              }}
                             >
                               Languages
                             </h3>
-                            <div 
-                              contentEditable={true}
-                              suppressContentEditableWarning={true}
-                              className="space-y-0.5 font-sans" 
-                              style={{ color: '#27272a' }}
-                            >
+                            <div className="space-y-0.5 font-sans" style={{ color: s.textColor }}>
                               {result.tailoredCv.languages.map((l, i) => (
-                                <div key={i}>{l.language} ({l.level})</div>
+                                <div key={i} className="flex gap-1">
+                                  <span contentEditable suppressContentEditableWarning onBlur={(e) => handleLanguagesChange(i, 'language', e.target.innerText)}>{l.language}</span>
+                                  <span>: </span>
+                                  <span contentEditable suppressContentEditableWarning onBlur={(e) => handleLanguagesChange(i, 'level', e.target.innerText)}>{l.level}</span>
+                                </div>
                               ))}
                             </div>
                           </div>
@@ -902,7 +1368,14 @@ export default function TailorWorkspace() {
                       style={{ borderTop: '1px solid #f4f4f5', fontSize: '0.75rem', color: '#3f3f46' }}
                     >
                       <div>
-                        <p contentEditable={true} suppressContentEditableWarning={true} className="mb-8">{result.tailoredCv.signingLine}</p>
+                        <p 
+                          contentEditable={true} 
+                          suppressContentEditableWarning={true} 
+                          onBlur={(e) => handleSigningLineChange(e.target.innerText)}
+                          className="mb-8"
+                        >
+                          {result.tailoredCv.signingLine}
+                        </p>
                         <div className="w-48 pt-1" style={{ borderTop: '1px solid #a1a1aa' }}>Unterschrift</div>
                       </div>
                     </div>
@@ -915,8 +1388,14 @@ export default function TailorWorkspace() {
                 <div 
                   ref={clPreviewRef} 
                   id="cl-sheet"
-                  className="w-[210mm] min-h-[297mm] p-[20mm] font-serif relative flex flex-col justify-between"
-                  style={{ pageBreakInside: 'avoid', backgroundColor: '#ffffff', color: '#000000' }}
+                  className="w-[210mm] min-h-[297mm] relative flex flex-col justify-between"
+                  style={{ 
+                    pageBreakInside: 'avoid', 
+                    backgroundColor: '#ffffff', 
+                    color: s.textColor,
+                    fontFamily: s.fontFamily,
+                    padding: s.padding
+                  }}
                 >
                   <div className="text-xs">
                     {/* DIN 5008 Layout Alignment */}
@@ -926,6 +1405,7 @@ export default function TailorWorkspace() {
                         <pre 
                           contentEditable={true}
                           suppressContentEditableWarning={true}
+                          onBlur={(e) => handleClChange('senderAddress', e.target.innerText)}
                           className="font-sans text-[10px] leading-relaxed whitespace-pre-wrap"
                         >
                           {result.tailoredCoverLetter.senderAddress}
@@ -937,6 +1417,7 @@ export default function TailorWorkspace() {
                         <pre 
                           contentEditable={true}
                           suppressContentEditableWarning={true}
+                          onBlur={(e) => handleClChange('recipientAddress', e.target.innerText)}
                           className="font-sans text-[10px] leading-relaxed whitespace-pre-wrap font-semibold"
                         >
                           {result.tailoredCoverLetter.recipientAddress}
@@ -948,6 +1429,7 @@ export default function TailorWorkspace() {
                     <div 
                       contentEditable={true}
                       suppressContentEditableWarning={true}
+                      onBlur={(e) => handleClChange('dateLine', e.target.innerText)}
                       className="text-right font-sans mb-10" 
                       style={{ color: '#52525b' }}
                     >
@@ -958,7 +1440,8 @@ export default function TailorWorkspace() {
                     <div 
                       contentEditable={true}
                       suppressContentEditableWarning={true}
-                      style={{ fontWeight: 'bold', fontSize: '0.875rem', color: '#18181b', marginBottom: '24px', lineHeight: '1.25' }}
+                      onBlur={(e) => handleClChange('subjectLine', e.target.innerText)}
+                      style={{ fontWeight: 'bold', fontSize: '0.875rem', color: s.titleColor, marginBottom: '24px', lineHeight: '1.25', fontFamily: s.titleFont }}
                     >
                       {result.tailoredCoverLetter.subjectLine}
                     </div>
@@ -967,6 +1450,7 @@ export default function TailorWorkspace() {
                     <div 
                       contentEditable={true}
                       suppressContentEditableWarning={true}
+                      onBlur={(e) => handleClChange('salutation', e.target.innerText)}
                       className="mb-4 font-sans" 
                       style={{ color: '#18181b' }}
                     >
@@ -974,12 +1458,13 @@ export default function TailorWorkspace() {
                     </div>
 
                     {/* Body Paragraphs */}
-                    <div className="space-y-4 leading-relaxed font-serif" style={{ color: '#27272a', fontSize: '12px' }}>
+                    <div className="space-y-4 leading-relaxed" style={{ color: '#27272a', fontSize: '12px' }}>
                       {result.tailoredCoverLetter.paragraphs.map((p, i) => (
                         <p 
                           key={i}
                           contentEditable={true}
                           suppressContentEditableWarning={true}
+                          onBlur={(e) => handleClParagraphChange(i, e.target.innerText)}
                         >
                           {p}
                         </p>
@@ -988,8 +1473,8 @@ export default function TailorWorkspace() {
 
                     {/* Closing Block */}
                     <div className="mt-8 font-sans" style={{ color: '#18181b' }}>
-                      <p contentEditable={true} suppressContentEditableWarning={true} className="mb-8">{result.tailoredCoverLetter.closing}</p>
-                      <p contentEditable={true} suppressContentEditableWarning={true} className="font-bold">{result.tailoredCoverLetter.signatureName}</p>
+                      <p contentEditable={true} suppressContentEditableWarning={true} onBlur={(e) => handleClChange('closing', e.target.innerText)} className="mb-8">{result.tailoredCoverLetter.closing}</p>
+                      <p contentEditable={true} suppressContentEditableWarning={true} onBlur={(e) => handleClChange('signatureName', e.target.innerText)} className="font-bold">{result.tailoredCoverLetter.signatureName}</p>
                     </div>
                   </div>
                 </div>

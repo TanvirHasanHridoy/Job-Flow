@@ -1,22 +1,58 @@
 @import "tailwindcss";
 
-@theme {
-  --color-primary: #6366f1; /* Indigo */
-  --color-primary-hover: #4f46e5;
-  --color-secondary: #a855f7; /* Purple */
-  --color-accent: #06b6d4; /* Cyan */
-  --color-dark-bg: #030014; /* Deep black space */
-  --color-card-bg: rgba(15, 12, 30, 0.65);
-  --color-card-border: rgba(255, 255, 255, 0.08);
-  
-  --font-sans: 'Outfit', 'Inter', sans-serif;
-}
-
 :root {
   --background: #030014;
   --foreground: #f4f4f5;
   --primary-glow: radial-gradient(rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0));
   --secondary-glow: radial-gradient(rgba(168, 85, 247, 0.15), rgba(168, 85, 247, 0));
+  
+  --card-bg: rgba(15, 12, 30, 0.55);
+  --card-border: rgba(255, 255, 255, 0.08);
+  --card-shadow: rgba(0, 0, 0, 0.37);
+  --card-hover-bg: rgba(20, 16, 40, 0.7);
+  --card-hover-border: rgba(99, 102, 241, 0.3);
+  --card-hover-shadow: rgba(99, 102, 241, 0.15);
+  
+  --input-bg: rgba(255, 255, 255, 0.03);
+  --input-border: rgba(255, 255, 255, 0.08);
+  --input-text: #ffffff;
+  --input-focus-bg: rgba(255, 255, 255, 0.07);
+  
+  --scroll-track: rgba(3, 0, 20, 0.5);
+}
+
+/* Light Theme CSS Variables */
+.light {
+  --background: #f9fafb;
+  --foreground: #111827;
+  --primary-glow: radial-gradient(rgba(99, 102, 241, 0.06), rgba(99, 102, 241, 0));
+  --secondary-glow: radial-gradient(rgba(168, 85, 247, 0.06), rgba(168, 85, 247, 0));
+  
+  --card-bg: rgba(255, 255, 255, 0.75);
+  --card-border: rgba(0, 0, 0, 0.06);
+  --card-shadow: rgba(0, 0, 0, 0.05);
+  --card-hover-bg: rgba(255, 255, 255, 0.95);
+  --card-hover-border: rgba(99, 102, 241, 0.25);
+  --card-hover-shadow: rgba(99, 102, 241, 0.08);
+  
+  --input-bg: rgba(0, 0, 0, 0.02);
+  --input-border: rgba(0, 0, 0, 0.08);
+  --input-text: #111827;
+  --input-focus-bg: rgba(0, 0, 0, 0.04);
+  
+  --scroll-track: rgba(243, 244, 246, 0.5);
+}
+
+@theme {
+  --color-primary: #6366f1; /* Indigo */
+  --color-primary-hover: #4f46e5;
+  --color-secondary: #a855f7; /* Purple */
+  --color-accent: #06b6d4; /* Cyan */
+  --color-dark-bg: var(--background);
+  --color-card-bg: var(--card-bg);
+  --color-card-border: var(--card-border);
+  
+  --font-sans: 'Outfit', 'Inter', sans-serif;
 }
 
 body {
@@ -161,3 +197,119 @@ body::after {
     margin: 0;
   }
 }
+
+/* Light theme color and layout utility overrides */
+.light h1, .light h2, .light h3, .light h4, .light h5, .light h6 {
+  color: #111827 !important;
+}
+
+.light p {
+  color: #374151 !important;
+}
+
+.light .text-zinc-400 {
+  color: #4b5563 !important;
+}
+
+.light .text-zinc-300 {
+  color: #374151 !important;
+}
+
+.light .text-zinc-500 {
+  color: #6b7280 !important;
+}
+
+.light .text-zinc-600 {
+  color: #4b5563 !important;
+}
+
+.light .text-zinc-200 {
+  color: #1f2937 !important;
+}
+
+.light .text-zinc-100 {
+  color: #111827 !important;
+}
+
+.light .border-white\/5 {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+.light .border-white\/10 {
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+.light .border-white\/20 {
+  border-color: rgba(0, 0, 0, 0.16) !important;
+}
+
+.light .bg-white\/5 {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+.light .bg-white\/10 {
+  background-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+.light .bg-white\/\[0\.02\] {
+  background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+.light .bg-white\/\[0\.06\] {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.light .bg-white\/\[0\.01\] {
+  background-color: rgba(0, 0, 0, 0.01) !important;
+}
+
+.light .bg-zinc-950\/20 {
+  background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+.light .bg-zinc-950\/40 {
+  background-color: rgba(0, 0, 0, 0.03) !important;
+}
+
+.light .bg-zinc-950 {
+  background-color: #ffffff !important;
+}
+
+.light .bg-\[\#0b081e\]\/30 {
+  background-color: rgba(0, 0, 0, 0.02) !important;
+}
+
+.light .bg-\[\#040116\] {
+  background-color: #f3f4f6 !important;
+}
+
+.light .bg-\[\#0a061b\] {
+  background-color: #ffffff !important;
+}
+
+.light .bg-\[\#080517\] {
+  background-color: #ffffff !important;
+}
+
+.light .bg-\[\#0b081e\] {
+  background-color: #f9fafb !important;
+}
+
+.light .bg-zinc-800 {
+  background-color: #e5e7eb !important;
+  color: #1f2937 !important;
+  border-color: #d1d5db !important;
+}
+
+.light .bg-zinc-800:hover {
+  background-color: #d1d5db !important;
+}
+
+.light .text-zinc-700 {
+  color: #374151 !important;
+}
+
+.light .text-zinc-800 {
+  color: #1f2937 !important;
+}
+

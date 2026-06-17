@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Outfit, Inter } from "next/font/google";
 import Link from "next/link";
+import ThemeToggle from "./components/ThemeToggle";
 import "./globals.css";
 
 const outfit = Outfit({ 
@@ -28,6 +29,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${outfit.variable} ${inter.variable} h-full scroll-smooth`}>
+      <head>
+        <script dangerouslySetInnerHTML={{__html: `
+          (function() {
+            try {
+              const saved = localStorage.getItem('theme');
+              if (saved === 'light' || (!saved && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+                document.documentElement.classList.add('light');
+              } else {
+                document.documentElement.classList.remove('light');
+              }
+            } catch (e) {}
+          })();
+        `}} />
+      </head>
       <body className="font-sans antialiased text-zinc-100 min-h-screen flex flex-col bg-[#030014]">
         {/* Navigation Bar */}
         <header className="no-print sticky top-0 z-50 glass-panel border-b border-white/5 px-6 py-4 flex items-center justify-between">
@@ -42,29 +57,32 @@ export default function RootLayout({
             </Link>
           </div>
           
-          <nav className="flex items-center gap-6">
-            <Link 
-              href="/" 
-              className="text-sm font-medium text-zinc-400 hover:text-white transition-colors duration-200"
-            >
-              Dashboard
-            </Link>
-            <Link 
-              href="/profile" 
-              className="text-sm font-medium text-zinc-400 hover:text-white transition-colors duration-200"
-            >
-              Master Profile Vault
-            </Link>
-            <Link 
-              href="/tailor" 
-              className="px-4 py-2 text-xs font-semibold rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 hover:scale-105 transition-all duration-300 flex items-center gap-1.5"
-            >
-              <svg className="w-3.5 h-3.5 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              Tailor Workspace
-            </Link>
-          </nav>
+          <div className="flex items-center gap-4">
+            <nav className="flex items-center gap-6">
+              <Link 
+                href="/" 
+                className="text-sm font-medium text-zinc-400 hover:text-white transition-colors duration-200"
+              >
+                Dashboard
+              </Link>
+              <Link 
+                href="/profile" 
+                className="text-sm font-medium text-zinc-400 hover:text-white transition-colors duration-200"
+              >
+                Master Profile Vault
+              </Link>
+              <Link 
+                href="/tailor" 
+                className="px-4 py-2 text-xs font-semibold rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 hover:scale-105 transition-all duration-300 flex items-center gap-1.5"
+              >
+                <svg className="w-3.5 h-3.5 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Tailor Workspace
+              </Link>
+            </nav>
+            <ThemeToggle />
+          </div>
         </header>
 
         {/* Content Shell */}

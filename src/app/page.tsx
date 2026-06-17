@@ -12,6 +12,13 @@ interface GeneratedDocument {
   content: string;
 }
 
+interface ApplicationStatusHistory {
+  id: string;
+  fromStatus: string;
+  toStatus: string;
+  createdAt: string;
+}
+
 interface JobApplication {
   id: string;
   company: string;
@@ -31,6 +38,7 @@ interface JobApplication {
   targetLanguage: string;
   createdAt: string;
   documents: GeneratedDocument[];
+  statusHistory?: ApplicationStatusHistory[];
 }
 
 const COLUMNS = [
@@ -135,22 +143,6 @@ export default function Dashboard() {
           <p className="text-zinc-400 text-sm">
             Track custom resume revisions, interviews, and offers in one centralized, multi-language hub.
           </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Link 
-            href="/profile"
-            className="px-5 py-3 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.06] text-zinc-300 font-semibold text-xs transition-all duration-300 cursor-pointer"
-          >
-            Edit Profile Vault
-          </Link>
-          <Link 
-            href="/tailor"
-            className="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold text-xs shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 hover:scale-105 transition-all duration-300 flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            Tailor New Application
-          </Link>
         </div>
       </div>
 
@@ -441,16 +433,61 @@ export default function Dashboard() {
                   </p>
                 </div>
               )}
+
+              {/* Status History Timeline */}
+              <div className="mb-6 text-xs">
+                <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-3">Status Timeline Audit Trail</h4>
+                <div className="relative border-l border-zinc-700/60 ml-2.5 pl-5 space-y-4 font-sans">
+                  {/* Current Status Node */}
+                  <div className="relative">
+                    <span className="absolute -left-[26px] top-1 flex h-3 w-3 items-center justify-center rounded-full bg-emerald-400 ring-4 ring-[#080517]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-950 animate-ping"></span>
+                    </span>
+                    <div className="flex justify-between items-baseline pl-1">
+                      <span className="font-bold text-zinc-100">Current Stage: {selectedApp.status}</span>
+                      <span className="text-[10px] text-zinc-500">Active</span>
+                    </div>
+                  </div>
+
+                  {/* History List */}
+                  {selectedApp.statusHistory && selectedApp.statusHistory.length > 0 ? (
+                    selectedApp.statusHistory.map((hist: any) => (
+                      <div key={hist.id} className="relative">
+                        <span className="absolute -left-[24px] top-1.5 flex h-1.5 w-1.5 items-center justify-center rounded-full bg-zinc-600 ring-4 ring-[#080517]"></span>
+                        <div className="flex justify-between items-baseline pl-1">
+                          <span className="text-zinc-300">
+                            Moved from <span className="font-semibold text-zinc-400">{hist.fromStatus}</span> to <span className="font-semibold text-white">{hist.toStatus}</span>
+                          </span>
+                          <span className="text-[10px] text-zinc-500">
+                            {new Date(hist.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : null}
+
+                  {/* Creation Node */}
+                  <div className="relative">
+                    <span className="absolute -left-[24px] top-1.5 flex h-1.5 w-1.5 items-center justify-center rounded-full bg-indigo-500 ring-4 ring-[#080517]"></span>
+                    <div className="flex justify-between items-baseline pl-1">
+                      <span className="text-zinc-300 font-semibold">Application Tracked</span>
+                      <span className="text-[10px] text-zinc-500">
+                        {new Date(selectedApp.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Document Action triggers */}
             <div className="mt-8 pt-6 border-t border-white/10 flex gap-3">
               <Link
-                href="/tailor"
+                href={`/tailor?appId=${selectedApp.id}`}
                 className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-center text-xs font-bold border border-white/5 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
                 <FileText className="w-3.5 h-3.5" />
-                Go to Tailoring Workspace
+                Open in Tailoring Workspace
               </Link>
             </div>
           </div>

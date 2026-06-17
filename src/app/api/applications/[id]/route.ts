@@ -1,6 +1,34 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const application = await prisma.jobApplication.findUnique({
+      where: { id },
+      include: {
+        documents: true,
+        statusHistory: { orderBy: { createdAt: 'desc' } }
+      }
+    });
+
+    if (!application) {
+      return NextResponse.json({ error: 'Application not found' }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      ...application,
+      gapAnalysis: JSON.parse(application.gapAnalysis)
+    });
+  } catch (error: any) {
+    console.error('Error fetching application:', error);
+    return NextResponse.json({ error: 'Failed to fetch application' }, { status: 500 });
+  }
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -8,8 +36,17 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    
-    // We only update matching fields in the request
+
+    // 1. Get original application to check current status
+    const existingApp = await prisma.jobApplication.findUnique({
+      where: { id }
+    });
+
+    if (!existingApp) {
+      return NextResponse.json({ error: 'Application not found' }, { status: 404 });
+    }
+
+    // 2. Prepare update data
     const data: any = {};
     if (body.status !== undefined) data.status = body.status;
     if (body.company !== undefined) data.company = body.company;
@@ -21,15 +58,50 @@ export async function PATCH(
     if (body.matchScore !== undefined) data.matchScore = body.matchScore;
     if (body.gapAnalysis !== undefined) data.gapAnalysis = JSON.stringify(body.gapAnalysis);
 
-    const application = await prisma.jobApplication.update({
-      where: { id },
-      data,
-      include: { documents: true }
+    // Run within a transaction
+    const updatedApplication = await prisma.$transaction(async (tx) => {
+      // 3. Log status history if status changed
+      if (body.status !== undefined && body.status !== existingApp.status) {
+        await tx.applicationStatusHistory.create({
+          data: {
+            applicationId: id,
+            fromStatus: existingApp.status,
+            toStatus: body.status
+          }
+        });
+      }
+
+      // 4. Update documents if provided
+      if (body.documents !== undefined) {
+        await tx.generatedDocument.deleteMany({
+          where: { applicationId: id }
+        });
+        
+        for (const doc of body.documents) {
+          await tx.generatedDocument.create({
+            data: {
+              applicationId: id,
+              type: doc.type,
+              content: typeof doc.content === 'string' ? doc.content : JSON.stringify(doc.content)
+            }
+          });
+        }
+      }
+
+      // 5. Update main application record
+      return await tx.jobApplication.update({
+        where: { id },
+        data,
+        include: { 
+          documents: true,
+          statusHistory: { orderBy: { createdAt: 'desc' } }
+        }
+      });
     });
 
     return NextResponse.json({
-      ...application,
-      gapAnalysis: JSON.parse(application.gapAnalysis)
+      ...updatedApplication,
+      gapAnalysis: JSON.parse(updatedApplication.gapAnalysis)
     });
   } catch (error: any) {
     console.error('Error updating application:', error);
@@ -54,3 +126,4 @@ export async function DELETE(
     return NextResponse.json({ error: 'Failed to delete application' }, { status: 500 });
   }
 }
+

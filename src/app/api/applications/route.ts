@@ -5,7 +5,10 @@ export async function GET() {
   try {
     const applications = await prisma.jobApplication.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { documents: true }
+      include: { 
+        documents: true,
+        statusHistory: { orderBy: { createdAt: 'desc' } }
+      }
     });
 
     const parsedApplications = applications.map((app) => ({
