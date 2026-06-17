@@ -1,26 +1,163 @@
 @import "tailwindcss";
 
+@theme {
+  --color-primary: #6366f1; /* Indigo */
+  --color-primary-hover: #4f46e5;
+  --color-secondary: #a855f7; /* Purple */
+  --color-accent: #06b6d4; /* Cyan */
+  --color-dark-bg: #030014; /* Deep black space */
+  --color-card-bg: rgba(15, 12, 30, 0.65);
+  --color-card-border: rgba(255, 255, 255, 0.08);
+  
+  --font-sans: 'Outfit', 'Inter', sans-serif;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #030014;
+  --foreground: #f4f4f5;
+  --primary-glow: radial-gradient(rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0));
+  --secondary-glow: radial-gradient(rgba(168, 85, 247, 0.15), rgba(168, 85, 247, 0));
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  overflow-x: hidden;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Background glowing orbs */
+body::before {
+  content: "";
+  position: absolute;
+  top: -10%;
+  left: 20%;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: var(--primary-glow);
+  filter: blur(80px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+body::after {
+  content: "";
+  position: absolute;
+  bottom: 10%;
+  right: 15%;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: var(--secondary-glow);
+  filter: blur(80px);
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  background: rgba(15, 12, 30, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.glass-panel-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel-hover:hover {
+  background: rgba(20, 16, 40, 0.7);
+  border-color: rgba(99, 102, 241, 0.3);
+  box-shadow: 0 12px 40px 0 rgba(99, 102, 241, 0.15);
+  transform: translateY(-2px);
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: #ffffff;
+  transition: all 0.2s ease;
+}
+
+.glass-input:focus {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  outline: none;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(3, 0, 20, 0.5);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.5);
+}
+
+/* Animations */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02);
+  }
+}
+
+.pulse-glow-effect {
+  animation: pulse-glow 4s infinite ease-in-out;
+}
+
+/* PDF Print styles to handle perfect layout & paging */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 20mm;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 10pt;
+    line-height: 1.5;
+    page-break-after: always;
+  }
+
+  .print-page:last-child {
+    page-break-after: avoid;
+  }
+
+  /* Strict DIN 5008 page settings */
+  @page {
+    size: A4;
+    margin: 0;
+  }
 }

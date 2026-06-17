@@ -1,0 +1,58 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model UserProfile {
+  id             String   @id @default(uuid())
+  fullName       String
+  email          String
+  phone          String
+  website        String?
+  github         String?
+  linkedin       String?
+  address        String?
+  // DACH specific optional fields
+  dateOfBirth    String?
+  birthplace     String?
+  nationality    String?
+  
+  // Stored as JSON strings
+  workExperience String   @default("[]") // [{ company, role, location, startDate, endDate, current, description }]
+  education      String   @default("[]") // [{ institution, degree, fieldOfStudy, location, startDate, endDate, current, description }]
+  skills         String   @default("[]") // [{ name, level }]
+  languages      String   @default("[]") // [{ language, proficiency }] (e.g. CEFR level)
+  
+  updatedAt      DateTime @updatedAt
+}
+
+model JobApplication {
+  id                 String              @id @default(uuid())
+  company            String
+  role               String
+  status             String              // TAILORED, APPLIED, INTERVIEWING, OFFER, REJECTED
+  salaryExpectation  String?
+  noticePeriod       String?
+  signingLocation    String?
+  customNotes        String?
+  rawJobDescription  String
+  matchScore         Int                 @default(0)
+  gapAnalysis        String              @default("{}") // JSON string: { missingSkills: [], keywordAnalysis: [] }
+  targetLanguage     String              // EN or DE
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  documents          GeneratedDocument[]
+}
+
+model GeneratedDocument {
+  id            String         @id @default(uuid())
+  applicationId String
+  application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  type          String         // CV or COVER_LETTER
+  content       String         // JSON representation of tailored document
+  createdAt     DateTime       @default(now())
+}
