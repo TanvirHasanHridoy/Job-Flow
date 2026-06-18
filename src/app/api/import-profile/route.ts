@@ -73,7 +73,8 @@ export async function POST(req: Request) {
 CRITICAL RULES:
 1. TRUTHFULNESS: Rely ONLY on the facts, dates, coordinates, and skills contained in the inputs. Do not invent company names or credentials.
 2. SYNTHESIZE PROJECTS & SKILLS: Extract programming languages, framework keywords, and project names from the GitHub repository list and list them as technical skills or achievements.
-3. OUTPUT FORMAT: You must return a raw JSON object matching the exact keys below. Experience and Education dates should be parsed cleanly (e.g. "Jan 2021" or "2018").
+3. SKILL LEVEL MAPPING: For each skill, search the raw text and GitHub repositories for self-reported seniority or experience indicators (e.g., "Senior TypeScript Architect" or "6 years experience in Java" -> Expert; "Mid-level React Developer" -> Advanced or Intermediate; "Junior Python coder" -> Beginner; "experience with AWS" -> Intermediate; "basic understanding of Docker" -> Beginner). Map all detected skill proficiencies strictly to one of these four levels: 'Expert', 'Advanced', 'Intermediate', 'Beginner'. If no seniority/experience is indicated for a skill, default to 'Intermediate'.
+4. OUTPUT FORMAT: You must return a raw JSON object matching the exact keys below. Experience and Education dates should be parsed cleanly (e.g. "Jan 2021" or "2018").
 
 Return a JSON object conforming to this template:
 {
@@ -109,7 +110,7 @@ Return a JSON object conforming to this template:
     }
   ],
   "skills": [
-    { "name": "<string>", "level": "<string, e.g. Expert, Intermediate, Beginner>" }
+    { "name": "<string>", "level": "<string, strictly one of: Expert, Advanced, Intermediate, Beginner>" }
   ],
   "languages": [
     { "language": "<string>", "level": "<string, e.g. Native, C1, B2>" }
@@ -129,7 +130,7 @@ Please parse and structure this data into the specified JSON format.`;
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'deepseek-chat',
+        model: 'deepseek-v4-pro',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: promptContent }

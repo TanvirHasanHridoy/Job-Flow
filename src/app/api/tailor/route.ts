@@ -7,7 +7,14 @@ export async function POST(req: Request) {
   try {
     const {
       jobDescription,
-      targetLanguage,
+      targetLanguage, // legacy fallback
+      cvLanguage = targetLanguage || 'EN',
+      clLanguage = targetLanguage || 'EN',
+      tone = 'Bold & Action-oriented',
+      lengthTarget = 'Strict 1-Page (concise)',
+      bulletStyle = 'STAR Method',
+      clLength = 'Short & Punchy (under 300 words)',
+      skillsFocus = 'Tech-Heavy Focus',
       salaryExpectation,
       noticePeriod,
       signingLocation,
@@ -17,8 +24,8 @@ export async function POST(req: Request) {
       applicationId = null
     } = await req.json();
 
-    if (!jobDescription || !targetLanguage || !profile) {
-      return NextResponse.json({ error: 'Missing required inputs: jobDescription, targetLanguage, or profile' }, { status: 400 });
+    if (!jobDescription || !profile) {
+      return NextResponse.json({ error: 'Missing required inputs: jobDescription or profile' }, { status: 400 });
     }
 
     const apiKey = process.env.DEEPSEEK_API_KEY;
@@ -57,126 +64,97 @@ export async function POST(req: Request) {
     if (customNotes) contextAdditions.push(`Custom Focus Notes: ${customNotes}`);
     const contextStr = contextAdditions.length > 0 ? contextAdditions.join('\n') : 'None provided';
 
-    // System prompt selection
-    let systemPrompt = '';
-    
-    // Choose match strategy directives
-    let strategyDirective = '';
-    if (targetLanguage === 'DE') {
-      if (matchStrategy === 'TACTICAL_PIVOT') {
-        strategyDirective = `
-CRITICAL MATCH STRATEGY - TACTICAL_PIVOT (Ehrliche Begründung):
-Der Benutzer hat Qualifikationslücken für diese Stelle. Halten Sie den Lebenslauf streng faktisch und basierend *nur* auf seinem Profil. Erfinden Sie keine Daten, Zertifikate oder Arbeitgeber. Gehen Sie im Anschreiben explizit auf diese Lücken ein und begründen Sie diese konstruktiv und professionell. Erklären Sie, wie die angrenzenden Fähigkeiten des Benutzers, seine schnelle Auffassungsgabe und sein vorhandenes Kernwissen ihn trotz fehlender Schlüsselwörter zum richtigen Kandidaten machen.`;
-      } else {
-        strategyDirective = `
-CRITICAL MATCH STRATEGY - AGGRESIVE_BRIDGING (Terminologie-Optimierung):
-Der Benutzer möchte eine maximale Abstimmung der Schlüsselwörter für ATS-Filter. Crawlen Sie seine reale Historie intensiv nach übertragbaren Fähigkeiten. Erfinden Sie keine falschen Arbeitgeber, Berufsbezeichnungen oder Abschlüsse. Formulieren Sie die tatsächlichen Errungenschaften des Benutzers jedoch mit genau den Fachbegriffen, technischen Verben und Formulierungen der Stellenbeschreibung um, um strenge ATS-Filter erfolgreich zu durchlaufen.`;
-      }
+    // Translate German job description if target CV or CL is in English
+    let processedJobDescription = jobDescription;
+    if (cvLanguage === 'EN' || clLanguage === 'EN') {
+      const commonGermanWords = /\b(und|der|die|das|ist|für|mit|oder|von|auf|den|dem|des|ein|eine|einen|zum|zur|arbeit|erfahrung|kenntnisse|entwickler|gesucht)\b/i;
+      if (commonGermanWords.test(jobDescription)) {
+        try {
+          const translationPayload = {
+            model: 'deepseek-v4-pro',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a professional translator. If the user\'s input job description is in German, translate it accurately and professionally into English, keeping all technical terms and structure. If the text is already in English, return it exactly as it is without any modification or introduction.'
+              },
+              { role: 'user', content: jobDescription }
+            ],
+            temperature: 0.1
+          };
 
-      systemPrompt = `You are an elite DACH-region recruitment expert and ATS optimization engine. Your goal is to write a flawless, professional German Lebenslauf (Resume) and Anschreiben (Cover Letter) based on the user's profile and the target job description.
+          const translationRes = await fetch(DEEPSEEK_API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify(translationPayload)
+          });
+
+          if (translationRes.ok) {
+            const transJson = await translationRes.json();
+            processedJobDescription = transJson.choices[0].message.content.trim();
+          }
+        } catch (err) {
+          console.error('Error translating German JD to English:', err);
+        }
+      }
+    }
+
+    // System prompt selection with strategies
+    let strategyDirective = '';
+    if (matchStrategy === 'TACTICAL_PIVOT') {
+      strategyDirective = `
+CRITICAL MATCH STRATEGY - TACTICAL_PIVOT (Honest Justification):
+The user has skill gaps for this job. Keep the CV/Resume strictly factual based *only* on their profile. Do NOT invent data, certifications, or employers. In the Cover Letter, explicitly address these gaps using a constructive, professional justification in ${clLanguage === 'DE' ? 'German' : 'English'}. Explain how their adjacent skills, rapid learning curve, and existing core expertise make them the right fit despite the missing keywords.`;
+    } else {
+      strategyDirective = `
+CRITICAL MATCH STRATEGY - AGGRESIVE_BRIDGING (Terminology Optimization):
+The user wants maximum keyword alignment. Without fabricating non-existent employers, fake job titles, or fake degrees, aggressively crawl their real history for transferable skills. Rephrase their genuine accomplishments using the exact technical verbs and phrasing found in the job description to pass strict ATS filters, translated into the target language (${cvLanguage === 'DE' ? 'German' : 'English'} for CV, ${clLanguage === 'DE' ? 'German' : 'English'} for Cover Letter).`;
+    }
+
+    const systemPrompt = `You are an elite recruitment expert and ATS optimization engine. Your goal is to write a flawless, professional CV/Resume and Cover Letter based on the user's profile and the target job description.
+
+CV TARGET LANGUAGE: Write the tailored CV (summary, roles, bullets, skills) entirely in ${cvLanguage === 'DE' ? 'German' : 'English'}.
+COVER LETTER TARGET LANGUAGE: Write the tailored Cover Letter entirely in ${clLanguage === 'DE' ? 'German' : 'English'}.
 
 CRITICAL CONSTRAINTS:
-1. ABSOLUTE TRUTHFULNESS: Rely ONLY on facts, dates, positions, and skills present in the User Profile or current Custom Notes. Do NOT invent work history, company names, credentials, or certifications.
-2. TONE & STYLE: Write in flawless, formal German business tone ("Sie" form).
-3. GERMAN LEBENSLAUF RULES:
-   - Must support a clean tabular format.
-   - Include date of birth, birthplace, and nationality if provided in the profile.
-   - Conclude with a signing line showing the city and current date (e.g. "Berlin, [Datum]").
-4. GERMAN ANSCHREIBEN (COVER LETTER) RULES:
-   - Must strictly align with DIN 5008 business letter formatting.
+1. ABSOLUTE TRUTHFULNESS: Rely ONLY on facts, positions, and skills present in the User Profile or current Custom Notes. Do NOT invent work history, company names, credentials, or certifications.
+2. TONE & CUSTOMIZATION OPTIONS:
+   - Tone/Style: ${tone}
+   - Skills Highlight Mode: ${skillsFocus}
+   - Generate all bullet style variants (star, punchy, standard) and cover letter paragraph length variants (short, detailed) in a single response.
+
+3. CV FORMATTING RULES (Targeting ${cvLanguage}):
+   ${cvLanguage === 'DE' ? `
+   - Must support a clean tabular German Lebenslauf format.
+   - Include a signing line at the bottom showing the city and current date (e.g. "München, [Datum]").
+   - Write all tailored fields in formal professional German.
+   ` : `
+   - US/UK/International Resume Style.
+   - Omit date of birth, birthplace, age, gender, nationality, or marital status from the resume. They must be empty or null.
+   - Use active, result-oriented, professional English. Focus on quantitative achievements, strong action verbs, and clear structural headings.
+   `}
+
+4. COVER LETTER FORMATTING RULES (Targeting ${clLanguage}):
+   ${clLanguage === 'DE' ? `
+   - Must strictly align with German DIN 5008 business letter formatting.
    - Sender address should be the user's address.
-   - Recipient address must be extracted or logically placeholder-indicated from the job description (e.g., Company name, address if available, or "Hiring Team / Personalabteilung").
+   - Recipient address must be extracted or placeholder-indicated (e.g., Company, "Personalabteilung").
    - Include a right-aligned date line: "[Signing Location], [Current Date]".
    - A bold subject line starting with "Bewerbung als [Role Name]".
-   - Formal salutation ("Sehr geehrte Damen und Herren," or "Sehr geehrte(r) Frau/Herr [Name],").
-   - High-quality, tailored paragraphs discussing matching accomplishments factually, concluding with availability/notice period and salary expectations if provided.
+   - Formal German salutation ("Sehr geehrte(r) Frau/Herr [Name]," or "Sehr geehrte Damen und Herren,").
    - Formal closing ("Mit freundlichen Grüßen") followed by signature name.
-${strategyDirective}
-
-You must respond with a raw JSON object containing these exact keys:
-{
-  "matchScore": <number between 0 and 100>,
-  "gapAnalysis": {
-    "missingSkills": [<array of strings of skills mentioned in JD but missing in profile>],
-    "matchingKeywords": [<array of strings of key skills/keywords that align between profile and JD>],
-    "recommendations": "<short text giving advice on how to improve fit or what to highlight>"
-  },
-  "tailoredCv": {
-    "personalDetails": {
-      "fullName": "<string>",
-      "email": "<string>",
-      "phone": "<string>",
-      "website": "<string>",
-      "linkedin": "<string>",
-      "github": "<string>",
-      "address": "<string>",
-      "dateOfBirth": "<string, or empty if not provided>",
-      "birthplace": "<string, or empty if not provided>",
-      "nationality": "<string, or empty if not provided>"
-    },
-    "summary": "<short professional summary tailored to the job, in German>",
-    "workExperience": [
-      {
-        "company": "<string>",
-        "role": "<string>",
-        "location": "<string>",
-        "period": "<string, e.g. 01/2022 - Heute>",
-        "bullets": [<array of tailored achievement strings in German, active and impact-focused, but 100% factual>]
-      }
-    ],
-    "education": [
-      {
-        "institution": "<string>",
-        "degree": "<string>",
-        "location": "<string>",
-        "period": "<string>"
-      }
-    ],
-    "skills": [<array of matching tech/methodology skills present in the profile, in German/English terminology>],
-    "languages": [
-      { "language": "<string>", "level": "<string, e.g. Muttersprache, C1>" }
-    ],
-    "signingLine": "<string, e.g. 'Berlin, 17. Juni 2026'>"
-  },
-  "tailoredCoverLetter": {
-    "senderAddress": "<string, formatted with newlines>",
-    "recipientAddress": "<string, formatted with newlines>",
-    "dateLine": "<string, right-aligned date block content>",
-    "subjectLine": "<string, e.g., 'Bewerbung als Senior Fullstack Entwickler'>",
-    "salutation": "<string, e.g., 'Sehr geehrte Damen und Herren,'>",
-    "paragraphs": [<array of paragraphs in German, detailing fit, notice period, salary expectations if provided, etc.>],
-    "closing": "<string, e.g., 'Mit freundlichen Grüßen,'>",
-    "signatureName": "<string>"
-  }
-}`;
-    } else {
-      if (matchStrategy === 'TACTICAL_PIVOT') {
-        strategyDirective = `
-CRITICAL MATCH STRATEGY - TACTICAL_PIVOT (Honest Justification):
-The user has skill gaps for this job. Keep the CV/Resume strictly factual based *only* on their profile. Do NOT invent data, certifications, or employers. In the Cover Letter, explicitly address these gaps using a constructive, professional justification. Explain how their adjacent skills, rapid learning curve, and existing core expertise make them the right fit despite the missing keywords.`;
-      } else {
-        strategyDirective = `
-CRITICAL MATCH STRATEGY - AGGRESIVE_BRIDGING (Terminology Optimization):
-The user wants maximum keyword alignment. Without fabricating non-existent employers, fake job titles, or fake degrees, aggressively crawl their real history for transferable skills. Rephrase their genuine accomplishments using the exact technical verbs and phrasing found in the job description to pass strict ATS filters.`;
-      }
-
-      systemPrompt = `You are an elite international recruitment expert and ATS optimization engine. Your goal is to write a flawless, high-impact English Resume (CV) and Cover Letter optimized for US/UK/International standards.
-
-CRITICAL CONSTRAINTS:
-1. ABSOLUTE TRUTHFULNESS: Rely ONLY on facts, dates, positions, and skills present in the User Profile or current Custom Notes. Do NOT invent work history, company names, credentials, or certifications.
-2. DEMOGRAPHIC PRIVACY (ANTI-DISCRIMINATION COMPLIANCE):
-   - Strictly OMIT date of birth, birthplace, age, gender, nationality, or marital status from the resume and cover letter. They must be empty or null.
-3. TONE & STYLE: Use active, result-oriented, professional English. Focus on quantitative achievements, strong action verbs, and clear structural headings.
-4. ENGLISH RESUME RULES:
-   - Clean top-down structure (standard single- or double-column layouts).
-   - Dynamic summary and action-driven bullet points for work experience.
-5. ENGLISH COVER LETTER RULES:
+   - Entirely in formal, flawless German ("Sie" form).
+   ` : `
    - Professional English business letter format.
    - Sender contact info at the top.
    - Recipient block (Company, name if available, or "Hiring Manager / Recipient").
-   - Formal, polite opening ("Dear Hiring Manager," or "Dear Mr./Ms. [Name],").
-   - 3-4 structured body paragraphs highlighting matching achievements, availability/notice period, and salary expectations if provided.
-   - Polite closing ("Sincerely," or "Best regards,") and signature name.
+   - Formal, polite opening (e.g., "Dear Hiring Manager," or "Dear Mr./Ms. [Name],").
+   - Formal closing ("Sincerely," or "Best regards,") followed by signature name.
+   - Entirely in professional English.
+   `}
+   
 ${strategyDirective}
 
 You must respond with a raw JSON object containing these exact keys:
@@ -185,60 +163,46 @@ You must respond with a raw JSON object containing these exact keys:
   "gapAnalysis": {
     "missingSkills": [<array of strings of skills mentioned in JD but missing in profile>],
     "matchingKeywords": [<array of strings of key skills/keywords that align between profile and JD>],
-    "recommendations": "<short text giving advice on how to improve fit or what to highlight>"
+    "recommendations": "<detailed and elaborate analysis of user suitability for the role. Highlight their Positives (e.g. strong matches, years of experience, relevant tech stacks, certifications, exceed requirements) and their Negatives (critical skill gaps, missing tools/methods, or areas they may face pushback). Use clear bullet points and headings within the text in markdown format (### Positives\\n- ...\\n\\n### Negatives\\n- ...\\n\\n### Actionable Advice\\n...).>"
   },
   "tailoredCv": {
-    "personalDetails": {
-      "fullName": "<string>",
-      "email": "<string>",
-      "phone": "<string>",
-      "website": "<string>",
-      "linkedin": "<string>",
-      "github": "<string>",
-      "address": "<string>",
-      "dateOfBirth": "",
-      "birthplace": "",
-      "nationality": ""
-    },
-    "summary": "<short professional summary tailored to the job, in English>",
+    "summary": "<short professional summary tailored to the job, in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
     "workExperience": [
       {
-        "company": "<string>",
-        "role": "<string>",
-        "location": "<string>",
-        "period": "<string, e.g. Jan 2022 - Present>",
-        "bullets": [<array of tailored achievement strings in English, starting with active verbs, 100% factual>]
+        "company": "<exact original company name from the profile experience list to map back>",
+        "role": "<tailored job title / role name in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
+        "bullets": {
+          "star": [<array of tailored achievement strings in STAR Method format (Situation, Task, Action, Result) in ${cvLanguage === 'DE' ? 'German' : 'English'}>],
+          "punchy": [<array of tailored achievement strings that are short, high-impact highlights in ${cvLanguage === 'DE' ? 'German' : 'English'}>],
+          "standard": [<array of tailored achievement strings of standard roles/responsibilities in ${cvLanguage === 'DE' ? 'German' : 'English'}>]
+        }
       }
     ],
-    "education": [
+    "skills": [
       {
-        "institution": "<string>",
-        "degree": "<string>",
-        "location": "<string>",
-        "period": "<string>"
+        "name": "<name of tailored skill in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
+        "level": "<skill level matching user's profile if present, otherwise assign 'Expert' | 'Advanced' | 'Intermediate' | 'Beginner' based on context>"
       }
     ],
-    "skills": [<array of matching tech/methodology skills present in the profile>],
-    "languages": [
-      { "language": "<string>", "level": "<string, e.g. Native, Fluent, C1>" }
-    ],
-    "signingLine": ""
+    "signingLine": "<string for signature, e.g. 'München, 17. Juni 2026' or empty if EN>"
   },
   "tailoredCoverLetter": {
     "senderAddress": "<string, formatted with newlines>",
     "recipientAddress": "<string, formatted with newlines>",
     "dateLine": "<string, date block content>",
-    "subjectLine": "<string, e.g., 'Application for Senior Full-Stack Engineer'>",
-    "salutation": "<string, e.g., 'Dear Hiring Manager,'>",
-    "paragraphs": [<array of paragraphs in English, detailing fit, notice period, salary expectations if provided, etc.>],
-    "closing": "<string, e.g., 'Sincerely,'>",
+    "subjectLine": "<string, subject block content>",
+    "salutation": "<string, e.g., 'Sehr geehrte Damen und Herren,' or 'Dear Hiring Manager,'>",
+    "paragraphs": {
+      "short": [<array of 2 paragraphs (introduction + concise fit) in ${clLanguage === 'DE' ? 'German' : 'English'}>],
+      "detailed": [<array of 3-4 paragraphs (introduction + detailed fit + details like salary/notice period) in ${clLanguage === 'DE' ? 'German' : 'English'}>]
+    },
+    "closing": "<string, e.g., 'Mit freundlichen Grüßen,' or 'Sincerely,'>",
     "signatureName": "<string>"
   }
 }`;
-    }
 
     const payload = {
-      model: 'deepseek-chat',
+      model: 'deepseek-v4-pro',
       messages: [
         { role: 'system', content: systemPrompt },
         {
@@ -246,8 +210,8 @@ You must respond with a raw JSON object containing these exact keys:
           content: `Here is the user profile:
 ${JSON.stringify(formattedProfile, null, 2)}
 
-Here is the Target Job Description:
-${jobDescription}
+Here is the Target Job Description (already pre-translated to English if necessary):
+${processedJobDescription}
 
 Here is the additional context / overrides:
 ${contextStr}`
@@ -276,7 +240,72 @@ ${contextStr}`
     const generatedText = resJson.choices[0].message.content;
     const tailoredResult = JSON.parse(generatedText);
 
-    // 3. Log query diagnostic data into database
+    // Merge static fields back into the tailored CV response to conserve tokens
+    const personalDetails = {
+      fullName: profile.fullName || '',
+      email: profile.email || '',
+      phone: profile.phone || '',
+      website: profile.website || '',
+      github: profile.github || '',
+      linkedin: profile.linkedin || '',
+      address: profile.address || '',
+      dateOfBirth: cvLanguage === 'DE' ? (profile.dateOfBirth || '') : '',
+      birthplace: cvLanguage === 'DE' ? (profile.birthplace || '') : '',
+      nationality: cvLanguage === 'DE' ? (profile.nationality || '') : ''
+    };
+
+    const mergedWorkExperience = parsedWorkExp.map((originalJob: any, index: number) => {
+      // Find tailored job by index or matching company name
+      const tailoredJob = (tailoredResult.tailoredCv?.workExperience && tailoredResult.tailoredCv.workExperience[index]) || 
+                          (tailoredResult.tailoredCv?.workExperience && tailoredResult.tailoredCv.workExperience.find((j: any) => j.company === originalJob.company)) || {};
+      
+      let bullets = tailoredJob.bullets;
+      if (!bullets) {
+        const origBullets = originalJob.bullets || [];
+        bullets = {
+          star: origBullets,
+          punchy: origBullets,
+          standard: origBullets
+        };
+      } else if (Array.isArray(bullets)) {
+        bullets = {
+          star: bullets,
+          punchy: bullets,
+          standard: bullets
+        };
+      }
+
+      return {
+        company: originalJob.company,
+        role: tailoredJob.role || originalJob.role,
+        location: originalJob.location,
+        period: originalJob.period,
+        bullets
+      };
+    });
+
+    // Make sure tailoredCoverLetter.paragraphs is in the { short, detailed } shape
+    let paragraphs = tailoredResult.tailoredCoverLetter?.paragraphs;
+    if (paragraphs && Array.isArray(paragraphs)) {
+      paragraphs = {
+        short: paragraphs,
+        detailed: paragraphs
+      };
+    }
+
+    if (tailoredResult.tailoredCoverLetter) {
+      tailoredResult.tailoredCoverLetter.paragraphs = paragraphs || { short: [], detailed: [] };
+    }
+
+    tailoredResult.tailoredCv = {
+      ...tailoredResult.tailoredCv,
+      personalDetails,
+      workExperience: mergedWorkExperience,
+      education: parsedEdu,
+      languages: parsedLanguages
+    };
+
+    // Log query diagnostic data into database
     try {
       await prisma.tailorDiagnosticLog.create({
         data: {
@@ -290,7 +319,6 @@ ${contextStr}`
       });
     } catch (logError) {
       console.error('Failed to create diagnostic log entry:', logError);
-      // We do not fail the tailoring request if logging fails
     }
 
     return NextResponse.json(tailoredResult);
