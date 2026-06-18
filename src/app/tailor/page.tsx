@@ -143,6 +143,7 @@ export default function TailorWorkspace() {
   const [previewTab, setPreviewTab] = useState<'cv' | 'coverLetter'>('cv');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
 
   // Refs for PDF download
   const cvPreviewRef = useRef<HTMLDivElement>(null);
@@ -278,61 +279,68 @@ export default function TailorWorkspace() {
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
       };
 
-      // 1. Temporarily disable stylesheets containing unsupported CSS functions like oklch or lab
+      // 1. Temporarily sanitize stylesheets containing oklch/lab colors to prevent html2canvas crash
       const originalStyleStates: { ownerNode: HTMLElement; disabled: boolean }[] = [];
       const tempStyleElements: HTMLStyleElement[] = [];
 
-      for (let i = 0; i < document.styleSheets.length; i++) {
-        const sheet = document.styleSheets[i] as CSSStyleSheet;
+      // Create a static array of stylesheets to prevent processing newly added ones
+      const sheets = Array.from(document.styleSheets);
+
+      for (const sheet of sheets) {
         try {
-          const rules = sheet.cssRules || sheet.rules;
-          if (!rules) continue;
+          const ownerNode = sheet.ownerNode as HTMLElement;
+          if (!ownerNode) continue;
 
-          let hasUnsupportedColor = false;
-          const rulesTextArray: string[] = [];
-
-          for (let j = 0; j < rules.length; j++) {
-            const ruleText = rules[j].cssText;
-            rulesTextArray.push(ruleText);
-            if (
-              ruleText.includes('oklch') ||
-              ruleText.includes('oklab') ||
-              ruleText.includes('lab(') ||
-              ruleText.includes('lch(')
-            ) {
-              hasUnsupportedColor = true;
+          let cssText = '';
+          if (ownerNode.tagName === 'STYLE') {
+            cssText = ownerNode.innerHTML;
+          } else if (sheet.href) {
+            // For link tags, fetch the cached content to avoid slow cssRules serialization
+            try {
+              const res = await fetch(sheet.href);
+              if (res.ok) {
+                cssText = await res.text();
+              }
+            } catch (err) {
+              console.warn('Could not fetch external stylesheet:', sheet.href, err);
             }
           }
 
-          if (hasUnsupportedColor) {
-            const ownerNode = sheet.ownerNode as HTMLElement;
-            if (ownerNode) {
-              originalStyleStates.push({
-                ownerNode,
-                disabled: (ownerNode as any).disabled
-              });
-              (ownerNode as any).disabled = true;
+          if (
+            cssText && (
+              cssText.includes('oklch') ||
+              cssText.includes('oklab') ||
+              cssText.includes('lab(') ||
+              cssText.includes('lch(')
+            )
+          ) {
+            // Disable original stylesheet
+            originalStyleStates.push({
+              ownerNode,
+              disabled: (ownerNode as any).disabled
+            });
+            (ownerNode as any).disabled = true;
 
-              // Clean rules text of modern CSS colors
-              const cleanedText = rulesTextArray.join('\n')
-                .replace(/oklch\([^)]+\)/g, 'rgb(120, 120, 120)')
-                .replace(/oklab\([^)]+\)/g, 'rgb(120, 120, 120)')
-                .replace(/lab\([^)]+\)/g, 'rgb(120, 120, 120)')
-                .replace(/lch\([^)]+\)/g, 'rgb(120, 120, 120)');
+            // Clean the CSS of modern colors
+            const cleanedText = cssText
+              .replace(/oklch\([^)]+\)/g, 'rgb(120, 120, 120)')
+              .replace(/oklab\([^)]+\)/g, 'rgb(120, 120, 120)')
+              .replace(/lab\([^)]+\)/g, 'rgb(120, 120, 120)')
+              .replace(/lch\([^)]+\)/g, 'rgb(120, 120, 120)');
 
-              const tempStyle = document.createElement('style');
-              tempStyle.setAttribute('data-temp-clean-css', 'true');
-              tempStyle.innerHTML = cleanedText;
-              document.head.appendChild(tempStyle);
-              tempStyleElements.push(tempStyle);
-            }
+            // Create temporary clean style element
+            const tempStyle = document.createElement('style');
+            tempStyle.setAttribute('data-temp-clean-css', 'true');
+            tempStyle.innerHTML = cleanedText;
+            document.head.appendChild(tempStyle);
+            tempStyleElements.push(tempStyle);
           }
         } catch (e) {
-          // Skip cross-origin stylesheets that cannot be accessed programmatically
+          console.warn('Error sanitizing stylesheet:', e);
         }
       }
 
-      // 2. Load html2pdf and export
+      // 2. Export to PDF
       const html2pdf = (await import('html2pdf.js')).default;
       await html2pdf().from(element).set(opt).save();
 
@@ -346,6 +354,159 @@ export default function TailorWorkspace() {
       alert('Failed to generate PDF. Trying default browser print options.');
       window.print();
     }
+  };
+
+  const handleExportWord = () => {
+    const type = previewTab === 'cv' ? 'cv' : 'cl';
+    const element = type === 'cv' ? cvPreviewRef.current : clPreviewRef.current;
+    if (!element) return;
+
+    // Get the HTML content of the sheet
+    const htmlContent = element.innerHTML;
+
+    // Add XML wrappers and simple formatting styles for Word Document
+    const header = `<html xmlns:o="urn:schemas-microsoft-com:office:office" 
+          xmlns:w="urn:schemas-microsoft-com:office:word" 
+          xmlns="http://www.w3.org/TR/REC-html40">
+          <head>
+            <meta charset="utf-8">
+            <title>JobFlow Document</title>
+            <!--[if gte mso 9]>
+            <xml>
+              <w:WordDocument>
+                <w:View>Print</w:View>
+                <w:Zoom>100</w:Zoom>
+              </w:WordDocument>
+            </xml>
+            <![endif]-->
+            <style>
+              body {
+                font-family: Georgia, serif;
+                font-size: 11pt;
+                line-height: 1.5;
+                color: #000000;
+              }
+              pre {
+                font-family: Arial, sans-serif;
+                white-space: pre-wrap;
+              }
+              h1, h2, h3, h4 {
+                font-family: Arial, sans-serif;
+                color: #111111;
+                margin-top: 12pt;
+                margin-bottom: 6pt;
+              }
+            </style>
+          </head>
+          <body>`;
+    
+    const footer = `</body></html>`;
+    const docContent = header + htmlContent + footer;
+
+    // Create a Blob and trigger download
+    const blob = new Blob(['\ufeff' + docContent], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${type === 'cv' ? 'Resume' : 'Cover_Letter'}_${companyName.replace(/\s+/g, '_')}_${roleName.replace(/\s+/g, '_')}.doc`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportText = () => {
+    if (!result) return;
+    const type = previewTab === 'cv' ? 'cv' : 'cl';
+    
+    let textContent = '';
+
+    if (type === 'cv') {
+      const cv = result.tailoredCv;
+      textContent += `==================================================\n`;
+      textContent += `   ${cv.personalDetails.fullName.toUpperCase()}\n`;
+      textContent += `==================================================\n\n`;
+      textContent += `Email: ${cv.personalDetails.email}\n`;
+      textContent += `Phone: ${cv.personalDetails.phone}\n`;
+      if (cv.personalDetails.address) textContent += `Address: ${cv.personalDetails.address}\n`;
+      if (cv.personalDetails.website) textContent += `Web: ${cv.personalDetails.website}\n`;
+      if (cv.personalDetails.linkedin) textContent += `LinkedIn: ${cv.personalDetails.linkedin}\n`;
+      if (cv.personalDetails.github) textContent += `GitHub: ${cv.personalDetails.github}\n\n`;
+
+      if (targetLanguage === 'DE') {
+        if (cv.personalDetails.dateOfBirth) textContent += `Geburtsdatum: ${cv.personalDetails.dateOfBirth}\n`;
+        if (cv.personalDetails.birthplace) textContent += `Geburtsort: ${cv.personalDetails.birthplace}\n`;
+        if (cv.personalDetails.nationality) textContent += `Staatsangehörigkeit: ${cv.personalDetails.nationality}\n\n`;
+      }
+
+      if (cv.summary) {
+        textContent += `PROFESSIONAL SUMMARY\n`;
+        textContent += `--------------------------------------------------\n`;
+        textContent += `${cv.summary}\n\n`;
+      }
+
+      textContent += `WORK EXPERIENCE\n`;
+      textContent += `--------------------------------------------------\n`;
+      cv.workExperience.forEach((exp) => {
+        textContent += `${exp.role} | ${exp.company} - ${exp.location}\n`;
+        textContent += `Period: ${exp.period}\n`;
+        exp.bullets.forEach((bullet) => {
+          const cleanBullet = bullet.replace(/<[^>]*>/g, '');
+          textContent += `- ${cleanBullet}\n`;
+        });
+        textContent += `\n`;
+      });
+
+      textContent += `EDUCATION\n`;
+      textContent += `--------------------------------------------------\n`;
+      cv.education.forEach((edu) => {
+        textContent += `${edu.degree} | ${edu.institution} - ${edu.location}\n`;
+        textContent += `Period: ${edu.period}\n\n`;
+      });
+
+      textContent += `SKILLS\n`;
+      textContent += `--------------------------------------------------\n`;
+      textContent += `${cv.skills.join(', ')}\n\n`;
+
+      textContent += `LANGUAGES\n`;
+      textContent += `--------------------------------------------------\n`;
+      cv.languages.forEach((lang) => {
+        textContent += `${lang.language}: ${lang.level}\n`;
+      });
+
+      if (cv.signingLine) {
+        textContent += `\n\n${cv.signingLine}\n`;
+      }
+    } else {
+      const cl = result.tailoredCoverLetter;
+      textContent += `SENDER:\n${cl.senderAddress}\n\n`;
+      textContent += `RECIPIENT:\n${cl.recipientAddress}\n\n`;
+      textContent += `DATE: ${cl.dateLine}\n\n`;
+      textContent += `SUBJECT: ${cl.subjectLine}\n\n`;
+      textContent += `${cl.salutation}\n\n`;
+      cl.paragraphs.forEach((p) => {
+        const cleanPara = p.replace(/<[^>]*>/g, '');
+        textContent += `${cleanPara}\n\n`;
+      });
+      textContent += `${cl.closing}\n\n`;
+      textContent += `${cl.signatureName}\n`;
+    }
+
+    // Strip out remaining HTML tags that could be in text from editing
+    textContent = textContent.replace(/<[^>]*>/g, '');
+
+    // Download file
+    const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${type === 'cv' ? 'Resume' : 'Cover_Letter'}_${companyName.replace(/\s+/g, '_')}_${roleName.replace(/\s+/g, '_')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const saveToApplicationsTracker = async () => {
@@ -924,19 +1085,100 @@ export default function TailorWorkspace() {
             </button>
           </div>
 
-          <div className="hidden md:flex items-center gap-1.5 text-[11px] text-zinc-500 font-sans">
-            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping"></span>
-            <span>💡 Tip: Click any text on the page below to edit directly</span>
-          </div>
+          {result && (
+            <div className="flex items-center gap-1 bg-white/5 p-1 rounded-lg border border-white/5 text-zinc-400 no-print font-sans">
+              <button
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  document.execCommand('bold', false);
+                }}
+                className="p-1 hover:text-white rounded hover:bg-white/5 font-bold text-xs w-6 h-6 flex items-center justify-center cursor-pointer"
+                title="Bold"
+              >
+                B
+              </button>
+              <button
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  document.execCommand('italic', false);
+                }}
+                className="p-1 hover:text-white rounded hover:bg-white/5 italic text-xs w-6 h-6 flex items-center justify-center cursor-pointer"
+                title="Italic"
+              >
+                I
+              </button>
+              <button
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  document.execCommand('underline', false);
+                }}
+                className="p-1 hover:text-white rounded hover:bg-white/5 underline text-xs w-6 h-6 flex items-center justify-center cursor-pointer"
+                title="Underline"
+              >
+                U
+              </button>
+              <div className="w-px h-3.5 bg-white/10 mx-1"></div>
+              <select
+                onChange={(e) => {
+                  document.execCommand('fontSize', false, e.target.value);
+                }}
+                defaultValue="3"
+                className="bg-transparent border-none text-[10px] text-zinc-400 hover:text-white cursor-pointer focus:outline-none"
+                title="Text Size"
+              >
+                <option value="2" className="bg-zinc-900 text-zinc-300">Small</option>
+                <option value="3" className="bg-zinc-900 text-zinc-300">Normal</option>
+                <option value="4" className="bg-zinc-900 text-zinc-300">Large</option>
+                <option value="5" className="bg-zinc-900 text-zinc-300">Extra Large</option>
+              </select>
+            </div>
+          )}
 
           {result && (
-            <button
-              onClick={() => handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl')}
-              className="px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white text-xs font-bold border border-white/5 flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Download PDF Export
-            </button>
+            <div className="relative no-print font-sans">
+              <button
+                onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
+                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export Format
+              </button>
+              
+              {exportDropdownOpen && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setExportDropdownOpen(false)}></div>
+                  <div className="absolute right-0 mt-2 w-52 bg-[#0a061b] border border-white/10 rounded-xl shadow-xl z-30 py-1.5 text-xs text-zinc-300">
+                    <button
+                      onClick={() => {
+                        setExportDropdownOpen(false);
+                        handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl');
+                      }}
+                      className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                    >
+                      Download PDF Document (.pdf)
+                    </button>
+                    <button
+                      onClick={() => {
+                        setExportDropdownOpen(false);
+                        handleExportWord();
+                      }}
+                      className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                    >
+                      Download MS Word Document (.doc)
+                    </button>
+                    <button
+                      onClick={() => {
+                        setExportDropdownOpen(false);
+                        handleExportText();
+                      }}
+                      className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                    >
+                      Download Plain Text (.txt)
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </div>
 
@@ -1015,11 +1257,10 @@ export default function TailorWorkspace() {
                         <p 
                           contentEditable={true}
                           suppressContentEditableWarning={true}
-                          onBlur={(e) => handleCvSummaryChange(e.target.innerText)}
+                          onBlur={(e) => handleCvSummaryChange(e.target.innerHTML)}
                           style={{ fontSize: '0.75rem', fontStyle: 'italic', lineHeight: '1.625', color: s.textColor }}
-                        >
-                          {result.tailoredCv.summary}
-                        </p>
+                          dangerouslySetInnerHTML={{ __html: result.tailoredCv.summary }}
+                        />
                       </div>
                     )}
 
@@ -1076,11 +1317,10 @@ export default function TailorWorkspace() {
                                         key={bIdx} 
                                         contentEditable={true} 
                                         suppressContentEditableWarning={true} 
-                                        onBlur={(e) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerText)}
+                                        onBlur={(e) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerHTML)}
                                         className="leading-relaxed"
-                                      >
-                                        {b}
-                                      </li>
+                                        dangerouslySetInnerHTML={{ __html: b }}
+                                      />
                                     ))}
                                   </ul>
                                 </div>
@@ -1245,11 +1485,10 @@ export default function TailorWorkspace() {
                                       key={bIdx} 
                                       contentEditable={true} 
                                       suppressContentEditableWarning={true} 
-                                      onBlur={(e) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerText)}
+                                      onBlur={(e) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerHTML)}
                                       className="leading-relaxed"
-                                    >
-                                      {b}
-                                    </li>
+                                      dangerouslySetInnerHTML={{ __html: b }}
+                                    />
                                   ))}
                                 </ul>
                               </div>
@@ -1464,10 +1703,9 @@ export default function TailorWorkspace() {
                           key={i}
                           contentEditable={true}
                           suppressContentEditableWarning={true}
-                          onBlur={(e) => handleClParagraphChange(i, e.target.innerText)}
-                        >
-                          {p}
-                        </p>
+                          onBlur={(e) => handleClParagraphChange(i, e.target.innerHTML)}
+                          dangerouslySetInnerHTML={{ __html: p }}
+                        />
                       ))}
                     </div>
 
