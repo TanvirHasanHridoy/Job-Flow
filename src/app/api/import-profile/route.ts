@@ -134,7 +134,7 @@ Please parse and structure this data into the specified JSON format.`;
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'deepseek-v4-pro',
+        model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: promptContent }

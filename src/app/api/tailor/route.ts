@@ -76,7 +76,7 @@ export async function POST(req: Request) {
       if (commonGermanWords.test(jobDescription)) {
         try {
           const translationPayload = {
-            model: 'deepseek-v4-pro',
+            model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
             messages: [
               {
                 role: 'system',
@@ -207,7 +207,7 @@ You must respond with a raw JSON object containing these exact keys:
 }`;
 
     const payload = {
-      model: 'deepseek-v4-pro',
+      model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
       messages: [
         { role: 'system', content: systemPrompt },
         {
