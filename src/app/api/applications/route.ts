@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getAuthUserId } from '@/lib/auth';
 
 export async function GET() {
   try {
+    const auth = await getAuthUserId();
+    if ('error' in auth) return auth.error;
+    const { userId } = auth;
+
     const applications = await prisma.jobApplication.findMany({
+      where: { userId },
       orderBy: { createdAt: 'desc' },
       include: { 
         documents: true,
@@ -25,6 +31,10 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const auth = await getAuthUserId();
+    if ('error' in auth) return auth.error;
+    const { userId } = auth;
+
     const body = await req.json();
     const {
       company,
@@ -47,6 +57,7 @@ export async function POST(req: Request) {
 
     const application = await prisma.jobApplication.create({
       data: {
+        userId,
         company,
         role,
         status,

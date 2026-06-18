@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getAuthUserId } from '@/lib/auth';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
 export async function POST(req: Request) {
   try {
+    const auth = await getAuthUserId();
+    if ('error' in auth) return auth.error;
+    const { userId } = auth;
+
     const {
       jobDescription,
       targetLanguage, // legacy fallback
@@ -309,6 +314,7 @@ ${contextStr}`
     try {
       await prisma.tailorDiagnosticLog.create({
         data: {
+          userId,
           applicationId: applicationId,
           rawJobDescription: jobDescription,
           userProfileSnapshot: JSON.stringify(formattedProfile),

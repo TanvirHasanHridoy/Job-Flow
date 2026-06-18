@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getAuthUserId } from '@/lib/auth';
 
 export async function GET() {
   try {
-    let profile = await prisma.userProfile.findFirst();
+    const auth = await getAuthUserId();
+    if ('error' in auth) return auth.error;
+    const { userId } = auth;
+
+    let profile = await prisma.userProfile.findFirst({
+      where: { userId }
+    });
     
     if (!profile) {
       // Return a blank template if it does not exist yet
@@ -40,6 +47,10 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const auth = await getAuthUserId();
+    if ('error' in auth) return auth.error;
+    const { userId } = auth;
+
     const body = await req.json();
     
     // Extracted fields
@@ -60,8 +71,6 @@ export async function POST(req: Request) {
       languages = []
     } = body;
 
-    const existingProfile = await prisma.userProfile.findFirst();
-
     const data = {
       fullName,
       email,
@@ -79,17 +88,15 @@ export async function POST(req: Request) {
       languages: JSON.stringify(languages)
     };
 
-    let savedProfile;
-    if (existingProfile) {
-      savedProfile = await prisma.userProfile.update({
-        where: { id: existingProfile.id },
-        data
-      });
-    } else {
-      savedProfile = await prisma.userProfile.create({
-        data
-      });
-    }
+    // Upsert: create if not exists, update if exists
+    const savedProfile = await prisma.userProfile.upsert({
+      where: { userId },
+      update: data,
+      create: {
+        userId,
+        ...data
+      }
+    });
 
     return NextResponse.json({
       ...savedProfile,

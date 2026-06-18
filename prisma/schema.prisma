@@ -1,6 +1,7 @@
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 generator client {
@@ -9,6 +10,7 @@ generator client {
 
 model UserProfile {
   id             String   @id @default(uuid())
+  userId         String   @unique
   fullName       String
   email          String
   phone          String
@@ -28,10 +30,13 @@ model UserProfile {
   languages      String   @default("[]")
   
   updatedAt      DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model JobApplication {
   id                 String                     @id @default(uuid())
+  userId             String
   company            String
   role               String
   status             String                     // TAILORED, APPLIED, INTERVIEWING, OFFER, REJECTED
@@ -48,6 +53,8 @@ model JobApplication {
   documents          GeneratedDocument[]
   statusHistory      ApplicationStatusHistory[]
   diagnosticLogs     TailorDiagnosticLog[]
+
+  @@index([userId])
 }
 
 model GeneratedDocument {
@@ -71,6 +78,7 @@ model ApplicationStatusHistory {
 
 model TailorDiagnosticLog {
   id                  String          @id @default(uuid())
+  userId              String?
   applicationId       String?
   application         JobApplication? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   timestamp           DateTime        @default(now())
@@ -79,4 +87,6 @@ model TailorDiagnosticLog {
   matchStrategyUsed   String          // TACTICAL_PIVOT or AGGRESIVE_BRIDGING
   systemPromptSent    String
   rawLlmResponse      String          // JSON or Text
+
+  @@index([userId])
 }
