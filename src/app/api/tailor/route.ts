@@ -26,7 +26,8 @@ export async function POST(req: Request) {
       customNotes,
       profile,
       matchStrategy = 'TACTICAL_PIVOT',
-      applicationId = null
+      applicationId = null,
+      roleName = 'Professional'
     } = await req.json();
 
     if (!jobDescription || !profile) {
@@ -130,7 +131,7 @@ CRITICAL CONSTRAINTS:
    - Skills Highlight Mode: ${skillsFocus}
    - Generate all bullet style variants (star, punchy, standard) and cover letter paragraph length variants (short, detailed) in a single response.
 
-3. CV FORMATTING RULES (Targeting ${cvLanguage}):
+3. CV FORMATTING & CONTENT RULES (Targeting ${cvLanguage}):
    ${cvLanguage === 'DE' ? `
    - Must support a clean tabular German Lebenslauf format.
    - Include a signing line at the bottom showing the city and current date (e.g. "München, [Datum]").
@@ -140,6 +141,16 @@ CRITICAL CONSTRAINTS:
    - Omit date of birth, birthplace, age, gender, nationality, or marital status from the resume. They must be empty or null.
    - Use active, result-oriented, professional English. Focus on quantitative achievements, strong action verbs, and clear structural headings.
    `}
+   
+   ADDITIONAL CV WRITING GUIDELINES:
+   - **Internal Promotions:** If a candidate has been promoted or changed departments/roles within the same company, treat each role as a completely separate job/experience entry. This demonstrates growth, distinct responsibilities, and loyalty.
+   - **Internships:** When listing an internship, explicitly append " (Internship)" (or " (Praktikum)" in German) right next to the job title.
+   - **Relevancy Cut-offs:** Filter and list only the last four companies in the tailored work experience. Mention the total cumulative years of experience in the professional summary instead.
+   - **Show, Don't Tell Soft Skills:** Do NOT list soft skills standalone. Integrate them naturally within the professional summary or the work history bullet points (e.g., "Strong communication skills developed through customer-facing roles...").
+   - **Strict Rules for Hobbies:** Exclude generic hobbies like "reading," "traveling," or "music". Only include hobbies if they are directly relevant to the target job or demonstrate valuable workplace traits like leadership or teamwork.
+   - **Software Developer Bullet Progression:** Transform weak bullet points into high-impact, metrics-driven, and result-oriented outcomes. Target a "Great" formulation quality: explain how a specific action (e.g. stack modernization, speed optimization) drove business metrics (e.g., increased conversion rate of the online shop by 25% by modernizing the tech stack and increasing page speed by 60%).
+   - **References:** Do NOT include the phrase "References available upon request". Keep it completely out.
+   - **Gender Pronouns:** Gender pronouns are optional. Do not include them by default. If requested or explicitly provided in custom notes, place them directly under the signature/signing line as "Pronouns: [pronouns]".
 
 4. COVER LETTER FORMATTING RULES (Targeting ${clLanguage}):
    ${clLanguage === 'DE' ? `
@@ -256,38 +267,55 @@ ${contextStr}`
       address: profile.address || '',
       dateOfBirth: cvLanguage === 'DE' ? (profile.dateOfBirth || '') : '',
       birthplace: cvLanguage === 'DE' ? (profile.birthplace || '') : '',
-      nationality: cvLanguage === 'DE' ? (profile.nationality || '') : ''
+      nationality: cvLanguage === 'DE' ? (profile.nationality || '') : '',
+      photo: profile.photo || '',
+      signature: profile.signature || '',
+      occupation: tailoredResult.tailoredCv?.personalDetails?.occupation || roleName || 'Professional'
     };
 
-    const mergedWorkExperience = parsedWorkExp.map((originalJob: any, index: number) => {
-      // Find tailored job by index or matching company name
-      const tailoredJob = (tailoredResult.tailoredCv?.workExperience && tailoredResult.tailoredCv.workExperience[index]) || 
-                          (tailoredResult.tailoredCv?.workExperience && tailoredResult.tailoredCv.workExperience.find((j: any) => j.company === originalJob.company)) || {};
-      
-      let bullets = tailoredJob.bullets;
-      if (!bullets) {
-        const origBullets = originalJob.bullets || [];
-        bullets = {
-          star: origBullets,
-          punchy: origBullets,
-          standard: origBullets
-        };
-      } else if (Array.isArray(bullets)) {
-        bullets = {
-          star: bullets,
-          punchy: bullets,
-          standard: bullets
-        };
-      }
+    const mergedWorkExperience = tailoredResult.tailoredCv?.workExperience
+      ? tailoredResult.tailoredCv.workExperience.map((tailoredJob: any) => {
+          // Find matching original job from user profile by company name
+          const originalJob = parsedWorkExp.find(
+            (j: any) => j.company.toLowerCase() === tailoredJob.company.toLowerCase()
+          ) || {};
 
-      return {
-        company: originalJob.company,
-        role: tailoredJob.role || originalJob.role,
-        location: originalJob.location,
-        period: originalJob.period,
-        bullets
-      };
-    });
+          let bullets = tailoredJob.bullets;
+          if (!bullets) {
+            const origBullets = originalJob.bullets || [];
+            bullets = {
+              star: origBullets,
+              punchy: origBullets,
+              standard: origBullets
+            };
+          } else if (Array.isArray(bullets)) {
+            bullets = {
+              star: bullets,
+              punchy: bullets,
+              standard: bullets
+            };
+          }
+
+          const period = originalJob.startDate && originalJob.endDate
+            ? `${originalJob.startDate} – ${originalJob.endDate}`
+            : originalJob.period || tailoredJob.period || '';
+
+          return {
+            company: originalJob.company || tailoredJob.company,
+            role: tailoredJob.role || originalJob.role,
+            location: originalJob.location || tailoredJob.location || '',
+            period,
+            bullets
+          };
+        })
+      : [];
+
+    const mergedEducation = parsedEdu.map((edu: any) => ({
+      ...edu,
+      period: edu.startDate && edu.endDate
+        ? `${edu.startDate} – ${edu.endDate}`
+        : edu.period || ''
+    }));
 
     // Make sure tailoredCoverLetter.paragraphs is in the { short, detailed } shape
     let paragraphs = tailoredResult.tailoredCoverLetter?.paragraphs;
@@ -306,7 +334,7 @@ ${contextStr}`
       ...tailoredResult.tailoredCv,
       personalDetails,
       workExperience: mergedWorkExperience,
-      education: parsedEdu,
+      education: mergedEducation,
       languages: parsedLanguages
     };
 

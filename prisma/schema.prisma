@@ -23,6 +23,10 @@ model UserProfile {
   birthplace     String?
   nationality    String?
   
+  // Photo & Signature (base64 Data URIs or URLs)
+  photo          String?
+  signature      String?
+  
   // Stored as JSON strings
   workExperience String   @default("[]")
   education      String   @default("[]")

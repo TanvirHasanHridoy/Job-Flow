@@ -46,6 +46,8 @@ interface UserProfile {
   dateOfBirth: string;
   birthplace: string;
   nationality: string;
+  photo?: string;
+  signature?: string;
   workExperience: WorkExperience[];
   education: Education[];
   skills: Skill[];
@@ -67,6 +69,8 @@ export default function ProfileVault() {
     dateOfBirth: '',
     birthplace: '',
     nationality: '',
+    photo: '',
+    signature: '',
     workExperience: [],
     education: [],
     skills: [],
@@ -195,6 +199,34 @@ export default function ProfileVault() {
   const handlePersonalChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setProfile(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProfile(prev => ({ ...prev, photo: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProfile(prev => ({ ...prev, signature: reader.result as string }));
+    };
+    reader.readAsDataURL(file);
   };
 
   // Work Experience Operations
@@ -585,6 +617,85 @@ export default function ProfileVault() {
                   className="glass-input px-4 py-2.5 w-full text-sm"
                   placeholder="e.g. Musterstraße 12, 10115 Berlin"
                 />
+              </div>
+
+              {/* Photo & Signature Upload Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/5">
+                {/* Profile Photo */}
+                <div className="flex flex-col gap-2 p-4 rounded-xl border border-white/5 bg-white/[0.01]">
+                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Profile Photo</label>
+                  <div className="flex items-center gap-4">
+                    <div className="w-[85px] h-[105px] bg-zinc-900 border border-white/10 rounded-sm overflow-hidden flex items-center justify-center flex-shrink-0">
+                      {profile.photo ? (
+                        <img src={profile.photo} alt="Photo" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="text-zinc-600 text-xs text-center font-sans">No Photo</div>
+                      )}
+                    </div>
+                    <div className="flex-1 flex flex-col gap-2">
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handlePhotoUpload} 
+                        className="hidden" 
+                        id="photo-file-input"
+                      />
+                      <label 
+                        htmlFor="photo-file-input" 
+                        className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold text-center cursor-pointer transition-colors"
+                      >
+                        Choose Photo
+                      </label>
+                      {profile.photo && (
+                        <button 
+                          onClick={() => setProfile(prev => ({ ...prev, photo: '' }))}
+                          className="text-xs text-rose-400 hover:text-rose-300 font-semibold text-left cursor-pointer"
+                        >
+                          Remove Photo
+                        </button>
+                      )}
+                      <p className="text-[10px] text-zinc-500">Supported formats: JPG, PNG. Recommended passport size ratio.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Signature */}
+                <div className="flex flex-col gap-2 p-4 rounded-xl border border-white/5 bg-white/[0.01]">
+                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Handwritten Signature</label>
+                  <div className="flex items-center gap-4">
+                    <div className="w-[120px] h-[60px] bg-zinc-900 border border-white/10 rounded-sm overflow-hidden flex items-center justify-center flex-shrink-0 p-1">
+                      {profile.signature ? (
+                        <img src={profile.signature} alt="Signature" className="max-h-full max-w-full object-contain" />
+                      ) : (
+                        <div className="text-zinc-600 text-xs text-center font-sans">No Signature</div>
+                      )}
+                    </div>
+                    <div className="flex-1 flex flex-col gap-2">
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleSignatureUpload} 
+                        className="hidden" 
+                        id="signature-file-input"
+                      />
+                      <label 
+                        htmlFor="signature-file-input" 
+                        className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold text-center cursor-pointer transition-colors"
+                      >
+                        Choose Signature
+                      </label>
+                      {profile.signature && (
+                        <button 
+                          onClick={() => setProfile(prev => ({ ...prev, signature: '' }))}
+                          className="text-xs text-rose-400 hover:text-rose-300 font-semibold text-left cursor-pointer"
+                        >
+                          Remove Signature
+                        </button>
+                      )}
+                      <p className="text-[10px] text-zinc-500">Supported formats: PNG (transparent background recommended), JPG.</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* DACH Specifics */}
