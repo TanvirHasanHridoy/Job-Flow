@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { 
   Sparkles, FileText, Download, Briefcase, Award, CheckCircle2, AlertTriangle, Languages, Save, Check,
-  List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Palette, Highlighter, RotateCcw
+  List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Palette, Highlighter, RotateCcw, Sliders
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -92,7 +92,7 @@ const getActiveBulletStyleKey = (style: string): 'star' | 'punchy' | 'standard' 
   return 'star';
 };
 
-const getRenderedBullets = (exp: any, bulletStyle: string, lengthTarget: string) => {
+const getRenderedBullets = (exp: any, bulletStyle: string, lengthTarget: string, isMostRecent: boolean = false) => {
   if (!exp || !exp.bullets) return [];
   let bulletsArray: string[] = [];
   if (Array.isArray(exp.bullets)) {
@@ -103,7 +103,7 @@ const getRenderedBullets = (exp: any, bulletStyle: string, lengthTarget: string)
   }
   
   if (lengthTarget === 'Strict 1-Page (concise)') {
-    return bulletsArray.slice(0, 3);
+    return bulletsArray.slice(0, isMostRecent ? 2 : 1);
   }
   return bulletsArray;
 };
@@ -301,6 +301,55 @@ export default function TailorWorkspace() {
   const [clLength, setClLength] = useState<string>('Short & Punchy (under 300 words)');
   const [skillsFocus, setSkillsFocus] = useState<string>('Tech-Heavy Focus');
 
+  // Visual Customization States
+  const [sectionSpacing, setSectionSpacing] = useState(24); // px
+  const [pagePaddingTop, setPagePaddingTop] = useState(28); // mm
+  const [pagePaddingBottom, setPagePaddingBottom] = useState(20); // mm
+  const [pagePaddingSide, setPagePaddingSide] = useState(24); // mm
+  const [fontSize, setFontSize] = useState(11.5); // px
+  const [bulletSpacing, setBulletSpacing] = useState(4); // px
+  const [signatureSpacing, setSignatureSpacing] = useState(40); // px
+  const [photoHeight, setPhotoHeight] = useState(105); // px
+
+  const applyPreset = (preset: 'default' | 'compact' | 'tight') => {
+    if (preset === 'default') {
+      setSectionSpacing(24);
+      setPagePaddingTop(28);
+      setPagePaddingBottom(20);
+      setPagePaddingSide(24);
+      setFontSize(11.5);
+      setBulletSpacing(4);
+      setSignatureSpacing(40);
+      setPhotoHeight(105);
+    } else if (preset === 'compact') {
+      setSectionSpacing(12);
+      setPagePaddingTop(20);
+      setPagePaddingBottom(15);
+      setPagePaddingSide(20);
+      setFontSize(10.8);
+      setBulletSpacing(2.5);
+      setSignatureSpacing(20);
+      setPhotoHeight(95);
+    } else if (preset === 'tight') {
+      setSectionSpacing(7);
+      setPagePaddingTop(15);
+      setPagePaddingBottom(12);
+      setPagePaddingSide(15);
+      setFontSize(10.2);
+      setBulletSpacing(1);
+      setSignatureSpacing(8);
+      setPhotoHeight(88);
+    }
+  };
+
+  useEffect(() => {
+    if (lengthTarget.includes('1-Page')) {
+      applyPreset('tight');
+    } else {
+      applyPreset('default');
+    }
+  }, [lengthTarget]);
+
   // App state
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TailorResponse | null>(null);
@@ -308,6 +357,7 @@ export default function TailorWorkspace() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
+  const [numPages, setNumPages] = useState(1);
 
   // Refs for PDF download
   const cvPreviewRef = useRef<HTMLDivElement>(null);
@@ -326,6 +376,33 @@ export default function TailorWorkspace() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (!result) return;
+    const element = previewTab === 'cv' ? cvPreviewRef.current : clPreviewRef.current;
+    if (!element) return;
+
+    const measure = () => {
+      const height = element.scrollHeight;
+      const isCv = previewTab === 'cv';
+      
+      const verticalPadding = isCv ? (pagePaddingTop + pagePaddingBottom) * 3.779527559 : 211.6;
+      const printableHeight = isCv ? (297 - (pagePaddingTop + pagePaddingBottom)) * 3.779527559 : 910.9;
+      
+      const contentHeight = Math.max(0, height - verticalPadding);
+      const pages = Math.max(1, Math.ceil(contentHeight / printableHeight));
+      setNumPages(pages);
+    };
+
+    measure();
+    
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [result, previewTab, pagePaddingTop, pagePaddingBottom, pagePaddingSide, fontSize, sectionSpacing, bulletSpacing, signatureSpacing, photoHeight]);
 
   const fetchProfile = async () => {
     try {
@@ -438,111 +515,211 @@ export default function TailorWorkspace() {
     }
   };
 
-  const handleExportPdf = async (type: 'cv' | 'cl') => {
-    const element = type === 'cv' ? cvPreviewRef.current : clPreviewRef.current;
+  const handleExportPdf = (type: 'cv' | 'cl') => {
+    const sheetId = type === 'cv' ? 'cv-sheet' : 'cl-sheet';
+    const element = document.getElementById(sheetId);
     if (!element) return;
 
-    try {
-      const opt = {
-        margin:       0,
-        filename:     `${type === 'cv' ? 'Resume' : 'Cover_Letter'}_${companyName.replace(/\s+/g, '_')}_${roleName.replace(/\s+/g, '_')}.pdf`,
-        image:        { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
+    // Create a print wrapper container in the body
+    const printContainer = document.createElement('div');
+    printContainer.id = 'print-container-wrapper';
+    
+    const isCv = type === 'cv';
+    const pagePadding = isCv 
+      ? `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm` 
+      : '32mm 28mm 24mm 28mm';
+    const printableHeight = isCv 
+      ? (297 - (pagePaddingTop + pagePaddingBottom)) * 3.779527559 
+      : 910.9;
+
+    // Helper to create a print-page element
+    const createPrintPage = () => {
+      const pageDiv = document.createElement('div');
+      pageDiv.className = 'print-page';
+      if (element.classList.contains('strict-1-page')) {
+        pageDiv.classList.add('strict-1-page');
+      }
+      return pageDiv;
+    };
+
+    if (!isCv) {
+      // Cover letters fit on one page
+      const pageDiv = createPrintPage();
+      const clone = element.cloneNode(true) as HTMLElement;
+      clone.querySelectorAll('.no-print').forEach(el => el.remove());
+      
+      // Clean styles of the cloned sheet container so page padding applies instead
+      clone.style.width = '100%';
+      clone.style.height = '100%';
+      clone.style.minHeight = '0';
+      clone.style.padding = '0';
+      clone.style.margin = '0';
+      clone.style.boxShadow = 'none';
+
+      pageDiv.appendChild(clone);
+      printContainer.appendChild(pageDiv);
+    } else {
+      // CV - split into pages based on element heights to guarantee margins on every page
+      const clone = element.cloneNode(true) as HTMLElement;
+      clone.querySelectorAll('.no-print').forEach(el => el.remove());
+
+      // We have main content div (first child) and signature block (sibling)
+      const mainContentDiv = element.firstElementChild as HTMLElement;
+      const signatureDiv = element.querySelector('div[style*="avoid"]') as HTMLElement;
+
+      const elementsToLayout: { el: HTMLElement; height: number }[] = [];
+
+      const processChild = (child: HTMLElement) => {
+        if (child.classList.contains('no-print')) return;
+
+        // Get computed margins to include in height calculations
+        const style = window.getComputedStyle(child);
+        const marginTop = parseFloat(style.marginTop) || 0;
+        const marginBottom = parseFloat(style.marginBottom) || 0;
+
+        if (child.tagName === 'TABLE') {
+          const tbody = child.querySelector('tbody');
+          if (tbody) {
+            Array.from(tbody.children).forEach(tr => {
+              const htmlTr = tr as HTMLElement;
+              // Wrap single row in helper table to retain CSS styles
+              const tableClone = child.cloneNode(false) as HTMLTableElement;
+              const tbodyClone = document.createElement('tbody');
+              tbodyClone.appendChild(htmlTr.cloneNode(true));
+              tableClone.appendChild(tbodyClone);
+              
+              elementsToLayout.push({
+                el: tableClone,
+                height: htmlTr.offsetHeight + marginTop + marginBottom
+              });
+            });
+          }
+        } else {
+          elementsToLayout.push({
+            el: child.cloneNode(true) as HTMLElement,
+            height: child.offsetHeight + marginTop + marginBottom
+          });
+        }
       };
 
-      // 1. Temporarily sanitize stylesheets containing oklch/lab colors to prevent html2canvas crash
-      const originalStyleStates: { ownerNode: HTMLElement; disabled: boolean }[] = [];
-      const tempStyleElements: HTMLStyleElement[] = [];
-
-      // Create a static array of stylesheets to prevent processing newly added ones
-      const sheets = Array.from(document.styleSheets);
-
-      for (const sheet of sheets) {
-        try {
-          const ownerNode = sheet.ownerNode as HTMLElement;
-          if (!ownerNode) continue;
-
-          let cssText = '';
-          if (ownerNode.tagName === 'STYLE') {
-            cssText = ownerNode.innerHTML;
-          } else if (sheet.href) {
-            // For link tags, fetch the cached content to avoid slow cssRules serialization
-            try {
-              const res = await fetch(sheet.href);
-              if (res.ok) {
-                cssText = await res.text();
-              }
-            } catch (err) {
-              console.warn('Could not fetch external stylesheet:', sheet.href, err);
-            }
-          }
-
-          if (
-            cssText && (
-              cssText.includes('oklch') ||
-              cssText.includes('oklab') ||
-              cssText.includes('lab(') ||
-              cssText.includes('lch(')
-            )
-          ) {
-            // Disable original stylesheet
-            originalStyleStates.push({
-              ownerNode,
-              disabled: (ownerNode as any).disabled
-            });
-            (ownerNode as any).disabled = true;
-
-            // Clean the CSS of modern colors
-            const cleanedText = cssText
-              .replace(/oklch\([^)]+\)/g, 'rgb(120, 120, 120)')
-              .replace(/oklab\([^)]+\)/g, 'rgb(120, 120, 120)')
-              .replace(/lab\([^)]+\)/g, 'rgb(120, 120, 120)')
-              .replace(/lch\([^)]+\)/g, 'rgb(120, 120, 120)');
-
-            // Create temporary clean style element
-            const tempStyle = document.createElement('style');
-            tempStyle.setAttribute('data-temp-clean-css', 'true');
-            tempStyle.innerHTML = cleanedText;
-            document.head.appendChild(tempStyle);
-            tempStyleElements.push(tempStyle);
-          }
-        } catch (e) {
-          console.warn('Error sanitizing stylesheet:', e);
-        }
+      if (mainContentDiv) {
+        Array.from(mainContentDiv.children).forEach(child => {
+          processChild(child as HTMLElement);
+        });
       }
 
-      // 2. Export to PDF
-      const html2pdf = (await import('html2pdf.js')).default;
-      await html2pdf().from(element).set(opt).save();
+      if (signatureDiv) {
+        const signatureStyle = window.getComputedStyle(signatureDiv);
+        const sigMarginTop = parseFloat(signatureStyle.marginTop) || 0;
+        const sigMarginBottom = parseFloat(signatureStyle.marginBottom) || 0;
+        elementsToLayout.push({
+          el: signatureDiv.cloneNode(true) as HTMLElement,
+          height: signatureDiv.offsetHeight + sigMarginTop + sigMarginBottom
+        });
+      }
 
-      // 3. Restore all disabled stylesheets
-      originalStyleStates.forEach(({ ownerNode, disabled }) => {
-        (ownerNode as any).disabled = disabled;
+      // Distribute nodes into page containers
+      let currentPage = createPrintPage();
+      printContainer.appendChild(currentPage);
+      let currentHeight = 0;
+
+      elementsToLayout.forEach(item => {
+        if (currentHeight + item.height > printableHeight && currentHeight > 0) {
+          currentPage = createPrintPage();
+          printContainer.appendChild(currentPage);
+          currentHeight = 0;
+        }
+        currentPage.appendChild(item.el);
+        currentHeight += item.height;
       });
-      tempStyleElements.forEach(el => el.remove());
-    } catch (err) {
-      console.error('Error generating PDF:', err);
-      alert('Failed to generate PDF. Trying default browser print options.');
-      window.print();
     }
+
+    // Append to document
+    document.body.appendChild(printContainer);
+
+    // Create style element to configure print styles
+    const style = document.createElement('style');
+    style.id = 'print-style-override';
+    style.innerHTML = `
+      @media print {
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          -webkit-user-select: text !important;
+          user-select: text !important;
+        }
+        /* Hide regular UI elements */
+        body > *:not(#print-container-wrapper) {
+          display: none !important;
+        }
+        #print-container-wrapper {
+          display: block !important;
+          position: absolute !important;
+          left: 0 !important;
+          top: 0 !important;
+          width: 210mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background-color: #FFFFFF !important;
+        }
+        .print-page {
+          width: 210mm !important;
+          height: 297mm !important;
+          padding: ${pagePadding} !important;
+          box-sizing: border-box !important;
+          page-break-after: always !important;
+          background-color: #FFFFFF !important;
+          position: relative !important;
+          font-family: "Inter", "Calibri", "Segoe UI", system-ui, sans-serif !important;
+          font-size: ${isCv ? fontSize : 11.5}px !important;
+          line-height: 1.55 !important;
+          color: #1F2937 !important;
+        }
+        .print-page:last-child {
+          page-break-after: avoid !important;
+        }
+        @page {
+          size: A4;
+          margin: 0 !important; /* Hides default browser header and footer */
+        }
+      }
+    `;
+
+    document.head.appendChild(style);
+    
+    // Trigger print
+    window.print();
+
+    // Clean up
+    document.head.removeChild(style);
+    document.body.removeChild(printContainer);
   };
+
 
   const handleExportWord = () => {
     const type = previewTab === 'cv' ? 'cv' : 'cl';
     const element = type === 'cv' ? cvPreviewRef.current : clPreviewRef.current;
     if (!element) return;
 
-    // Get the HTML content of the sheet
-    const htmlContent = element.innerHTML;
+    // Clean up contentEditable attributes and guide lines using DOM cloning
+    const tempElement = element.cloneNode(true) as HTMLElement;
+    tempElement.querySelectorAll('.no-print').forEach(el => el.remove());
 
-    // Add XML wrappers and simple formatting styles for Word Document
+    let htmlContent = tempElement.innerHTML;
+    htmlContent = htmlContent.replace(/contenteditable="true"/g, '');
+    htmlContent = htmlContent.replace(/contenteditable="false"/g, '');
+
+    const isCv = type === 'cv';
+    const bgColor = '#FFFFFF';
+    const textColor = isCv ? '#1F2937' : '#1A1A1A';
+
+    // Add XML wrappers and high fidelity formatting styles for Microsoft Word Document
     const header = `<html xmlns:o="urn:schemas-microsoft-com:office:office" 
           xmlns:w="urn:schemas-microsoft-com:office:word" 
           xmlns="http://www.w3.org/TR/REC-html40">
           <head>
             <meta charset="utf-8">
-            <title>JobFlow Document</title>
+            <title>${type === 'cv' ? 'Resume' : 'Cover Letter'}</title>
             <!--[if gte mso 9]>
             <xml>
               <w:WordDocument>
@@ -552,21 +729,82 @@ export default function TailorWorkspace() {
             </xml>
             <![endif]-->
             <style>
+              @page {
+                size: A4;
+                margin: ${isCv ? '28mm 24mm 20mm 24mm' : '32mm 28mm 24mm 28mm'};
+              }
               body {
-                font-family: Georgia, serif;
-                font-size: 11pt;
-                line-height: 1.5;
-                color: #000000;
+                background-color: ${bgColor};
+                color: ${textColor};
+                font-family: "Arial", "Calibri", "Helvetica", sans-serif;
+                font-size: 11.5px;
+                line-height: 1.55;
+                margin: 0;
+                padding: 0;
               }
-              pre {
-                font-family: Arial, sans-serif;
-                white-space: pre-wrap;
+              h1 {
+                font-size: 24px;
+                font-weight: bold;
+                color: #1F2937;
+                margin: 0 0 4px 0;
+                line-height: 1.2;
               }
-              h1, h2, h3, h4 {
-                font-family: Arial, sans-serif;
-                color: #111111;
-                margin-top: 12pt;
-                margin-bottom: 6pt;
+              h2 {
+                font-size: 15px;
+                font-weight: bold;
+                letter-spacing: 2.2px;
+                text-transform: uppercase;
+                margin-top: 20px;
+                margin-bottom: 4px;
+              }
+              p {
+                margin: 0 0 6px 0;
+              }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 8px;
+                margin-bottom: 8px;
+              }
+              td {
+                vertical-align: top;
+                padding-top: 4px;
+                padding-bottom: 4px;
+              }
+              .border-b {
+                border-bottom: 1px solid #CBD5E1;
+              }
+              .text-right {
+                text-align: right;
+              }
+              .text-\\[\\#2980B9\\] {
+                color: #2980B9 !important;
+              }
+              .text-gray-800 {
+                color: #1F2937 !important;
+              }
+              .text-gray-700 {
+                color: #374151 !important;
+              }
+              .text-gray-600 {
+                color: #4B5563 !important;
+              }
+              .text-gray-500 {
+                color: #6B7280 !important;
+              }
+              .font-semibold {
+                font-weight: bold;
+              }
+              .italic {
+                font-style: italic;
+              }
+              ul {
+                margin: 6px 0;
+                padding-left: 0;
+                list-style-type: none;
+              }
+              li {
+                margin-bottom: 4px;
               }
             </style>
           </head>
@@ -598,6 +836,9 @@ export default function TailorWorkspace() {
       const cv = result.tailoredCv;
       textContent += `==================================================\n`;
       textContent += `   ${cv.personalDetails.fullName.toUpperCase()}\n`;
+      if (cv.personalDetails.occupation) {
+        textContent += `   ${cv.personalDetails.occupation.toUpperCase()}\n`;
+      }
       textContent += `==================================================\n\n`;
       textContent += `Email: ${cv.personalDetails.email}\n`;
       textContent += `Phone: ${cv.personalDetails.phone}\n`;
@@ -620,10 +861,10 @@ export default function TailorWorkspace() {
 
       textContent += `WORK EXPERIENCE\n`;
       textContent += `--------------------------------------------------\n`;
-      cv.workExperience.forEach((exp) => {
+      cv.workExperience.forEach((exp, idx) => {
         textContent += `${exp.role} | ${exp.company} - ${exp.location}\n`;
         textContent += `Period: ${exp.period}\n`;
-        getRenderedBullets(exp, bulletStyle, lengthTarget).forEach((bullet: string) => {
+        getRenderedBullets(exp, bulletStyle, lengthTarget, idx === 0).forEach((bullet: string) => {
           const cleanBullet = bullet.replace(/<[^>]*>/g, '');
           textContent += `- ${cleanBullet}\n`;
         });
@@ -1175,6 +1416,166 @@ export default function TailorWorkspace() {
             </div>
           </div>
 
+          {/* Visual Spacing Fine-Tuning Sidebar Panel */}
+          {result && previewTab === 'cv' && (
+            <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5 justify-between">
+                <span className="flex items-center gap-1.5 font-sans">
+                  <Sliders className="w-3.5 h-3.5 text-indigo-400" />
+                  Visual Spacing Adjuster
+                </span>
+                <span className="text-[9px] text-zinc-500 font-normal font-sans">Fine-tune gaps</span>
+              </h3>
+              
+              {/* Presets Row */}
+              <div className="grid grid-cols-3 gap-1.5 p-1 bg-white/5 rounded-lg border border-white/5 font-sans">
+                <button
+                  type="button"
+                  onClick={() => applyPreset('default')}
+                  className="py-1 text-[10px] font-bold rounded text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
+                >
+                  Default
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPreset('compact')}
+                  className="py-1 text-[10px] font-bold rounded text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
+                >
+                  Compact
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPreset('tight')}
+                  className="py-1 text-[10px] font-bold rounded text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
+                >
+                  Ultra-Tight
+                </button>
+              </div>
+
+              {/* Sliders */}
+              <div className="space-y-2.5 pt-1 text-xs font-sans">
+                {/* Font Size */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between text-[10px] text-zinc-400">
+                    <span>Base Font Size</span>
+                    <span className="font-semibold text-white">{fontSize}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="9.5"
+                    max="13"
+                    step="0.1"
+                    value={fontSize}
+                    onChange={e => setFontSize(parseFloat(e.target.value))}
+                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+
+                {/* Section Spacing */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between text-[10px] text-zinc-400">
+                    <span>Section Gaps</span>
+                    <span className="font-semibold text-white">{sectionSpacing}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="4"
+                    max="36"
+                    step="1"
+                    value={sectionSpacing}
+                    onChange={e => setSectionSpacing(parseInt(e.target.value))}
+                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+
+                {/* Page Padding Top */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between text-[10px] text-zinc-400">
+                    <span>Top Margins</span>
+                    <span className="font-semibold text-white">{pagePaddingTop}mm</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="10"
+                    max="40"
+                    step="1"
+                    value={pagePaddingTop}
+                    onChange={e => setPagePaddingTop(parseInt(e.target.value))}
+                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+
+                {/* Page Padding Bottom */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between text-[10px] text-zinc-400">
+                    <span>Bottom Margins</span>
+                    <span className="font-semibold text-white">{pagePaddingBottom}mm</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="10"
+                    max="35"
+                    step="1"
+                    value={pagePaddingBottom}
+                    onChange={e => setPagePaddingBottom(parseInt(e.target.value))}
+                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+
+                {/* Page Padding Side */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between text-[10px] text-zinc-400">
+                    <span>Side Margins</span>
+                    <span className="font-semibold text-white">{pagePaddingSide}mm</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="10"
+                    max="35"
+                    step="1"
+                    value={pagePaddingSide}
+                    onChange={e => setPagePaddingSide(parseInt(e.target.value))}
+                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+
+                {/* Bullet Spacing */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between text-[10px] text-zinc-400">
+                    <span>Bullet Spacing</span>
+                    <span className="font-semibold text-white">{bulletSpacing}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="12"
+                    step="0.5"
+                    value={bulletSpacing}
+                    onChange={e => setBulletSpacing(parseFloat(e.target.value))}
+                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+
+                {/* Signature Spacing */}
+                <div className="flex flex-col gap-1">
+                  <div className="flex justify-between text-[10px] text-zinc-400">
+                    <span>Signature Space</span>
+                    <span className="font-semibold text-white">{signatureSpacing}px</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="4"
+                    max="60"
+                    step="1"
+                    value={signatureSpacing}
+                    onChange={e => setSignatureSpacing(parseInt(e.target.value))}
+                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Match Strategy Selection */}
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
@@ -1459,27 +1860,43 @@ export default function TailorWorkspace() {
       <div className="lg:col-span-7 bg-[#0b081e]/30 flex flex-col overflow-y-auto max-h-[calc(100vh-73px)]">
         {/* Toolbar */}
         <div className="sticky top-0 z-20 no-print flex items-center justify-between px-6 py-3 bg-[#0a061b] border-b border-white/5">
-          <div className="flex gap-1.5">
-            <button
-              onClick={() => setPreviewTab('cv')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                previewTab === 'cv' 
-                  ? 'bg-zinc-800 text-white' 
-                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              Tailored {cvLanguage === 'DE' ? 'Lebenslauf' : 'Resume'}
-            </button>
-            <button
-              onClick={() => setPreviewTab('coverLetter')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                previewTab === 'coverLetter' 
-                  ? 'bg-zinc-800 text-white' 
-                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              Tailored {clLanguage === 'DE' ? 'Anschreiben' : 'Cover Letter'}
-            </button>
+          <div className="flex items-center gap-3">
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setPreviewTab('cv')}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  previewTab === 'cv' 
+                    ? 'bg-zinc-800 text-white' 
+                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Tailored {cvLanguage === 'DE' ? 'Lebenslauf' : 'Resume'}
+              </button>
+              <button
+                onClick={() => setPreviewTab('coverLetter')}
+                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  previewTab === 'coverLetter' 
+                    ? 'bg-zinc-800 text-white' 
+                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                Tailored {clLanguage === 'DE' ? 'Anschreiben' : 'Cover Letter'}
+              </button>
+            </div>
+
+            {result && (
+              <span className="text-[10px] font-semibold px-2 py-1 rounded-md bg-zinc-900 border border-white/5 flex items-center gap-1.5 font-sans">
+                <span>Height:</span>
+                <span className={numPages > 1 ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"}>
+                  {numPages} {numPages === 1 ? 'Page' : 'Pages'}
+                </span>
+                {numPages > 1 && lengthTarget === 'Strict 1-Page (concise)' && previewTab === 'cv' && (
+                  <span className="hidden md:inline text-amber-500 font-normal">
+                    (Spillover warning: try reducing bullets to fit on 1 Page)
+                  </span>
+                )}
+              </span>
+            )}
           </div>
 
           {result && (
@@ -1579,67 +1996,179 @@ export default function TailorWorkspace() {
           )}
         </div>
 
+        {/* Real-time page overflow alert */}
+        {result && numPages > 1 && lengthTarget.includes('1-Page') && previewTab === 'cv' && (
+          <div className="no-print mx-6 mt-4 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs flex items-center justify-between gap-3 text-rose-300 font-sans animate-in slide-in-from-top duration-300">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0 animate-bounce" />
+              <div>
+                <span className="font-bold">1-Page Target Limit Exceeded:</span> Currently rendering {numPages} pages. Your content has spilled over to the second page. Reduce text or spacing to fit within 1 page.
+              </div>
+            </div>
+            <span className="px-2.5 py-1 rounded bg-rose-500/25 text-rose-200 font-bold whitespace-nowrap">
+              Action Required
+            </span>
+          </div>
+        )}
+
         {/* Live A4 Sheet Render */}
         <div className="flex-1 p-6 md:p-8 bg-[#040116] flex items-start justify-center">
           {result ? (
-            <div className="w-full max-w-[210mm] overflow-x-auto shadow-2xl rounded-lg border border-white/5">
+            <div className="w-full max-w-[210mm] flex flex-col items-center">
               
-              {/* CV Preview Page */}
+              {/* Floating Customization Toolbar */}
               {previewTab === 'cv' && (
-                <div 
-                  ref={cvPreviewRef} 
-                  id="cv-sheet"
-                  className="w-[210mm] min-h-[297mm] relative flex flex-col justify-between bg-[#F7F3EC] text-gray-800 mx-auto shadow-lg print:shadow-none"
-                  style={{ 
-                    pageBreakInside: 'avoid', 
-                    width: '210mm',
-                    minHeight: '297mm',
-                    fontFamily: '"Inter", "Calibri", "Segoe UI", system-ui, sans-serif',
-                    fontSize: '11.5px',
-                    lineHeight: 1.55,
-                    padding: '28mm 24mm 20mm 24mm'
-                  }}
-                >
-                  <div>
-                    {/* Header */}
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h1 
-                          contentEditable={true} 
-                          suppressContentEditableWarning={true}
-                          onBlur={(e) => handleCvDetailsChange('fullName', e.target.innerText)}
-                          className="text-[24px] font-bold text-gray-800 leading-tight text-left"
-                        >
-                          {result.tailoredCv.personalDetails.fullName}
-                        </h1>
-                        <p 
-                          contentEditable={true} 
-                          suppressContentEditableWarning={true}
-                          onBlur={(e) => handleCvDetailsChange('occupation', e.target.innerText)}
-                          className="text-[#2980B9] text-[13px] font-medium mt-0.5 text-left font-sans cursor-pointer focus:outline-none"
-                        >
-                          {result.tailoredCv.personalDetails.occupation || roleName || 'Professional'}
-                        </p>
-                      </div>
-
-                      {/* Photo Container */}
-                      <div className="w-[85px] h-[105px] bg-gray-200 rounded-sm overflow-hidden flex-shrink-0 border border-gray-300 flex items-center justify-center relative font-sans">
-                        {result.tailoredCv.personalDetails.photo ? (
-                          <img 
-                            src={result.tailoredCv.personalDetails.photo} 
-                            alt="Profile Photo" 
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
-                          </svg>
-                        )}
-                      </div>
+                <div className="w-full no-print mb-4 p-3 bg-white/5 border border-white/10 rounded-xl flex flex-wrap items-center justify-between gap-3 text-white font-sans text-xs">
+                  <div className="flex items-center gap-2">
+                    <Sliders className="w-4 h-4 text-indigo-400" />
+                    <span className="font-semibold text-zinc-300">Quick Gaps Preset:</span>
+                    <div className="flex gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('default')}
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                      >
+                        Default
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('compact')}
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                      >
+                        Compact
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('tight')}
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                      >
+                        Ultra-Tight
+                      </button>
                     </div>
+                  </div>
+                  <div className="flex items-center gap-4 flex-wrap text-[11px]">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-zinc-400">Section:</span>
+                      <input
+                        type="range"
+                        min="4"
+                        max="36"
+                        value={sectionSpacing}
+                        onChange={e => setSectionSpacing(parseInt(e.target.value))}
+                        className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                        title="Section Spacing"
+                      />
+                      <span className="text-zinc-300 font-semibold w-8">{sectionSpacing}px</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-zinc-400">Text Size:</span>
+                      <input
+                        type="range"
+                        min="9.5"
+                        max="13"
+                        step="0.1"
+                        value={fontSize}
+                        onChange={e => setFontSize(parseFloat(e.target.value))}
+                        className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                        title="Font Size"
+                      />
+                      <span className="text-zinc-300 font-semibold w-9">{fontSize}px</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-zinc-400">Margins:</span>
+                      <input
+                        type="range"
+                        min="10"
+                        max="40"
+                        value={pagePaddingTop}
+                        onChange={e => {
+                          const val = parseInt(e.target.value);
+                          setPagePaddingTop(val);
+                          setPagePaddingBottom(Math.max(10, Math.floor(val * 0.7)));
+                          setPagePaddingSide(Math.max(10, Math.floor(val * 0.85)));
+                        }}
+                        className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                        title="Page Margins"
+                      />
+                      <span className="text-zinc-300 font-semibold w-8">{pagePaddingTop}mm</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-                    {/* Contact Details Grid */}
-                    <div className="grid grid-cols-2 gap-x-8 gap-y-0.5 mt-3 text-[11px] text-gray-700 text-left">
+              <div className="w-full overflow-x-auto shadow-2xl rounded-lg border border-white/5">
+                
+                {/* CV Preview Page */}
+                {previewTab === 'cv' && (
+                  <div 
+                    ref={cvPreviewRef} 
+                    id="cv-sheet"
+                    className={`w-[210mm] min-h-[297mm] relative flex flex-col bg-white text-gray-800 mx-auto shadow-lg print:shadow-none ${
+                      lengthTarget.includes('1-Page') ? 'strict-1-page' : ''
+                    }`}
+                    style={{ 
+                      width: '210mm',
+                      minHeight: '297mm',
+                      fontFamily: '"Inter", "Calibri", "Segoe UI", system-ui, sans-serif',
+                      fontSize: `${fontSize}px`,
+                      lineHeight: 1.55,
+                      padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,
+                      justifyContent: lengthTarget.includes('1-Page') ? 'flex-start' : 'space-between'
+                    }}
+                  >
+                    <div>
+                      {/* Header */}
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h1 
+                            contentEditable={true} 
+                            suppressContentEditableWarning={true}
+                            onBlur={(e) => handleCvDetailsChange('fullName', e.target.innerText)}
+                            className="text-[24px] font-bold text-gray-800 leading-tight text-left"
+                          >
+                            {result.tailoredCv.personalDetails.fullName}
+                          </h1>
+                          <p 
+                            contentEditable={true} 
+                            suppressContentEditableWarning={true}
+                            onBlur={(e) => handleCvDetailsChange('occupation', e.target.innerText)}
+                            className="text-[#2980B9] text-[13px] font-medium mt-0.5 text-left font-sans cursor-pointer focus:outline-none"
+                          >
+                            {result.tailoredCv.personalDetails.occupation || roleName || 'Professional'}
+                          </p>
+                        </div>
+  
+                        {/* Photo Container */}
+                        <div 
+                          className="bg-gray-200 rounded-sm overflow-hidden flex-shrink-0 border border-gray-300 flex items-center justify-center relative font-sans"
+                          style={{
+                            width: `${photoHeight * 0.81}px`,
+                            height: `${photoHeight}px`
+                          }}
+                        >
+                          {result.tailoredCv.personalDetails.photo ? (
+                            <img 
+                              src={result.tailoredCv.personalDetails.photo} 
+                              alt="Profile Photo" 
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+  
+                      {/* Contact Details Grid */}
+                      <div 
+                        className="grid grid-cols-2 gap-x-8 text-gray-700 text-left"
+                        style={{ 
+                          marginTop: `${sectionSpacing * 0.5}px`,
+                          rowGap: `${bulletSpacing * 0.5}px`,
+                          fontSize: `${fontSize - 0.5}px`
+                        }}
+                      >
                       <p>
                         <span className="font-semibold font-sans">Address:</span>{' '}
                         <span contentEditable suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('address', e.target.innerText)}>
@@ -1742,7 +2271,13 @@ export default function TailorWorkspace() {
                           const first = idx === -1 ? title : title.slice(0, idx);
                           const rest = idx === -1 ? '' : title.slice(idx + 1);
                           return (
-                            <div className="mt-7 mb-2 text-left">
+                            <div 
+                              className="text-left"
+                              style={{ 
+                                marginTop: `${sectionSpacing}px`, 
+                                marginBottom: `${sectionSpacing * 0.3}px` 
+                              }}
+                            >
                               <h2 className="text-[15px] font-bold tracking-[0.22em] uppercase">
                                 <span className="text-gray-800">{first}</span>
                                 {rest && <span className="text-[#2980B9]">&nbsp;{rest}</span>}
@@ -1755,7 +2290,11 @@ export default function TailorWorkspace() {
                           contentEditable={true}
                           suppressContentEditableWarning={true}
                           onBlur={(e) => handleCvSummaryChange(e.target.innerHTML)}
-                          className="text-[11.5px] text-gray-700 leading-[1.6] text-left font-sans"
+                          className="text-gray-700 text-left font-sans"
+                          style={{ 
+                            fontSize: `${fontSize}px`, 
+                            lineHeight: 1.55 
+                          }}
                           dangerouslySetInnerHTML={{ __html: result.tailoredCv.summary }}
                         />
                       </>
@@ -1770,7 +2309,13 @@ export default function TailorWorkspace() {
                           const first = idx === -1 ? title : title.slice(0, idx);
                           const rest = idx === -1 ? '' : title.slice(idx + 1);
                           return (
-                            <div className="mt-7 mb-2 text-left">
+                            <div 
+                              className="text-left"
+                              style={{ 
+                                marginTop: `${sectionSpacing}px`, 
+                                marginBottom: `${sectionSpacing * 0.3}px` 
+                              }}
+                            >
                               <h2 className="text-[15px] font-bold tracking-[0.22em] uppercase">
                                 <span className="text-gray-800">{first}</span>
                                 {rest && <span className="text-[#2980B9]">&nbsp;{rest}</span>}
@@ -1782,34 +2327,66 @@ export default function TailorWorkspace() {
                         <table className="w-full border-collapse text-left">
                           <tbody>
                             {result.tailoredCv.workExperience.map((exp: any, idx: number) => (
-                              <tr key={idx}>
-                                <td className="align-top pr-6 py-1 text-[11px] text-gray-500 whitespace-nowrap w-[28%] font-sans">
+                              <tr key={idx} style={{ pageBreakInside: 'avoid' }}>
+                                <td 
+                                  className="align-top pr-6 text-gray-500 whitespace-nowrap w-[28%] font-sans"
+                                  style={{ 
+                                    paddingTop: `${bulletSpacing * 0.25}px`, 
+                                    paddingBottom: `${bulletSpacing * 0.25}px`,
+                                    fontSize: `${fontSize - 0.5}px`
+                                  }}
+                                >
                                   <span contentEditable suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'period', e.target.innerText)}>
                                     {exp.period}
                                   </span>
                                 </td>
-                                <td className="align-top py-1 text-[11.5px] text-gray-700 leading-[1.55]">
-                                  <p className="font-semibold text-[#2980B9] text-[12px] font-sans">
+                                <td 
+                                  className="align-top text-gray-700 leading-[1.55]"
+                                  style={{ 
+                                    paddingTop: `${bulletSpacing * 0.25}px`, 
+                                    paddingBottom: `${bulletSpacing * 0.25}px` 
+                                  }}
+                                >
+                                  <p 
+                                    className="font-semibold text-[#2980B9] font-sans"
+                                    style={{ fontSize: `${fontSize + 0.5}px` }}
+                                  >
                                     <span contentEditable suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'role', e.target.innerText)}>
                                       {exp.role}
                                     </span>
                                   </p>
-                                  <p className="text-[11px] text-gray-600 font-sans">
+                                  <p 
+                                    className="text-gray-600 font-sans"
+                                    style={{ fontSize: `${fontSize - 0.5}px` }}
+                                  >
                                     <span contentEditable suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'company', e.target.innerText)}>
                                       {exp.company}
                                     </span>
                                   </p>
                                   {exp.location && (
-                                    <p className="text-gray-500 text-[11px] font-sans">
+                                    <p 
+                                      className="text-gray-500 font-sans"
+                                      style={{ fontSize: `${fontSize - 0.5}px` }}
+                                    >
                                       <span contentEditable suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'location', e.target.innerText)}>
                                         {exp.location}
                                       </span>
                                     </p>
                                   )}
-                                  <ul className="mt-1.5 space-y-1 list-none pl-0">
-                                    {getRenderedBullets(exp, bulletStyle, lengthTarget).map((b: string, bIdx: number) => (
-                                      <li key={bIdx} className="flex items-start gap-1.5 text-[11.5px] text-gray-700 leading-[1.55] font-sans">
-                                        <span className="mt-[5px] min-w-[4px] min-h-[4px] w-1 h-1 rounded-full bg-gray-500" />
+                                  <ul 
+                                    className="list-none pl-0 font-sans"
+                                    style={{ marginTop: `${bulletSpacing * 0.35}px` }}
+                                  >
+                                    {getRenderedBullets(exp, bulletStyle, lengthTarget, idx === 0).map((b: string, bIdx: number) => (
+                                      <li 
+                                        key={bIdx} 
+                                        className="flex items-start gap-1.5 text-gray-700 leading-[1.55] font-sans"
+                                        style={{ 
+                                          fontSize: `${fontSize}px`,
+                                          marginTop: `${bulletSpacing}px`
+                                        }}
+                                      >
+                                        <span className="text-gray-500 leading-none mt-[2px] font-sans">•</span>
                                         <span 
                                           contentEditable 
                                           suppressContentEditableWarning 
@@ -1836,7 +2413,13 @@ export default function TailorWorkspace() {
                           const first = idx === -1 ? title : title.slice(0, idx);
                           const rest = idx === -1 ? '' : title.slice(idx + 1);
                           return (
-                            <div className="mt-7 mb-2 text-left">
+                            <div 
+                              className="text-left"
+                              style={{ 
+                                marginTop: `${sectionSpacing}px`, 
+                                marginBottom: `${sectionSpacing * 0.3}px` 
+                              }}
+                            >
                               <h2 className="text-[15px] font-bold tracking-[0.22em] uppercase">
                                 <span className="text-gray-800">{first}</span>
                                 {rest && <span className="text-[#2980B9]">&nbsp;{rest}</span>}
@@ -1848,25 +2431,47 @@ export default function TailorWorkspace() {
                         <table className="w-full border-collapse text-left">
                           <tbody>
                             {result.tailoredCv.education.map((edu: any, idx: number) => (
-                              <tr key={idx}>
-                                <td className="align-top pr-6 py-1 text-[11px] text-gray-500 whitespace-nowrap w-[28%] font-sans">
+                              <tr key={idx} style={{ pageBreakInside: 'avoid' }}>
+                                <td 
+                                  className="align-top pr-6 text-gray-500 whitespace-nowrap w-[28%] font-sans"
+                                  style={{ 
+                                    paddingTop: `${bulletSpacing * 0.25}px`, 
+                                    paddingBottom: `${bulletSpacing * 0.25}px`,
+                                    fontSize: `${fontSize - 0.5}px`
+                                  }}
+                                >
                                   <span contentEditable suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'period', e.target.innerText)}>
                                     {edu.period}
                                   </span>
                                 </td>
-                                <td className="align-top py-1 text-[11.5px] text-gray-700 leading-[1.55]">
-                                  <p className="font-semibold text-[#2980B9] text-[12px] font-sans">
+                                <td 
+                                  className="align-top text-gray-700 leading-[1.55]"
+                                  style={{ 
+                                    paddingTop: `${bulletSpacing * 0.25}px`, 
+                                    paddingBottom: `${bulletSpacing * 0.25}px` 
+                                  }}
+                                >
+                                  <p 
+                                    className="font-semibold text-[#2980B9] font-sans"
+                                    style={{ fontSize: `${fontSize + 0.5}px` }}
+                                  >
                                     <span contentEditable suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'degree', e.target.innerText)}>
                                       {edu.degree}
                                     </span>
                                   </p>
-                                  <p className="text-[11px] text-gray-600 font-sans">
+                                  <p 
+                                    className="text-gray-600 font-sans"
+                                    style={{ fontSize: `${fontSize - 0.5}px` }}
+                                  >
                                     <span contentEditable suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'institution', e.target.innerText)}>
                                       {edu.institution}
                                     </span>
                                   </p>
                                   {edu.location && (
-                                    <p className="text-gray-500 text-[11px] font-sans">
+                                    <p 
+                                      className="text-gray-500 font-sans"
+                                      style={{ fontSize: `${fontSize - 0.5}px` }}
+                                    >
                                       <span contentEditable suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'location', e.target.innerText)}>
                                         {edu.location}
                                       </span>
@@ -1889,7 +2494,13 @@ export default function TailorWorkspace() {
                           const first = idx === -1 ? title : title.slice(0, idx);
                           const rest = idx === -1 ? '' : title.slice(idx + 1);
                           return (
-                            <div className="mt-7 mb-2 text-left">
+                            <div 
+                              className="text-left"
+                              style={{ 
+                                marginTop: `${sectionSpacing}px`, 
+                                marginBottom: `${sectionSpacing * 0.3}px` 
+                              }}
+                            >
                               <h2 className="text-[15px] font-bold tracking-[0.22em] uppercase">
                                 <span className="text-gray-800">{first}</span>
                                 {rest && <span className="text-[#2980B9]">&nbsp;{rest}</span>}
@@ -1898,8 +2509,11 @@ export default function TailorWorkspace() {
                             </div>
                           );
                         })()}
-                        <div className="text-left mt-2 font-sans">
-                          <ul className="list-none pl-0 space-y-1">
+                        <div 
+                          className="text-left font-sans"
+                          style={{ marginTop: `${bulletSpacing * 0.5}px` }}
+                        >
+                          <ul className="list-none pl-0">
                             {Object.entries(getGroupedSkills(result.tailoredCv.skills)).map(([level, names], gIdx) => {
                               if (names.length === 0) return null;
                               
@@ -1910,8 +2524,15 @@ export default function TailorWorkspace() {
                               else if (level === 'Beginner') levelLabel = 'Basic';
 
                               return (
-                                <li key={gIdx} className="flex items-start gap-1.5 text-[11.5px] text-gray-700 leading-[1.55]">
-                                  <span className="mt-[5px] min-w-[4px] min-h-[4px] w-1 h-1 rounded-full bg-gray-500 shrink-0" />
+                                <li 
+                                  key={gIdx} 
+                                  className="flex items-start gap-1.5 text-gray-700 leading-[1.55]"
+                                  style={{ 
+                                    fontSize: `${fontSize}px`,
+                                    marginTop: `${bulletSpacing}px` 
+                                  }}
+                                >
+                                  <span className="text-gray-500 leading-none mt-[2px] shrink-0 font-sans">•</span>
                                   <span>
                                     <span className="font-semibold text-gray-800">{levelLabel}:</span>{' '}
                                     <span className="text-gray-700">{names.join(', ')}</span>
@@ -1926,13 +2547,28 @@ export default function TailorWorkspace() {
 
                     {/* Languages */}
                     {result.tailoredCv.languages && result.tailoredCv.languages.length > 0 && (
-                      <div className="text-left font-sans mt-4">
-                        <p className="font-semibold text-gray-800 text-[12px] mt-3 mb-1">
+                      <div 
+                        className="text-left font-sans"
+                        style={{ marginTop: `${sectionSpacing * 0.5}px` }}
+                      >
+                        <p 
+                          className="font-semibold text-gray-800 mb-1"
+                          style={{ 
+                            fontSize: `${fontSize + 0.5}px`,
+                            marginTop: `${bulletSpacing * 0.75}px`
+                          }}
+                        >
                           {cvLanguage === 'DE' ? 'Sprachen' : 'Languages'}
                         </p>
-                        <ul className="list-none pl-0 space-y-0.5">
-                          <li className="flex items-start gap-1.5 text-[11.5px] text-gray-700 leading-[1.55]">
-                            <span className="mt-[5px] min-w-[4px] min-h-[4px] w-1 h-1 rounded-full bg-gray-500 shrink-0" />
+                        <ul className="list-none pl-0">
+                          <li 
+                            className="flex items-start gap-1.5 text-gray-700 leading-[1.55]"
+                            style={{ 
+                              fontSize: `${fontSize}px`,
+                              marginTop: `${bulletSpacing}px`
+                            }}
+                          >
+                            <span className="text-gray-500 leading-none mt-[2px] shrink-0 font-sans">•</span>
                             <span>
                               {result.tailoredCv.languages.map((l: any, i: number) => (
                                 <span key={i}>
@@ -1949,7 +2585,13 @@ export default function TailorWorkspace() {
                   </div>
 
                   {/* Signature block */}
-                  <div className="mt-10 text-[11px] text-gray-600 text-left font-sans">
+                  <div 
+                    className="text-gray-600 text-left font-sans" 
+                    style={{ 
+                      marginTop: `${signatureSpacing}px`,
+                      pageBreakInside: 'avoid' 
+                    }}
+                  >
                     {/* Signature image or fallback SVG */}
                     <div className="mb-2 h-[32px] flex items-end">
                       {result.tailoredCv.personalDetails.signature ? (
@@ -1987,10 +2629,37 @@ export default function TailorWorkspace() {
                       {result.tailoredCv.signingLine || `${signingLocation || 'München'}, ${new Date().toLocaleDateString(cvLanguage === 'DE' ? 'de-DE' : 'en-US')}`}
                     </p>
                     {/* Printed Name */}
-                    <p className="mt-1.5 italic text-gray-700 text-[12px]">
+                    <p 
+                      className="mt-1.5 italic text-gray-700"
+                      style={{ fontSize: `${fontSize + 0.5}px` }}
+                    >
                       {result.tailoredCv.personalDetails.fullName}
                     </p>
                   </div>
+
+                  {/* Page Break Guide Lines */}
+                  {Array.from({ length: numPages - 1 }).map((_, i) => {
+                    const paddingTop = pagePaddingTop * 3.779527559;
+                    const printableHeight = (297 - (pagePaddingTop + pagePaddingBottom)) * 3.779527559;
+                    return (
+                      <div 
+                        key={i} 
+                        className="absolute left-0 right-0 border-t-2 border-dashed border-rose-400 z-10 no-print flex items-center justify-between pointer-events-none select-none font-sans"
+                        style={{ 
+                          top: `${paddingTop + (i + 1) * printableHeight}px`,
+                          margin: 0,
+                          padding: '4px 8px'
+                        }}
+                      >
+                      <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded shadow-md font-bold">
+                        Page {i + 1} Cutoff (A4 Height)
+                      </span>
+                      <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded shadow-md font-medium opacity-80">
+                        Content below overflows to Page {i + 2}
+                      </span>
+                    </div>
+                    );
+                  })}
                 </div>
               )}
 
@@ -2001,7 +2670,6 @@ export default function TailorWorkspace() {
                   id="cl-sheet"
                   className="w-[210mm] min-h-[297mm] relative flex flex-col justify-between bg-white text-[#1a1a1a] mx-auto shadow-lg print:shadow-none"
                   style={{ 
-                    pageBreakInside: 'avoid', 
                     width: '210mm',
                     minHeight: '297mm',
                     fontFamily: '"Inter", "Calibri", "Segoe UI", system-ui, sans-serif',
@@ -2145,9 +2813,29 @@ export default function TailorWorkspace() {
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
 
+                  {/* Page Break Guide Lines */}
+                  {Array.from({ length: numPages - 1 }).map((_, i) => (
+                    <div 
+                      key={i} 
+                      className="absolute left-0 right-0 border-t-2 border-dashed border-rose-400 z-10 no-print flex items-center justify-between pointer-events-none select-none font-sans"
+                      style={{ 
+                        top: `${120.9 + (i + 1) * 910.9}px`,
+                        margin: 0,
+                        padding: '4px 8px'
+                      }}
+                    >
+                      <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded shadow-md font-bold">
+                        Page {i + 1} Cutoff (A4 Height)
+                      </span>
+                      <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded shadow-md font-medium opacity-80">
+                        Content below overflows to Page {i + 2}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center p-12 text-center text-zinc-500 border border-dashed border-white/10 rounded-2xl w-full max-w-lg">
