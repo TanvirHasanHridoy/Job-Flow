@@ -62,7 +62,7 @@ function Muted({ children }: { children: React.ReactNode }) {
 function Bullet({ children }: { children: React.ReactNode }) {
   return (
     <li className="flex items-start gap-1.5 text-[11.5px] text-gray-700 leading-[1.55]">
-      <span className="mt-[5px] min-w-[4px] min-h-[4px] w-1 h-1 rounded-full bg-gray-500" />
+      <span className="text-gray-500 leading-none mt-[2px] font-sans">•</span>
       <span>{children}</span>
     </li>
   );
@@ -73,7 +73,7 @@ function Bullet({ children }: { children: React.ReactNode }) {
 export default function VerificationTest() {
   return (
     <div
-      className="bg-[#F7F3EC] text-gray-800 mx-auto shadow-lg print:shadow-none"
+      className="bg-white text-gray-800 mx-auto shadow-lg print:shadow-none"
       style={{
         width: '210mm',
         minHeight: '297mm',

@@ -119,6 +119,17 @@ CRITICAL MATCH STRATEGY - AGGRESIVE_BRIDGING (Terminology Optimization):
 The user wants maximum keyword alignment. Without fabricating non-existent employers, fake job titles, or fake degrees, aggressively crawl their real history for transferable skills. Rephrase their genuine accomplishments using the exact technical verbs and phrasing found in the job description to pass strict ATS filters, translated into the target language (${cvLanguage === 'DE' ? 'German' : 'English'} for CV, ${clLanguage === 'DE' ? 'German' : 'English'} for Cover Letter).`;
     }
 
+    const lengthDirective = lengthTarget.includes('1-Page')
+      ? `CV LENGTH CONSTRAINT: STRICT 1-PAGE TARGET
+- The user requires the CV to fit on exactly 1 page (A4 height).
+- Keep the tailored professional summary extremely concise (maximum 2-3 sentences, max 50-60 words).
+- Tailor a maximum of 3 bullet points per role, focusing only on the most high-impact, metrics-driven achievements.
+- Keep the text dense, professional, and clear. Avoid verbose descriptions. Do NOT exceed the available A4 page vertical space with the response content.`
+      : `CV LENGTH CONSTRAINT: STANDARD 2-PAGE TARGET
+- The user requires a detailed CV spanning up to 2 pages.
+- The summary can be more comprehensive (3-5 sentences).
+- Provide up to 4-5 tailored bullet points per role to thoroughly document achievements and responsibilities.`;
+
     const systemPrompt = `You are an elite recruitment expert and ATS optimization engine. Your goal is to write a flawless, professional CV/Resume and Cover Letter based on the user's profile and the target job description.
 
 CV TARGET LANGUAGE: Write the tailored CV (summary, roles, bullets, skills) entirely in ${cvLanguage === 'DE' ? 'German' : 'English'}.
@@ -130,6 +141,8 @@ CRITICAL CONSTRAINTS:
    - Tone/Style: ${tone}
    - Skills Highlight Mode: ${skillsFocus}
    - Generate all bullet style variants (star, punchy, standard) and cover letter paragraph length variants (short, detailed) in a single response.
+
+${lengthDirective}
 
 3. CV FORMATTING & CONTENT RULES (Targeting ${cvLanguage}):
    ${cvLanguage === 'DE' ? `
@@ -145,7 +158,7 @@ CRITICAL CONSTRAINTS:
    ADDITIONAL CV WRITING GUIDELINES:
    - **Internal Promotions:** If a candidate has been promoted or changed departments/roles within the same company, treat each role as a completely separate job/experience entry. This demonstrates growth, distinct responsibilities, and loyalty.
    - **Internships:** When listing an internship, explicitly append " (Internship)" (or " (Praktikum)" in German) right next to the job title.
-   - **Relevancy Cut-offs:** Filter and list only the last four companies in the tailored work experience. Mention the total cumulative years of experience in the professional summary instead.
+   - **Relevancy Cut-offs:** ${lengthTarget.includes('1-Page') ? 'Filter and list only the last three companies' : 'Filter and list only the last four companies'} in the tailored work experience. Mention the total cumulative years of experience in the professional summary instead.
    - **Show, Don't Tell Soft Skills:** Do NOT list soft skills standalone. Integrate them naturally within the professional summary or the work history bullet points (e.g., "Strong communication skills developed through customer-facing roles...").
    - **Strict Rules for Hobbies:** Exclude generic hobbies like "reading," "traveling," or "music". Only include hobbies if they are directly relevant to the target job or demonstrate valuable workplace traits like leadership or teamwork.
    - **Software Developer Bullet Progression:** Transform weak bullet points into high-impact, metrics-driven, and result-oriented outcomes. Target a "Great" formulation quality: explain how a specific action (e.g. stack modernization, speed optimization) drove business metrics (e.g., increased conversion rate of the online shop by 25% by modernizing the tech stack and increasing page speed by 60%).
