@@ -1462,6 +1462,9 @@ export default function TailorWorkspace() {
         paddingBottom: pagePaddingBottom,
         bulletStyle,
         clLength,
+        headerSpacing,
+        photoHeight,
+        signatureSpacing,
       };
 
       const res = await fetch('/api/export-pdf', {
@@ -3133,7 +3136,7 @@ export default function TailorWorkspace() {
                     id="cv-measurement-root"
                     className="absolute left-[-9999px] top-[-9999px] flex flex-col bg-white text-gray-800"
                     style={{
-                      width: '210mm',
+                      width: '794px',
                       padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,
                       boxSizing: 'border-box',
                       fontFamily: '"Inter", "Calibri", "Segoe UI", system-ui, sans-serif',
@@ -3153,8 +3156,8 @@ export default function TailorWorkspace() {
                     className="flex flex-col gap-6 w-full items-center no-print"
                   >
                     {pagesToRender.map((pageBlockIds, pageIdx) => {
-                      const a4Width = 793.7; // 210mm in px
-                      const a4Height = 1122.5; // 297mm in px
+                      const a4Width = 794; // A4 width in px (210mm)
+                      const a4Height = 1123; // A4 height in px (297mm)
                       const scale = previewWidth < a4Width ? (previewWidth - 24) / a4Width : 1;
 
                       return (
@@ -3169,11 +3172,11 @@ export default function TailorWorkspace() {
                           }}
                         >
                           <div
-                            className={`cv-page-box w-[210mm] h-[297mm] relative flex flex-col bg-white text-gray-800 shadow-lg print:shadow-none ${lengthTarget.includes('1-Page') ? 'strict-1-page' : ''
+                            className={`cv-page-box w-[794px] h-[1123px] relative flex flex-col bg-white text-gray-800 shadow-lg print:shadow-none ${lengthTarget.includes('1-Page') ? 'strict-1-page' : ''
                               }`}
                             style={{
-                              width: '210mm',
-                              height: '297mm',
+                              width: '794px',
+                              height: '1123px',
                               fontFamily: '"Inter", "Calibri", "Segoe UI", system-ui, sans-serif',
                               fontSize: `${fontSize}px`,
                               lineHeight: 1.55,
@@ -3203,8 +3206,8 @@ export default function TailorWorkspace() {
 
                 {/* Cover Letter Preview Page */}
                 {previewTab === 'coverLetter' && (() => {
-                  const a4Width = 793.7;
-                  const a4Height = 1122.5;
+                  const a4Width = 794;
+                  const a4Height = 1123;
                   const scale = previewWidth < a4Width ? (previewWidth - 24) / a4Width : 1;
                   return (
                     <div
@@ -3219,10 +3222,10 @@ export default function TailorWorkspace() {
                       <div
                         ref={clPreviewRef}
                         id="cl-sheet"
-                        className="w-[210mm] min-h-[297mm] relative flex flex-col justify-between bg-white text-[#1a1a1a] mx-auto shadow-lg print:shadow-none"
+                        className="w-[794px] min-h-[1123px] relative flex flex-col justify-between bg-white text-[#1a1a1a] mx-auto shadow-lg print:shadow-none"
                         style={{
-                          width: '210mm',
-                          minHeight: '297mm',
+                          width: '794px',
+                          minHeight: '1123px',
                           fontFamily: '"Inter", "Calibri", "Segoe UI", system-ui, sans-serif',
                           fontSize: '11.5px',
                           lineHeight: 1.65,

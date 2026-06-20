@@ -1,14 +1,30 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer';
 
 // Helper to convert mm to pt
 const mmToPt = (mm: number) => mm * 2.83465;
 
+// Helper to convert px to pt (browser px is 1/96in, PDF pt is 1/72in, conversion factor is 72/96 = 0.75)
+const pxToPt = (px: number) => px * 0.75;
+
+// Register Inter Google Font via direct raw TTF files on CDN
+Font.register({
+  family: 'Inter',
+  fonts: [
+    { src: 'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.ttf', fontWeight: 400 },
+    { src: 'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-500-normal.ttf', fontWeight: 500 },
+    { src: 'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-600-normal.ttf', fontWeight: 600 },
+    { src: 'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-700-normal.ttf', fontWeight: 700 }
+  ]
+});
+
 // ATS-Optimized CV Document Component
 export function AtsCvDocument({ cv, options }: { cv: any; options: any }) {
-  const fontSize = options.fontSize || 11;
-  const bulletSpacing = options.bulletSpacing || 6;
-  const sectionSpacing = options.sectionSpacing || 16;
+  const baseFontSizePt = pxToPt(options.fontSize || 11.5);
+  const bulletSpacingPt = pxToPt(options.bulletSpacing || 4);
+  const sectionSpacingPt = pxToPt(options.sectionSpacing || 24);
+  const headerSpacingPt = pxToPt(options.headerSpacing || 12);
+  const signatureSpacingPt = pxToPt(options.signatureSpacing || 40);
   
   const paddingTop = mmToPt(options.paddingTop || 28);
   const paddingSide = mmToPt(options.paddingSide || 24);
@@ -17,9 +33,9 @@ export function AtsCvDocument({ cv, options }: { cv: any; options: any }) {
   const cvStyles = StyleSheet.create({
     page: {
       backgroundColor: '#ffffff',
-      fontFamily: 'Helvetica',
-      fontSize: fontSize,
-      lineHeight: 1.5,
+      fontFamily: 'Inter',
+      fontSize: baseFontSizePt,
+      lineHeight: 1.25, // Adjusted to match browser vertical rhythm (corresponds to browser 1.55 CSS line-height)
       color: '#1F2937',
       paddingTop: paddingTop,
       paddingLeft: paddingSide,
@@ -29,110 +45,114 @@ export function AtsCvDocument({ cv, options }: { cv: any; options: any }) {
     headerRow: {
       flexDirection: 'column',
       alignItems: 'flex-start',
-      marginBottom: bulletSpacing,
+      marginBottom: bulletSpacingPt,
     },
     fullName: {
-      fontSize: 24,
-      fontFamily: 'Helvetica-Bold',
+      fontSize: pxToPt(24),
+      fontFamily: 'Inter',
+      fontWeight: 700,
       color: '#1F2937',
     },
     occupation: {
-      fontSize: 13,
-      fontFamily: 'Helvetica-Bold',
+      fontSize: pxToPt(13),
+      fontFamily: 'Inter',
+      fontWeight: 700,
       color: '#2980B9',
       marginTop: 2,
     },
     contactBlock: {
-      marginTop: sectionSpacing * 0.4,
-      marginBottom: sectionSpacing * 0.5,
+      marginTop: headerSpacingPt,
+      marginBottom: sectionSpacingPt * 0.5,
       borderBottomWidth: 1,
       borderBottomColor: '#CBD5E1',
       paddingBottom: 8,
       width: '100%',
     },
     contactGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
+      flexDirection: 'column',
       width: '100%',
     },
     contactItem: {
-      width: '50%',
-      fontSize: fontSize - 0.5,
-      marginBottom: bulletSpacing * 0.5,
+      fontSize: baseFontSizePt - pxToPt(0.5),
+      marginBottom: bulletSpacingPt * 0.5,
       flexDirection: 'row',
     },
     contactLabel: {
-      fontFamily: 'Helvetica-Bold',
+      fontFamily: 'Inter',
+      fontWeight: 700,
     },
     contactVal: {
       color: '#374151',
     },
     sectionTitleContainer: {
-      marginTop: sectionSpacing * 0.6,
-      marginBottom: sectionSpacing * 0.3,
+      marginTop: sectionSpacingPt * 0.6,
+      marginBottom: sectionSpacingPt * 0.3,
       borderBottomWidth: 1,
       borderBottomColor: '#CBD5E1',
       paddingBottom: 2,
     },
     sectionTitleText: {
-      fontSize: 14,
-      fontFamily: 'Helvetica-Bold',
+      fontSize: pxToPt(15),
+      fontFamily: 'Inter',
+      fontWeight: 700,
       letterSpacing: 2,
     },
     summaryText: {
-      fontSize: fontSize,
-      lineHeight: 1.55,
+      fontSize: baseFontSizePt,
+      lineHeight: 1.25,
       color: '#374151',
     },
-    // Flex direction: column to ensure vertical chronological reading flow
     entryBlock: {
       flexDirection: 'column',
-      marginBottom: bulletSpacing * 1.5,
+      marginBottom: bulletSpacingPt * 1.5,
       width: '100%',
     },
     dateText: {
-      fontSize: fontSize - 0.5,
-      fontFamily: 'Helvetica-Bold',
+      fontSize: baseFontSizePt - pxToPt(0.5),
+      fontFamily: 'Inter',
+      fontWeight: 700,
       color: '#6B7280',
       marginBottom: 2,
     },
     roleName: {
-      fontSize: fontSize + 0.5,
-      fontFamily: 'Helvetica-Bold',
+      fontSize: baseFontSizePt + pxToPt(0.5),
+      fontFamily: 'Inter',
+      fontWeight: 700,
       color: '#2980B9',
     },
     companyName: {
-      fontSize: fontSize - 0.5,
+      fontSize: baseFontSizePt - pxToPt(0.5),
       color: '#4B5563',
       marginTop: 1,
     },
     bulletList: {
-      marginTop: bulletSpacing * 0.35,
+      marginTop: bulletSpacingPt * 0.35,
     },
     bulletItem: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      marginTop: bulletSpacing,
+      marginTop: bulletSpacingPt,
     },
     bulletDot: {
       width: 10,
-      fontSize: fontSize,
+      fontSize: baseFontSizePt,
       color: '#6B7280',
     },
     bulletText: {
       flex: 1,
-      fontSize: fontSize,
-      lineHeight: 1.45,
+      fontSize: baseFontSizePt,
+      lineHeight: 1.25,
       color: '#374151',
     },
     signatureBlock: {
-      marginTop: sectionSpacing,
-      fontSize: fontSize - 0.5,
+      marginTop: signatureSpacingPt,
+      fontSize: baseFontSizePt - pxToPt(0.5),
       color: '#4B5563',
     },
     signatureName: {
       marginTop: 12,
-      fontFamily: 'Helvetica-Bold',
+      fontFamily: 'Inter',
+      fontWeight: 700,
       color: '#374151',
     }
   });
@@ -146,7 +166,7 @@ export function AtsCvDocument({ cv, options }: { cv: any; options: any }) {
           <Text style={cvStyles.occupation}>{cv.personalDetails?.occupation || ''}</Text>
         </View>
 
-        {/* Contact details wrapped as a single, unified view container before profile summary */}
+        {/* Contact Details */}
         <View style={cvStyles.contactBlock}>
           <View style={cvStyles.contactGrid}>
             {cv.personalDetails?.address && (
@@ -210,7 +230,7 @@ export function AtsCvDocument({ cv, options }: { cv: any; options: any }) {
           </View>
         )}
 
-        {/* Work History - Self-contained vertical entries to maintain timeline reading order */}
+        {/* Work History */}
         {cv.workExperience && cv.workExperience.length > 0 && (
           <View>
             <View style={cvStyles.sectionTitleContainer}>
@@ -247,7 +267,7 @@ export function AtsCvDocument({ cv, options }: { cv: any; options: any }) {
           </View>
         )}
 
-        {/* Education - Self-contained vertical entries to maintain timeline reading order */}
+        {/* Education */}
         {cv.education && cv.education.length > 0 && (
           <View>
             <View style={cvStyles.sectionTitleContainer}>
@@ -274,7 +294,7 @@ export function AtsCvDocument({ cv, options }: { cv: any; options: any }) {
             <View style={{ flexDirection: 'column' }}>
               {cv.skills.map((skill: any, idx: number) => (
                 <View key={idx} style={{ marginBottom: 4, flexDirection: 'row' }}>
-                  <Text style={{ fontFamily: 'Helvetica-Bold' }}>• {skill.name}: </Text>
+                  <Text style={{ fontFamily: 'Inter', fontWeight: 700 }}>• {skill.name}: </Text>
                   <Text style={{ color: '#4B5563' }}>{skill.level}</Text>
                 </View>
               ))}
@@ -291,7 +311,7 @@ export function AtsCvDocument({ cv, options }: { cv: any; options: any }) {
             <View style={{ flexDirection: 'column' }}>
               {cv.languages.map((lang: any, idx: number) => (
                 <View key={idx} style={{ marginBottom: 4, flexDirection: 'row' }}>
-                  <Text style={{ fontFamily: 'Helvetica-Bold' }}>• {lang.language}: </Text>
+                  <Text style={{ fontFamily: 'Inter', fontWeight: 700 }}>• {lang.language}: </Text>
                   <Text style={{ color: '#4B5563' }}>{lang.level}</Text>
                 </View>
               ))}
@@ -313,36 +333,39 @@ export function AtsCvDocument({ cv, options }: { cv: any; options: any }) {
 
 // ATS-Optimized Cover Letter Document Component
 export function AtsClDocument({ cl, options }: { cl: any; options: any }) {
+  const clFontSizePt = pxToPt(11.5);
   const clStyles = StyleSheet.create({
     page: {
       paddingTop: 90,
       paddingLeft: 79,
       paddingRight: 79,
       paddingBottom: 68,
-      fontFamily: 'Helvetica',
-      fontSize: 11,
-      lineHeight: 1.6,
+      fontFamily: 'Inter',
+      fontSize: clFontSizePt,
+      lineHeight: 1.35, // Adjusted to match browser vertical rhythm (corresponds to browser 1.65 CSS line-height)
       color: '#1A1A1A',
     },
     senderBlock: {
       textAlign: 'left', // ATS friendly left aligned sender
       marginBottom: 20,
-      fontSize: 10,
+      fontSize: pxToPt(10),
       color: '#4B5563',
     },
     recipientBlock: {
       marginBottom: 20,
-      fontSize: 10.5,
-      lineHeight: 1.5,
+      fontSize: pxToPt(10.5),
+      lineHeight: 1.35,
     },
     dateLine: {
       textAlign: 'left',
       marginBottom: 20,
-      fontFamily: 'Helvetica-Bold',
+      fontFamily: 'Inter',
+      fontWeight: 700,
     },
     subjectLine: {
-      fontSize: 12,
-      fontFamily: 'Helvetica-Bold',
+      fontSize: pxToPt(12),
+      fontFamily: 'Inter',
+      fontWeight: 700,
       marginBottom: 20,
       textDecoration: 'underline',
     },
@@ -355,11 +378,12 @@ export function AtsClDocument({ cl, options }: { cl: any; options: any }) {
     },
     closingBlock: {
       marginTop: 24,
-      lineHeight: 1.5,
+      lineHeight: 1.35,
     },
     signatureName: {
       marginTop: 36,
-      fontFamily: 'Helvetica-Bold',
+      fontFamily: 'Inter',
+      fontWeight: 700,
     }
   });
 
