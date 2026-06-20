@@ -186,12 +186,17 @@ ${lengthDirective}
    
 ${strategyDirective}
 
+5. DETERMINISTIC MATCH SCORE RULE:
+   - Do NOT calculate or output a match score or percentage yourself. 
+   - You are only responsible for listing the specific semantic keyword categorization in the arrays: exactMatches, adjacentMatches, and missingSkills. 
+   - The final score will be calculated programmatically on the backend.
+
 You must respond with a raw JSON object containing these exact keys:
 {
-  "matchScore": <number between 0 and 100>,
   "gapAnalysis": {
-    "missingSkills": [<array of strings of skills mentioned in JD but missing in profile>],
-    "matchingKeywords": [<array of strings of key skills/keywords that align between profile and JD>],
+    "exactMatches": [<array of strings of skills/keywords that match exactly between profile and JD>],
+    "adjacentMatches": [<array of strings of adjacent/transferable skills that align between profile and JD>],
+    "missingSkills": [<array of strings of skills/requirements mentioned in JD but missing in profile>],
     "recommendations": "<detailed and elaborate analysis of user suitability for the role. Highlight their Positives (e.g. strong matches, years of experience, relevant tech stacks, certifications, exceed requirements) and their Negatives (critical skill gaps, missing tools/methods, or areas they may face pushback). Use clear bullet points and headings within the text in markdown format (### Positives\\n- ...\\n\\n### Negatives\\n- ...\\n\\n### Actionable Advice\\n...).>"
   },
   "tailoredCv": {
@@ -268,6 +273,30 @@ ${contextStr}`
     const resJson = await response.json();
     const generatedText = resJson.choices[0].message.content;
     const tailoredResult = JSON.parse(generatedText);
+
+    // Deterministically calculate match score from exact, adjacent, and missing skills
+    const exactMatches = tailoredResult.gapAnalysis?.exactMatches || [];
+    const adjacentMatches = tailoredResult.gapAnalysis?.adjacentMatches || [];
+    const missingSkills = tailoredResult.gapAnalysis?.missingSkills || [];
+
+    const we = 1.0;
+    const wa = 0.5;
+    const wm = 1.0;
+
+    const numerator = we * exactMatches.length + wa * adjacentMatches.length;
+    const denominator = numerator + wm * missingSkills.length;
+
+    let calculatedScore = 100;
+    if (denominator > 0) {
+      calculatedScore = Math.round((numerator / denominator) * 100);
+    }
+
+    tailoredResult.matchScore = calculatedScore;
+
+    // Maintain backwards compatibility with UI mapping
+    if (tailoredResult.gapAnalysis) {
+      tailoredResult.gapAnalysis.matchingKeywords = [...exactMatches, ...adjacentMatches];
+    }
 
     // Merge static fields back into the tailored CV response to conserve tokens
     const personalDetails = {
