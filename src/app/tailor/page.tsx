@@ -1304,26 +1304,115 @@ export default function TailorWorkspace() {
     
     try {
       setLoading(true);
+      const isCv = type === 'cv';
+      let pagesHtml = '';
+
+      if (isCv) {
+        const pageElements = document.querySelectorAll('.cv-page-box');
+        pageElements.forEach((pageEl) => {
+          const clone = pageEl.cloneNode(true) as HTMLElement;
+          clone.querySelectorAll('.no-print').forEach(el => el.remove());
+          
+          // Wrap cloned content in a print-page container to guarantee margins/padding
+          const printPage = document.createElement('div');
+          printPage.className = 'print-page';
+          printPage.setAttribute('style', `
+            width: 210mm !important;
+            height: 297mm !important;
+            padding: ${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm !important;
+            box-sizing: border-box !important;
+            page-break-after: always !important;
+            background-color: #FFFFFF !important;
+            position: relative !important;
+            font-family: "Inter", "Calibri", "Segoe UI", system-ui, sans-serif !important;
+            font-size: ${fontSize}px !important;
+            line-height: 1.55 !important;
+            color: #1F2937 !important;
+            overflow: hidden !important;
+          `);
+          printPage.innerHTML = clone.innerHTML;
+          pagesHtml += printPage.outerHTML;
+        });
+      } else {
+        const clSheet = document.getElementById('cl-sheet');
+        if (clSheet) {
+          const clone = clSheet.cloneNode(true) as HTMLElement;
+          clone.querySelectorAll('.no-print').forEach(el => el.remove());
+          
+          const printPage = document.createElement('div');
+          printPage.className = 'print-page';
+          printPage.setAttribute('style', `
+            width: 210mm !important;
+            height: 297mm !important;
+            padding: 32mm 28mm 24mm 28mm !important;
+            box-sizing: border-box !important;
+            page-break-after: always !important;
+            background-color: #FFFFFF !important;
+            position: relative !important;
+            font-family: "Inter", "Calibri", "Segoe UI", system-ui, sans-serif !important;
+            font-size: 11.5px !important;
+            line-height: 1.65 !important;
+            color: #1A1A1A !important;
+            overflow: hidden !important;
+          `);
+          printPage.innerHTML = clone.innerHTML;
+          pagesHtml += printPage.outerHTML;
+        }
+      }
+
+      if (!pagesHtml) return;
+
+      // Copy stylesheet and font links from parent
+      let stylesHtml = '';
+      document.querySelectorAll('style, link[rel="stylesheet"]').forEach(el => {
+        stylesHtml += el.outerHTML;
+      });
+
+      // Construct the full HTML document string
+      const fullHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>${isCv ? 'Resume' : 'Cover_Letter'}</title>
+          <meta charset="utf-8">
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+          ${stylesHtml}
+          <style>
+            * {
+              box-sizing: border-box;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              -webkit-user-select: text !important;
+              user-select: text !important;
+            }
+            body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background-color: #FFFFFF !important;
+            }
+            .print-page:last-child {
+              page-break-after: avoid !important;
+            }
+            @page {
+              size: A4;
+              margin: 0 !important;
+            }
+          </style>
+        </head>
+        <body>
+          ${pagesHtml}
+        </body>
+        </html>
+      `;
+
       const response = await fetch('/api/export-pdf', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          type,
-          data: result,
-          options: {
-            fontSize,
-            bulletSpacing,
-            sectionSpacing,
-            paddingTop: pagePaddingTop,
-            paddingSide: pagePaddingSide,
-            paddingBottom: pagePaddingBottom,
-            bulletStyle,
-            lengthTarget,
-            clLength,
-          },
-        }),
+        body: JSON.stringify({ html: fullHtml }),
       });
 
       if (!response.ok) {

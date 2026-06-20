@@ -1,484 +1,58 @@
-import { renderToStream, Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import { NextResponse } from 'next/server';
+import puppeteer from 'puppeteer';
 import { getAuthUserId } from '@/lib/auth';
 
 export async function POST(req: Request) {
+  let browser;
   try {
     const auth = await getAuthUserId();
     if ('error' in auth) return auth.error;
 
-    const { type, data, options = {} } = await req.json();
+    const { html } = await req.json();
 
-    if (!type || !data) {
-      return NextResponse.json({ error: 'Missing required parameters type or data' }, { status: 400 });
+    if (!html) {
+      return NextResponse.json({ error: 'Missing required parameter: html' }, { status: 400 });
     }
 
-    let docElement;
-    if (type === 'cv') {
-      docElement = <CvDocument cv={data.tailoredCv} options={options} />;
-    } else if (type === 'cl') {
-      docElement = <ClDocument cl={data.tailoredCoverLetter} options={options} />;
-    } else {
-      return NextResponse.json({ error: 'Invalid document type. Must be "cv" or "cl"' }, { status: 400 });
-    }
+    // Launch headless chromium
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security']
+    });
 
-    const stream = await renderToStream(docElement);
+    const page = await browser.newPage();
+    
+    // Set exact content
+    await page.setContent(html, { waitUntil: 'networkidle0' as any });
 
-    return new NextResponse(stream as any, {
+    // Wait for web fonts to load
+    await page.evaluateHandle('document.fonts.ready');
+
+    // Generate PDF with A4 formatting
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
+      preferCSSPageSize: true
+    });
+
+    return new NextResponse(Buffer.from(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${type === 'cv' ? 'Resume.pdf' : 'Cover_Letter.pdf'}"`,
+        'Content-Disposition': 'attachment; filename="document.pdf"',
       },
     });
   } catch (error: any) {
-    console.error('PDF Export API Error:', error);
+    console.error('Puppeteer PDF generation error:', error);
     return NextResponse.json({ error: error.message || 'An error occurred during PDF generation' }, { status: 500 });
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
   }
-}
-
-// Helper to convert mm to pt
-const mmToPt = (mm: number) => mm * 2.83465;
-
-// CV Document Component
-function CvDocument({ cv, options }: { cv: any; options: any }) {
-  const fontSize = options.fontSize || 11;
-  const bulletSpacing = options.bulletSpacing || 6;
-  const sectionSpacing = options.sectionSpacing || 16;
-  
-  const paddingTop = mmToPt(options.paddingTop || 28);
-  const paddingSide = mmToPt(options.paddingSide || 24);
-  const paddingBottom = mmToPt(options.paddingBottom || 20);
-
-  const cvStyles = StyleSheet.create({
-    page: {
-      backgroundColor: '#ffffff',
-      fontFamily: 'Helvetica',
-      fontSize: fontSize,
-      lineHeight: 1.5,
-      color: '#1F2937',
-      paddingTop: paddingTop,
-      paddingLeft: paddingSide,
-      paddingRight: paddingSide,
-      paddingBottom: paddingBottom,
-    },
-    headerRow: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      marginBottom: bulletSpacing,
-    },
-    nameCol: {
-      flex: 1,
-    },
-    fullName: {
-      fontSize: 24,
-      fontFamily: 'Helvetica-Bold',
-      color: '#1F2937',
-    },
-    occupation: {
-      fontSize: 13,
-      fontFamily: 'Helvetica-Bold',
-      color: '#2980B9',
-      marginTop: 2,
-    },
-    photoBox: {
-      width: 72,
-      height: 88,
-      border: '1px solid #D1D5DB',
-      borderRadius: 2,
-      backgroundColor: '#E5E7EB',
-      marginLeft: 16,
-      overflow: 'hidden',
-    },
-    photoImage: {
-      width: '100%',
-      height: '100%',
-      objectFit: 'cover',
-    },
-    photoPlaceholder: {
-      width: '100%',
-      height: '100%',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    photoText: {
-      fontSize: 9,
-      color: '#9CA3AF',
-    },
-    contactGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      marginTop: sectionSpacing * 0.4,
-      marginBottom: sectionSpacing * 0.5,
-    },
-    contactItem: {
-      width: '50%',
-      fontSize: fontSize - 0.5,
-      marginBottom: bulletSpacing * 0.5,
-      flexDirection: 'row',
-    },
-    contactLabel: {
-      fontFamily: 'Helvetica-Bold',
-    },
-    contactVal: {
-      color: '#374151',
-    },
-    sectionTitleContainer: {
-      marginTop: sectionSpacing * 0.4,
-      marginBottom: sectionSpacing * 0.3,
-      borderBottomWidth: 1,
-      borderBottomColor: '#CBD5E1',
-      paddingBottom: 2,
-    },
-    sectionTitleText: {
-      fontSize: 14,
-      fontFamily: 'Helvetica-Bold',
-      letterSpacing: 2,
-    },
-    summaryText: {
-      fontSize: fontSize,
-      lineHeight: 1.55,
-      color: '#374151',
-    },
-    tableRow: {
-      flexDirection: 'row',
-      marginBottom: bulletSpacing,
-    },
-    dateCell: {
-      width: '28%',
-      paddingRight: 12,
-      fontSize: fontSize - 0.5,
-      color: '#6B7280',
-    },
-    contentCell: {
-      width: '72%',
-    },
-    roleName: {
-      fontSize: fontSize + 0.5,
-      fontFamily: 'Helvetica-Bold',
-      color: '#2980B9',
-    },
-    companyName: {
-      fontSize: fontSize - 0.5,
-      color: '#4B5563',
-      marginTop: 1,
-    },
-    bulletList: {
-      marginTop: bulletSpacing * 0.35,
-    },
-    bulletItem: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      marginTop: bulletSpacing,
-    },
-    bulletDot: {
-      width: 10,
-      fontSize: fontSize,
-      color: '#6B7280',
-    },
-    bulletText: {
-      flex: 1,
-      fontSize: fontSize,
-      lineHeight: 1.45,
-      color: '#374151',
-    },
-    signatureBlock: {
-      marginTop: sectionSpacing,
-      fontSize: fontSize - 0.5,
-      color: '#4B5563',
-    },
-    signatureName: {
-      marginTop: 12,
-      fontFamily: 'Helvetica-Bold',
-      color: '#374151',
-    }
-  });
-
-  return (
-    <Document>
-      <Page size="A4" style={cvStyles.page}>
-        {/* Header */}
-        <View style={cvStyles.headerRow}>
-          <View style={cvStyles.nameCol}>
-            <Text style={cvStyles.fullName}>{cv.personalDetails?.fullName || ''}</Text>
-            <Text style={cvStyles.occupation}>{cv.personalDetails?.occupation || ''}</Text>
-          </View>
-          {cv.personalDetails?.photo ? (
-            <View style={cvStyles.photoBox}>
-              <Image src={cv.personalDetails.photo} style={cvStyles.photoImage} />
-            </View>
-          ) : (
-            <View style={cvStyles.photoBox}>
-              <View style={cvStyles.photoPlaceholder}>
-                <Text style={cvStyles.photoText}>Photo</Text>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Contact Grid */}
-        <View style={cvStyles.contactGrid}>
-          {cv.personalDetails?.address && (
-            <View style={cvStyles.contactItem}>
-              <Text style={cvStyles.contactLabel}>Address: </Text>
-              <Text style={cvStyles.contactVal}>{cv.personalDetails.address}</Text>
-            </View>
-          )}
-          {cv.personalDetails?.phone && (
-            <View style={cvStyles.contactItem}>
-              <Text style={cvStyles.contactLabel}>Phone: </Text>
-              <Text style={cvStyles.contactVal}>{cv.personalDetails.phone}</Text>
-            </View>
-          )}
-          {cv.personalDetails?.email && (
-            <View style={cvStyles.contactItem}>
-              <Text style={cvStyles.contactLabel}>Email: </Text>
-              <Text style={cvStyles.contactVal}>{cv.personalDetails.email}</Text>
-            </View>
-          )}
-          {cv.personalDetails?.dateOfBirth && (
-            <View style={cvStyles.contactItem}>
-              <Text style={cvStyles.contactLabel}>DOB: </Text>
-              <Text style={cvStyles.contactVal}>{cv.personalDetails.dateOfBirth}</Text>
-            </View>
-          )}
-          {cv.personalDetails?.nationality && (
-            <View style={cvStyles.contactItem}>
-              <Text style={cvStyles.contactLabel}>Nationality: </Text>
-              <Text style={cvStyles.contactVal}>{cv.personalDetails.nationality}</Text>
-            </View>
-          )}
-          {cv.personalDetails?.linkedin && (
-            <View style={cvStyles.contactItem}>
-              <Text style={cvStyles.contactLabel}>LinkedIn: </Text>
-              <Text style={cvStyles.contactVal}>{cv.personalDetails.linkedin}</Text>
-            </View>
-          )}
-          {cv.personalDetails?.website && (
-            <View style={cvStyles.contactItem}>
-              <Text style={cvStyles.contactLabel}>Website: </Text>
-              <Text style={cvStyles.contactVal}>{cv.personalDetails.website}</Text>
-            </View>
-          )}
-          {cv.personalDetails?.github && (
-            <View style={cvStyles.contactItem}>
-              <Text style={cvStyles.contactLabel}>Github: </Text>
-              <Text style={cvStyles.contactVal}>{cv.personalDetails.github}</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Summary */}
-        {cv.summary && (
-          <View>
-            <View style={cvStyles.sectionTitleContainer}>
-              <Text style={cvStyles.sectionTitleText}>PROFESSIONAL PROFILE</Text>
-            </View>
-            <Text style={cvStyles.summaryText}>{cv.summary.replace(/<[^>]*>/g, '')}</Text>
-          </View>
-        )}
-
-        {/* Work History */}
-        {cv.workExperience && cv.workExperience.length > 0 && (
-          <View>
-            <View style={cvStyles.sectionTitleContainer}>
-              <Text style={cvStyles.sectionTitleText}>WORK HISTORY</Text>
-            </View>
-            {cv.workExperience.map((exp: any, idx: number) => {
-              // Get standard/star/punchy bullets based on option, fallback to standard array
-              let bulletsList: string[] = [];
-              if (exp.bullets) {
-                if (Array.isArray(exp.bullets)) {
-                  bulletsList = exp.bullets;
-                } else {
-                  const styleKey = options.bulletStyle === 'STAR Method' ? 'star' : options.bulletStyle === 'Short & Punchy' ? 'punchy' : 'standard';
-                  bulletsList = exp.bullets[styleKey] || exp.bullets.standard || [];
-                }
-              }
-              return (
-                <View key={idx} style={cvStyles.tableRow}>
-                  <Text style={cvStyles.dateCell}>{exp.period}</Text>
-                  <View style={cvStyles.contentCell}>
-                    <Text style={cvStyles.roleName}>{exp.role}</Text>
-                    <Text style={cvStyles.companyName}>
-                      {exp.company} {exp.location ? `– ${exp.location}` : ''}
-                    </Text>
-                    <View style={cvStyles.bulletList}>
-                      {bulletsList.map((bullet: string, bIdx: number) => (
-                        <View key={bIdx} style={cvStyles.bulletItem}>
-                          <Text style={cvStyles.bulletDot}>•</Text>
-                          <Text style={cvStyles.bulletText}>{bullet.replace(/<[^>]*>/g, '')}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        )}
-
-        {/* Education */}
-        {cv.education && cv.education.length > 0 && (
-          <View>
-            <View style={cvStyles.sectionTitleContainer}>
-              <Text style={cvStyles.sectionTitleText}>EDUCATION</Text>
-            </View>
-            {cv.education.map((edu: any, idx: number) => (
-              <View key={idx} style={cvStyles.tableRow}>
-                <Text style={cvStyles.dateCell}>{edu.period}</Text>
-                <View style={cvStyles.contentCell}>
-                  <Text style={cvStyles.roleName}>{edu.degree}</Text>
-                  <Text style={cvStyles.companyName}>
-                    {edu.institution} {edu.location ? `– ${edu.location}` : ''}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Skills */}
-        {cv.skills && cv.skills.length > 0 && (
-          <View>
-            <View style={cvStyles.sectionTitleContainer}>
-              <Text style={cvStyles.sectionTitleText}>ADDITIONAL SKILLS</Text>
-            </View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-              {cv.skills.map((skill: any, idx: number) => (
-                <View key={idx} style={{ width: '50%', marginBottom: 4, flexDirection: 'row' }}>
-                  <Text style={{ fontFamily: 'Helvetica-Bold' }}>{skill.name}: </Text>
-                  <Text style={{ color: '#4B5563' }}>{skill.level}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Languages */}
-        {cv.languages && cv.languages.length > 0 && (
-          <View>
-            <View style={cvStyles.sectionTitleContainer}>
-              <Text style={{ ...cvStyles.sectionTitleText, marginTop: 8 }}>LANGUAGES</Text>
-            </View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-              {cv.languages.map((lang: any, idx: number) => (
-                <View key={idx} style={{ width: '50%', marginBottom: 4, flexDirection: 'row' }}>
-                  <Text style={{ fontFamily: 'Helvetica-Bold' }}>{lang.language}: </Text>
-                  <Text style={{ color: '#4B5563' }}>{lang.level}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Signature */}
-        {cv.signingLine ? (
-          <View style={cvStyles.signatureBlock}>
-            <Text>{cv.signingLine}</Text>
-            <Text style={cvStyles.signatureName}>{cv.personalDetails?.fullName || ''}</Text>
-          </View>
-        ) : null}
-      </Page>
-    </Document>
-  );
-}
-
-// Cover Letter Document Component
-function ClDocument({ cl, options }: { cl: any; options: any }) {
-  const clStyles = StyleSheet.create({
-    page: {
-      paddingTop: 90, // approx 32mm
-      paddingLeft: 79, // approx 28mm
-      paddingRight: 79,
-      paddingBottom: 68, // approx 24mm
-      fontFamily: 'Helvetica',
-      fontSize: 11,
-      lineHeight: 1.6,
-      color: '#1A1A1A',
-    },
-    senderBlock: {
-      textAlign: 'right',
-      marginBottom: 30,
-      fontSize: 10,
-      color: '#4B5563',
-    },
-    recipientBlock: {
-      marginBottom: 30,
-      fontSize: 10.5,
-      lineHeight: 1.5,
-    },
-    dateLine: {
-      textAlign: 'right',
-      marginBottom: 20,
-      fontFamily: 'Helvetica-Bold',
-    },
-    subjectLine: {
-      fontSize: 12,
-      fontFamily: 'Helvetica-Bold',
-      marginBottom: 24,
-      textDecoration: 'underline',
-    },
-    salutation: {
-      marginBottom: 16,
-    },
-    paragraph: {
-      marginBottom: 14,
-      textAlign: 'justify',
-    },
-    closingBlock: {
-      marginTop: 24,
-      lineHeight: 1.5,
-    },
-    signatureName: {
-      marginTop: 36,
-      fontFamily: 'Helvetica-Bold',
-    }
-  });
-
-  // Get paragraph layout short or detailed
-  const layout = options.clLength === 'Short & Punchy (under 300 words)' ? 'short' : 'detailed';
-  const paragraphs: string[] = cl.paragraphs?.[layout] || cl.paragraphs?.short || [];
-
-  return (
-    <Document>
-      <Page size="A4" style={clStyles.page}>
-        {/* Sender details */}
-        {cl.senderAddress && (
-          <Text style={clStyles.senderBlock}>{cl.senderAddress}</Text>
-        )}
-
-        {/* Recipient details */}
-        {cl.recipientAddress && (
-          <Text style={clStyles.recipientBlock}>{cl.recipientAddress}</Text>
-        )}
-
-        {/* Date block */}
-        {cl.dateLine && (
-          <Text style={clStyles.dateLine}>{cl.dateLine}</Text>
-        )}
-
-        {/* Subject line */}
-        {cl.subjectLine && (
-          <Text style={clStyles.subjectLine}>{cl.subjectLine}</Text>
-        )}
-
-        {/* Salutation */}
-        {cl.salutation && (
-          <Text style={clStyles.salutation}>{cl.salutation}</Text>
-        )}
-
-        {/* Paragraphs */}
-        {paragraphs.map((p: string, idx: number) => (
-          <Text key={idx} style={clStyles.paragraph}>{p}</Text>
-        ))}
-
-        {/* Closing */}
-        <View style={clStyles.closingBlock}>
-          <Text>{cl.closing || 'Mit freundlichen Grüßen,'}</Text>
-          <Text style={clStyles.signatureName}>{cl.signatureName || ''}</Text>
-        </View>
-      </Page>
-    </Document>
-  );
 }
