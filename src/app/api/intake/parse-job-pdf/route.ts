@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
+import 'pdf-parse/worker';
 import { PDFParse } from 'pdf-parse';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
