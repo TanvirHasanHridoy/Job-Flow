@@ -1313,25 +1313,17 @@ export default function TailorWorkspace() {
           const clone = pageEl.cloneNode(true) as HTMLElement;
           clone.querySelectorAll('.no-print').forEach(el => el.remove());
           
-          // Wrap cloned content in a print-page container to guarantee margins/padding
-          const printPage = document.createElement('div');
-          printPage.className = 'print-page';
-          printPage.setAttribute('style', `
-            width: 210mm !important;
-            height: 297mm !important;
-            padding: ${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm !important;
-            box-sizing: border-box !important;
-            page-break-after: always !important;
-            background-color: #FFFFFF !important;
-            position: relative !important;
-            font-family: "Inter", "Calibri", "Segoe UI", system-ui, sans-serif !important;
-            font-size: ${fontSize}px !important;
-            line-height: 1.55 !important;
-            color: #1F2937 !important;
-            overflow: hidden !important;
-          `);
-          printPage.innerHTML = clone.innerHTML;
-          pagesHtml += printPage.outerHTML;
+          // Reset styling properties so it prints at 100% scale (A4 size) exactly as visually designed
+          clone.style.transform = 'none';
+          clone.style.transformOrigin = 'initial';
+          clone.style.margin = '0 auto';
+          clone.style.boxShadow = 'none';
+          clone.style.borderRadius = '0';
+          clone.style.border = 'none';
+          clone.style.width = '210mm';
+          clone.style.height = '297mm';
+          
+          pagesHtml += clone.outerHTML;
         });
       } else {
         const clSheet = document.getElementById('cl-sheet');
@@ -1339,34 +1331,47 @@ export default function TailorWorkspace() {
           const clone = clSheet.cloneNode(true) as HTMLElement;
           clone.querySelectorAll('.no-print').forEach(el => el.remove());
           
-          const printPage = document.createElement('div');
-          printPage.className = 'print-page';
-          printPage.setAttribute('style', `
-            width: 210mm !important;
-            height: 297mm !important;
-            padding: 32mm 28mm 24mm 28mm !important;
-            box-sizing: border-box !important;
-            page-break-after: always !important;
-            background-color: #FFFFFF !important;
-            position: relative !important;
-            font-family: "Inter", "Calibri", "Segoe UI", system-ui, sans-serif !important;
-            font-size: 11.5px !important;
-            line-height: 1.65 !important;
-            color: #1A1A1A !important;
-            overflow: hidden !important;
-          `);
-          printPage.innerHTML = clone.innerHTML;
-          pagesHtml += printPage.outerHTML;
+          // Reset styling properties so it prints at 100% scale (A4 size)
+          clone.style.transform = 'none';
+          clone.style.transformOrigin = 'initial';
+          clone.style.margin = '0 auto';
+          clone.style.boxShadow = 'none';
+          clone.style.borderRadius = '0';
+          clone.style.border = 'none';
+          clone.style.width = '210mm';
+          clone.style.height = '297mm';
+          
+          pagesHtml += clone.outerHTML;
         }
       }
 
       if (!pagesHtml) return;
 
-      // Copy stylesheet and font links from parent
+      // Extract and package all active stylesheet rules in memory to guarantee visual parity
       let stylesHtml = '';
-      document.querySelectorAll('style, link[rel="stylesheet"]').forEach(el => {
-        stylesHtml += el.outerHTML;
-      });
+      try {
+        const sheets = Array.from(document.styleSheets);
+        sheets.forEach((sheet) => {
+          try {
+            const rules = sheet.cssRules || sheet.rules;
+            if (rules) {
+              let sheetCss = '';
+              Array.from(rules).forEach((rule) => {
+                sheetCss += rule.cssText + '\n';
+              });
+              stylesHtml += `<style>${sheetCss}</style>\n`;
+            }
+          } catch (err) {
+            // For cross-origin/external stylesheets, resolve relative URLs to absolute links
+            if (sheet.href) {
+              const href = sheet.href.startsWith('/') ? `${window.location.origin}${sheet.href}` : sheet.href;
+              stylesHtml += `<link rel="stylesheet" href="${href}">\n`;
+            }
+          }
+        });
+      } catch (e) {
+        console.error('Error gathering stylesheets:', e);
+      }
 
       // Construct the full HTML document string
       const fullHtml = `
@@ -1391,9 +1396,6 @@ export default function TailorWorkspace() {
               margin: 0 !important;
               padding: 0 !important;
               background-color: #FFFFFF !important;
-            }
-            .print-page:last-child {
-              page-break-after: avoid !important;
             }
             @page {
               size: A4;
