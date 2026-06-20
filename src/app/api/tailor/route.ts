@@ -288,11 +288,13 @@ ${contextStr}`
     };
 
     const mergedWorkExperience = tailoredResult.tailoredCv?.workExperience
-      ? tailoredResult.tailoredCv.workExperience.map((tailoredJob: any) => {
-          // Find matching original job from user profile by company name
+      ? tailoredResult.tailoredCv.workExperience.map((tailoredJob: any, idx: number) => {
+          // Find matching original job from user profile by company name or fallback to index
           const originalJob = parsedWorkExp.find(
-            (j: any) => j.company.toLowerCase() === tailoredJob.company.toLowerCase()
-          ) || {};
+            (j: any) => j.company.toLowerCase() === tailoredJob.company.toLowerCase() ||
+                        j.company.toLowerCase().includes(tailoredJob.company.toLowerCase()) ||
+                        tailoredJob.company.toLowerCase().includes(j.company.toLowerCase())
+          ) || parsedWorkExp[idx] || {};
 
           let bullets = tailoredJob.bullets;
           if (!bullets) {
@@ -310,8 +312,16 @@ ${contextStr}`
             };
           }
 
-          const period = originalJob.startDate && originalJob.endDate
-            ? `${originalJob.startDate} – ${originalJob.endDate}`
+          const isCurrent = originalJob.current === true || 
+                            originalJob.current === 'true' || 
+                            !originalJob.endDate || 
+                            originalJob.endDate.trim() === '' || 
+                            originalJob.endDate.toLowerCase() === 'present';
+
+          const period = originalJob.startDate
+            ? (isCurrent
+                ? `${originalJob.startDate} – ${cvLanguage === 'DE' ? 'heute' : 'Present'}`
+                : `${originalJob.startDate} – ${originalJob.endDate}`)
             : originalJob.period || tailoredJob.period || '';
 
           return {
@@ -324,12 +334,22 @@ ${contextStr}`
         })
       : [];
 
-    const mergedEducation = parsedEdu.map((edu: any) => ({
-      ...edu,
-      period: edu.startDate && edu.endDate
-        ? `${edu.startDate} – ${edu.endDate}`
-        : edu.period || ''
-    }));
+    const mergedEducation = parsedEdu.map((edu: any) => {
+      const isCurrent = edu.current === true || 
+                        edu.current === 'true' || 
+                        !edu.endDate || 
+                        edu.endDate.trim() === '' || 
+                        edu.endDate.toLowerCase() === 'present';
+      const period = edu.startDate
+        ? (isCurrent
+            ? `${edu.startDate} – ${cvLanguage === 'DE' ? 'heute' : 'Present'}`
+            : `${edu.startDate} – ${edu.endDate}`)
+        : edu.period || '';
+      return {
+        ...edu,
+        period
+      };
+    });
 
     // Make sure tailoredCoverLetter.paragraphs is in the { short, detailed } shape
     let paragraphs = tailoredResult.tailoredCoverLetter?.paragraphs;

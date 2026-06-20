@@ -274,6 +274,85 @@ const getTemplateStyles = (template: 'CLASSIC_CORPORATE' | 'MODERN_MINIMALIST' |
   }
 };
 
+interface ContentEditableProps {
+  tagName: 'h1' | 'h2' | 'p' | 'span' | 'div' | 'pre';
+  value: string;
+  onChange: (val: string) => void;
+  onBlur?: (e: any) => void;
+  className?: string;
+  style?: React.CSSProperties;
+  isMeasurement?: boolean;
+  useInnerText?: boolean;
+  [key: string]: any;
+}
+
+const ContentEditable = ({
+  tagName: Tag,
+  value,
+  onChange,
+  onBlur,
+  className,
+  style,
+  isMeasurement,
+  useInnerText = false,
+  ...props
+}: ContentEditableProps) => {
+  const ref = useRef<HTMLElement>(null);
+  const expectedValueRef = useRef(value);
+
+  // Initialize content on mount
+  useEffect(() => {
+    if (ref.current) {
+      if (useInnerText) {
+        ref.current.innerText = value;
+      } else {
+        ref.current.innerHTML = value;
+      }
+    }
+  }, []);
+
+  // Handle external updates (Undo/Redo, initial tailoring template loads, etc.)
+  useEffect(() => {
+    if (value !== expectedValueRef.current) {
+      expectedValueRef.current = value;
+      if (ref.current) {
+        if (useInnerText) {
+          ref.current.innerText = value;
+        } else {
+          ref.current.innerHTML = value;
+        }
+      }
+    }
+  }, [value, useInnerText]);
+
+  const handleInput = (e: React.FormEvent<HTMLElement>) => {
+    const domVal = useInnerText ? e.currentTarget.innerText : e.currentTarget.innerHTML;
+    expectedValueRef.current = domVal;
+    onChange(domVal);
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLElement>) => {
+    const domVal = useInnerText ? e.currentTarget.innerText : e.currentTarget.innerHTML;
+    expectedValueRef.current = domVal;
+    if (onBlur) {
+      onBlur(e);
+    }
+  };
+
+  return (
+    <Tag
+      ref={ref as any}
+      contentEditable={!isMeasurement}
+      suppressContentEditableWarning={true}
+      onInput={handleInput}
+      onBlur={handleBlur}
+      className={className}
+      style={style}
+      {...props}
+    />
+  );
+};
+
 export default function TailorWorkspace() {
   const [profile, setProfile] = useState<any>(null);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -369,7 +448,141 @@ export default function TailorWorkspace() {
 
   // App state
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<TailorResponse | null>(null);
+  const [result, rawSetResult] = useState<TailorResponse | null>(null);
+  const [history, setHistory] = useState<TailorResponse[]>([]);
+  const [historyIndex, setHistoryIndex] = useState<number>(-1);
+
+  const historyDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  const updateResultRealtime = (newResult: TailorResponse) => {
+    rawSetResult(newResult);
+
+    if (historyDebounceRef.current) {
+      clearTimeout(historyDebounceRef.current);
+    }
+    historyDebounceRef.current = setTimeout(() => {
+      setHistory(prev => {
+        const activeHistory = prev.slice(0, historyIndex + 1);
+        const lastState = activeHistory[activeHistory.length - 1];
+        if (lastState && JSON.stringify(lastState) === JSON.stringify(newResult)) {
+          return prev;
+        }
+        return [...activeHistory, newResult];
+      });
+      setHistoryIndex(prev => prev + 1);
+    }, 1200);
+  };
+
+  const setResult = (
+    newResult: TailorResponse | null | ((prev: TailorResponse | null) => TailorResponse | null),
+    skipHistory = false
+  ) => {
+    if (historyDebounceRef.current) {
+      clearTimeout(historyDebounceRef.current);
+      historyDebounceRef.current = null;
+    }
+
+    if (typeof newResult === 'function') {
+      rawSetResult(prev => {
+        const computed = newResult(prev);
+        if (!computed) {
+          if (!skipHistory) {
+            setHistory([]);
+            setHistoryIndex(-1);
+          }
+          return null;
+        }
+        if (!skipHistory) {
+          setHistory(hPrev => {
+            const activeHistory = hPrev.slice(0, historyIndex + 1);
+            const lastState = activeHistory[activeHistory.length - 1];
+            if (lastState && JSON.stringify(lastState) === JSON.stringify(computed)) {
+              return hPrev;
+            }
+            return [...activeHistory, computed];
+          });
+          setHistoryIndex(hPrev => hPrev + 1);
+        }
+        return computed;
+      });
+      return;
+    }
+
+    rawSetResult(newResult);
+    if (!newResult) {
+      if (!skipHistory) {
+        setHistory([]);
+        setHistoryIndex(-1);
+      }
+      return;
+    }
+    if (!skipHistory) {
+      setHistory(prev => {
+        const activeHistory = prev.slice(0, historyIndex + 1);
+        const lastState = activeHistory[activeHistory.length - 1];
+        if (lastState && JSON.stringify(lastState) === JSON.stringify(newResult)) {
+          return prev;
+        }
+        return [...activeHistory, newResult];
+      });
+      setHistoryIndex(prev => prev + 1);
+    }
+  };
+
+  const handleUndo = () => {
+    setHistoryIndex(prevIndex => {
+      if (prevIndex > 0) {
+        const nextIndex = prevIndex - 1;
+        rawSetResult(history[nextIndex]);
+        return nextIndex;
+      }
+      return prevIndex;
+    });
+  };
+
+  const handleRedo = () => {
+    setHistoryIndex(prevIndex => {
+      if (prevIndex < history.length - 1) {
+        const nextIndex = prevIndex + 1;
+        rawSetResult(history[nextIndex]);
+        return nextIndex;
+      }
+      return prevIndex;
+    });
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isZ = e.key.toLowerCase() === 'z';
+      const isY = e.key.toLowerCase() === 'y';
+      
+      const activeEl = document.activeElement;
+      const isInsidePreview = activeEl && (
+        activeEl.closest('#cv-sheet') || 
+        activeEl.closest('#cl-sheet') || 
+        activeEl.closest('#cv-measurement-root')
+      );
+
+      if (!isInsidePreview) return;
+
+      if ((e.ctrlKey || e.metaKey) && isZ && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if (
+        ((e.ctrlKey || e.metaKey) && isY) ||
+        ((e.ctrlKey || e.metaKey) && isZ && e.shiftKey)
+      ) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [history, historyIndex]);
+
   const [previewTab, setPreviewTab] = useState<'cv' | 'coverLetter'>('cv');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -416,22 +629,24 @@ export default function TailorWorkspace() {
       if (isAtsMode) {
         return (
           <div key={blockId} data-block-id={blockId} className="flex flex-col items-start w-full animate-none" style={{ marginBottom: `${bulletSpacing}px` }}>
-            <h1
-              contentEditable={!isMeasurement}
-              suppressContentEditableWarning={true}
-              onBlur={(e) => handleCvDetailsChange('fullName', e.target.innerText)}
+            <ContentEditable
+              tagName="h1"
+              value={result.tailoredCv.personalDetails.fullName}
+              onChange={(val) => handleCvDetailsChange('fullName', val, true)}
+              onBlur={(e: any) => handleCvDetailsChange('fullName', e.target.innerText, false)}
+              useInnerText={true}
+              isMeasurement={isMeasurement}
               className="text-[24px] font-bold text-gray-800 leading-tight text-left focus:outline-none"
-            >
-              {result.tailoredCv.personalDetails.fullName}
-            </h1>
-            <p
-              contentEditable={!isMeasurement}
-              suppressContentEditableWarning={true}
-              onBlur={(e) => handleCvDetailsChange('occupation', e.target.innerText)}
+            />
+            <ContentEditable
+              tagName="p"
+              value={result.tailoredCv.personalDetails.occupation || roleName || 'Professional'}
+              onChange={(val) => handleCvDetailsChange('occupation', val, true)}
+              onBlur={(e: any) => handleCvDetailsChange('occupation', e.target.innerText, false)}
+              useInnerText={true}
+              isMeasurement={isMeasurement}
               className="text-[#2980B9] text-[13px] font-medium mt-0.5 text-left font-sans cursor-pointer focus:outline-none"
-            >
-              {result.tailoredCv.personalDetails.occupation || roleName || 'Professional'}
-            </p>
+            />
           </div>
         );
       }
@@ -439,22 +654,24 @@ export default function TailorWorkspace() {
       return (
         <div key={blockId} data-block-id={blockId} className="flex justify-between items-start w-full" style={{ marginBottom: `${bulletSpacing}px` }}>
           <div>
-            <h1
-              contentEditable={!isMeasurement}
-              suppressContentEditableWarning={true}
-              onBlur={(e) => handleCvDetailsChange('fullName', e.target.innerText)}
+            <ContentEditable
+              tagName="h1"
+              value={result.tailoredCv.personalDetails.fullName}
+              onChange={(val) => handleCvDetailsChange('fullName', val, true)}
+              onBlur={(e: any) => handleCvDetailsChange('fullName', e.target.innerText, false)}
+              useInnerText={true}
+              isMeasurement={isMeasurement}
               className="text-[24px] font-bold text-gray-800 leading-tight text-left focus:outline-none"
-            >
-              {result.tailoredCv.personalDetails.fullName}
-            </h1>
-            <p
-              contentEditable={!isMeasurement}
-              suppressContentEditableWarning={true}
-              onBlur={(e) => handleCvDetailsChange('occupation', e.target.innerText)}
+            />
+            <ContentEditable
+              tagName="p"
+              value={result.tailoredCv.personalDetails.occupation || roleName || 'Professional'}
+              onChange={(val) => handleCvDetailsChange('occupation', val, true)}
+              onBlur={(e: any) => handleCvDetailsChange('occupation', e.target.innerText, false)}
+              useInnerText={true}
+              isMeasurement={isMeasurement}
               className="text-[#2980B9] text-[13px] font-medium mt-0.5 text-left font-sans cursor-pointer focus:outline-none"
-            >
-              {result.tailoredCv.personalDetails.occupation || roleName || 'Professional'}
-            </p>
+            />
           </div>
 
           <div
@@ -466,9 +683,9 @@ export default function TailorWorkspace() {
           >
             {result.tailoredCv.personalDetails.photo ? (
               <img
-                src={result.tailoredCv.personalDetails.photo}
-                alt="Profile Photo"
-                className="w-full h-full object-cover"
+                 src={result.tailoredCv.personalDetails.photo}
+                 alt="Profile Photo"
+                 className="w-full h-full object-cover"
               />
             ) : (
               <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
@@ -495,21 +712,39 @@ export default function TailorWorkspace() {
         >
           <p>
             <span className="font-semibold font-sans">Address:</span>{' '}
-            <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('address', e.target.innerText)} className="focus:outline-none">
-              {result.tailoredCv.personalDetails.address}
-            </span>
+            <ContentEditable
+              tagName="span"
+              value={result.tailoredCv.personalDetails.address || ''}
+              onChange={(val) => handleCvDetailsChange('address', val, true)}
+              onBlur={(e: any) => handleCvDetailsChange('address', e.target.innerText, false)}
+              useInnerText={true}
+              isMeasurement={isMeasurement}
+              className="focus:outline-none"
+            />
           </p>
           <p>
             <span className="font-semibold font-sans">Phone:</span>{' '}
-            <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('phone', e.target.innerText)} className="focus:outline-none">
-              {result.tailoredCv.personalDetails.phone}
-            </span>
+            <ContentEditable
+              tagName="span"
+              value={result.tailoredCv.personalDetails.phone || ''}
+              onChange={(val) => handleCvDetailsChange('phone', val, true)}
+              onBlur={(e: any) => handleCvDetailsChange('phone', e.target.innerText, false)}
+              useInnerText={true}
+              isMeasurement={isMeasurement}
+              className="focus:outline-none"
+            />
           </p>
           <p>
             <span className="font-semibold font-sans">Email:</span>{' '}
-            <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('email', e.target.innerText)} className="focus:outline-none">
-              {result.tailoredCv.personalDetails.email}
-            </span>
+            <ContentEditable
+              tagName="span"
+              value={result.tailoredCv.personalDetails.email || ''}
+              onChange={(val) => handleCvDetailsChange('email', val, true)}
+              onBlur={(e: any) => handleCvDetailsChange('email', e.target.innerText, false)}
+              useInnerText={true}
+              isMeasurement={isMeasurement}
+              className="focus:outline-none"
+            />
           </p>
 
           {cvLanguage === 'DE' ? (
@@ -517,25 +752,43 @@ export default function TailorWorkspace() {
               {result.tailoredCv.personalDetails.dateOfBirth && (
                 <p>
                   <span className="font-semibold font-sans">Geburtsdatum:</span>{' '}
-                  <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('dateOfBirth', e.target.innerText)} className="focus:outline-none">
-                    {result.tailoredCv.personalDetails.dateOfBirth}
-                  </span>
+                  <ContentEditable
+                    tagName="span"
+                    value={result.tailoredCv.personalDetails.dateOfBirth}
+                    onChange={(val) => handleCvDetailsChange('dateOfBirth', val, true)}
+                    onBlur={(e: any) => handleCvDetailsChange('dateOfBirth', e.target.innerText, false)}
+                    useInnerText={true}
+                    isMeasurement={isMeasurement}
+                    className="focus:outline-none"
+                  />
                 </p>
               )}
               {result.tailoredCv.personalDetails.birthplace && (
                 <p>
                   <span className="font-semibold font-sans">Geburtsort:</span>{' '}
-                  <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('birthplace', e.target.innerText)} className="focus:outline-none">
-                    {result.tailoredCv.personalDetails.birthplace}
-                  </span>
+                  <ContentEditable
+                    tagName="span"
+                    value={result.tailoredCv.personalDetails.birthplace}
+                    onChange={(val) => handleCvDetailsChange('birthplace', val, true)}
+                    onBlur={(e: any) => handleCvDetailsChange('birthplace', e.target.innerText, false)}
+                    useInnerText={true}
+                    isMeasurement={isMeasurement}
+                    className="focus:outline-none"
+                  />
                 </p>
               )}
               {result.tailoredCv.personalDetails.nationality && (
                 <p>
                   <span className="font-semibold font-sans">Staatsangehörigkeit:</span>{' '}
-                  <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('nationality', e.target.innerText)} className="focus:outline-none">
-                    {result.tailoredCv.personalDetails.nationality}
-                  </span>
+                  <ContentEditable
+                    tagName="span"
+                    value={result.tailoredCv.personalDetails.nationality}
+                    onChange={(val) => handleCvDetailsChange('nationality', val, true)}
+                    onBlur={(e: any) => handleCvDetailsChange('nationality', e.target.innerText, false)}
+                    useInnerText={true}
+                    isMeasurement={isMeasurement}
+                    className="focus:outline-none"
+                  />
                 </p>
               )}
             </>
@@ -544,17 +797,29 @@ export default function TailorWorkspace() {
               {result.tailoredCv.personalDetails.dateOfBirth && (
                 <p>
                   <span className="font-semibold font-sans">Date of birth:</span>{' '}
-                  <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('dateOfBirth', e.target.innerText)} className="focus:outline-none">
-                    {result.tailoredCv.personalDetails.dateOfBirth}
-                  </span>
+                  <ContentEditable
+                    tagName="span"
+                    value={result.tailoredCv.personalDetails.dateOfBirth}
+                    onChange={(val) => handleCvDetailsChange('dateOfBirth', val, true)}
+                    onBlur={(e: any) => handleCvDetailsChange('dateOfBirth', e.target.innerText, false)}
+                    useInnerText={true}
+                    isMeasurement={isMeasurement}
+                    className="focus:outline-none"
+                  />
                 </p>
               )}
               {result.tailoredCv.personalDetails.nationality && (
                 <p>
                   <span className="font-semibold font-sans">Nationality:</span>{' '}
-                  <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('nationality', e.target.innerText)} className="focus:outline-none">
-                    {result.tailoredCv.personalDetails.nationality}
-                  </span>
+                  <ContentEditable
+                    tagName="span"
+                    value={result.tailoredCv.personalDetails.nationality}
+                    onChange={(val) => handleCvDetailsChange('nationality', val, true)}
+                    onBlur={(e: any) => handleCvDetailsChange('nationality', e.target.innerText, false)}
+                    useInnerText={true}
+                    isMeasurement={isMeasurement}
+                    className="focus:outline-none"
+                  />
                 </p>
               )}
             </>
@@ -563,25 +828,43 @@ export default function TailorWorkspace() {
           {result.tailoredCv.personalDetails.linkedin && (
             <p>
               <span className="font-semibold font-sans">LinkedIn:</span>{' '}
-              <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('linkedin', e.target.innerText)} className="focus:outline-none">
-                {result.tailoredCv.personalDetails.linkedin}
-              </span>
+              <ContentEditable
+                tagName="span"
+                value={result.tailoredCv.personalDetails.linkedin}
+                onChange={(val) => handleCvDetailsChange('linkedin', val, true)}
+                onBlur={(e: any) => handleCvDetailsChange('linkedin', e.target.innerText, false)}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="focus:outline-none"
+              />
             </p>
           )}
           {result.tailoredCv.personalDetails.website && (
             <p>
               <span className="font-semibold font-sans">Website:</span>{' '}
-              <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('website', e.target.innerText)} className="focus:outline-none">
-                {result.tailoredCv.personalDetails.website}
-              </span>
+              <ContentEditable
+                tagName="span"
+                value={result.tailoredCv.personalDetails.website}
+                onChange={(val) => handleCvDetailsChange('website', val, true)}
+                onBlur={(e: any) => handleCvDetailsChange('website', e.target.innerText, false)}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="focus:outline-none"
+              />
             </p>
           )}
           {result.tailoredCv.personalDetails.github && (
             <p>
               <span className="font-semibold font-sans">Github:</span>{' '}
-              <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleCvDetailsChange('github', e.target.innerText)} className="focus:outline-none">
-                {result.tailoredCv.personalDetails.github}
-              </span>
+              <ContentEditable
+                tagName="span"
+                value={result.tailoredCv.personalDetails.github}
+                onChange={(val) => handleCvDetailsChange('github', val, true)}
+                onBlur={(e: any) => handleCvDetailsChange('github', e.target.innerText, false)}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="focus:outline-none"
+              />
             </p>
           )}
         </div>
@@ -612,16 +895,17 @@ export default function TailorWorkspace() {
               </div>
             );
           })()}
-          <p
-            contentEditable={!isMeasurement}
-            suppressContentEditableWarning={true}
-            onBlur={(e) => handleCvSummaryChange(e.target.innerHTML)}
+          <ContentEditable
+            tagName="p"
+            value={result.tailoredCv.summary}
+            onChange={(val) => handleCvSummaryChange(val, true)}
+            onBlur={(e: any) => handleCvSummaryChange(e.target.innerHTML, false)}
+            isMeasurement={isMeasurement}
             className="text-gray-700 text-left font-sans focus:outline-none"
             style={{
               fontSize: `${fontSize}px`,
               lineHeight: 1.55
             }}
-            dangerouslySetInnerHTML={{ __html: result.tailoredCv.summary }}
           />
         </div>
       );
@@ -673,31 +957,55 @@ export default function TailorWorkspace() {
               className="font-bold text-gray-500"
               style={{ fontSize: `${fontSize - 0.5}px`, marginBottom: '2px' }}
             >
-              <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'period', e.target.innerText)} className="focus:outline-none font-semibold">
-                {exp.period}
-              </span>
+              <ContentEditable
+                tagName="span"
+                value={exp.period}
+                onChange={(val) => handleWorkExperienceChange(idx, 'period', val, true)}
+                onBlur={(e: any) => handleWorkExperienceChange(idx, 'period', e.target.innerText, false)}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="focus:outline-none font-semibold"
+              />
             </p>
             <p
               className="font-semibold text-[#2980B9]"
               style={{ fontSize: `${fontSize + 0.5}px` }}
             >
-              <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'role', e.target.innerText)} className="focus:outline-none">
-                {exp.role}
-              </span>
+              <ContentEditable
+                tagName="span"
+                value={exp.role}
+                onChange={(val) => handleWorkExperienceChange(idx, 'role', val, true)}
+                onBlur={(e: any) => handleWorkExperienceChange(idx, 'role', e.target.innerText, false)}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="focus:outline-none"
+              />
             </p>
             <p
               className="text-gray-600 font-medium"
               style={{ fontSize: `${fontSize - 0.5}px` }}
             >
-              <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'company', e.target.innerText)} className="focus:outline-none font-semibold">
-                {exp.company}
-              </span>
+              <ContentEditable
+                tagName="span"
+                value={exp.company}
+                onChange={(val) => handleWorkExperienceChange(idx, 'company', val, true)}
+                onBlur={(e: any) => handleWorkExperienceChange(idx, 'company', e.target.innerText, false)}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="focus:outline-none font-semibold"
+              />
               {exp.location && (
                 <>
                   {' – '}
-                  <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'location', e.target.innerText)} className="focus:outline-none">
-                    {exp.location}
-                  </span>
+                  <ContentEditable
+                    tagName="span"
+                    value={exp.location}
+                    onChange={(val) => handleWorkExperienceChange(idx, 'location', val, true)}
+                    onBlur={(e: any) => handleWorkExperienceChange(idx, 'location', e.target.innerText, false)}
+                    useInnerText={true}
+                    isMeasurement={isMeasurement}
+                    className="focus:outline-none"
+                  />
                 </>
               )}
             </p>
@@ -715,11 +1023,12 @@ export default function TailorWorkspace() {
                   }}
                 >
                   <span className="text-gray-500 leading-none mt-[2px] select-none">•</span>
-                  <span
-                    contentEditable={!isMeasurement}
-                    suppressContentEditableWarning
-                    onBlur={(e) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerHTML)}
-                    dangerouslySetInnerHTML={{ __html: b }}
+                  <ContentEditable
+                    tagName="span"
+                    value={b}
+                    onChange={(val) => handleWorkExperienceBulletChange(idx, bIdx, val, true)}
+                    onBlur={(e: any) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerHTML, false)}
+                    isMeasurement={isMeasurement}
                     className="focus:outline-none flex-1"
                   />
                   {!isMeasurement && (
@@ -756,9 +1065,15 @@ export default function TailorWorkspace() {
                     fontSize: `${fontSize - 0.5}px`
                   }}
                 >
-                  <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'period', e.target.innerText)} className="focus:outline-none">
-                    {exp.period}
-                  </span>
+                  <ContentEditable
+                    tagName="span"
+                    value={exp.period}
+                    onChange={(val) => handleWorkExperienceChange(idx, 'period', val, true)}
+                    onBlur={(e: any) => handleWorkExperienceChange(idx, 'period', e.target.innerText, false)}
+                    useInnerText={true}
+                    isMeasurement={isMeasurement}
+                    className="focus:outline-none font-semibold"
+                  />
                 </td>
                 <td
                   className="align-top text-gray-700 leading-[1.55]"
@@ -771,26 +1086,44 @@ export default function TailorWorkspace() {
                     className="font-semibold text-[#2980B9]"
                     style={{ fontSize: `${fontSize + 0.5}px` }}
                   >
-                    <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'role', e.target.innerText)} className="focus:outline-none">
-                      {exp.role}
-                    </span>
+                    <ContentEditable
+                      tagName="span"
+                      value={exp.role}
+                      onChange={(val) => handleWorkExperienceChange(idx, 'role', val, true)}
+                      onBlur={(e: any) => handleWorkExperienceChange(idx, 'role', e.target.innerText, false)}
+                      useInnerText={true}
+                      isMeasurement={isMeasurement}
+                      className="focus:outline-none"
+                    />
                   </p>
                   <p
                     className="text-gray-600"
                     style={{ fontSize: `${fontSize - 0.5}px` }}
                   >
-                    <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'company', e.target.innerText)} className="focus:outline-none">
-                      {exp.company}
-                    </span>
+                    <ContentEditable
+                      tagName="span"
+                      value={exp.company}
+                      onChange={(val) => handleWorkExperienceChange(idx, 'company', val, true)}
+                      onBlur={(e: any) => handleWorkExperienceChange(idx, 'company', e.target.innerText, false)}
+                      useInnerText={true}
+                      isMeasurement={isMeasurement}
+                      className="focus:outline-none"
+                    />
                   </p>
                   {exp.location && (
                     <p
                       className="text-gray-500"
                       style={{ fontSize: `${fontSize - 0.5}px` }}
                     >
-                      <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'location', e.target.innerText)} className="focus:outline-none">
-                        {exp.location}
-                      </span>
+                      <ContentEditable
+                        tagName="span"
+                        value={exp.location}
+                        onChange={(val) => handleWorkExperienceChange(idx, 'location', val, true)}
+                        onBlur={(e: any) => handleWorkExperienceChange(idx, 'location', e.target.innerText, false)}
+                        useInnerText={true}
+                        isMeasurement={isMeasurement}
+                        className="focus:outline-none"
+                      />
                     </p>
                   )}
                   <ul
@@ -807,11 +1140,12 @@ export default function TailorWorkspace() {
                         }}
                       >
                         <span className="text-gray-500 leading-none mt-[2px] select-none">•</span>
-                        <span
-                          contentEditable={!isMeasurement}
-                          suppressContentEditableWarning
-                          onBlur={(e) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerHTML)}
-                          dangerouslySetInnerHTML={{ __html: b }}
+                        <ContentEditable
+                          tagName="span"
+                          value={b}
+                          onChange={(val) => handleWorkExperienceBulletChange(idx, bIdx, val, true)}
+                          onBlur={(e: any) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerHTML, false)}
+                          isMeasurement={isMeasurement}
                           className="focus:outline-none flex-1"
                         />
                         {!isMeasurement && (
@@ -885,31 +1219,55 @@ export default function TailorWorkspace() {
               className="font-bold text-gray-500"
               style={{ fontSize: `${fontSize - 0.5}px`, marginBottom: '2px' }}
             >
-              <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'period', e.target.innerText)} className="focus:outline-none font-semibold">
-                {edu.period}
-              </span>
+              <ContentEditable
+                tagName="span"
+                value={edu.period}
+                onChange={(val) => handleEducationChange(idx, 'period', val, true)}
+                onBlur={(e: any) => handleEducationChange(idx, 'period', e.target.innerText, false)}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="focus:outline-none font-semibold"
+              />
             </p>
             <p
               className="font-semibold text-[#2980B9]"
               style={{ fontSize: `${fontSize + 0.5}px` }}
             >
-              <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'degree', e.target.innerText)} className="focus:outline-none font-semibold">
-                {edu.degree}
-              </span>
+              <ContentEditable
+                tagName="span"
+                value={edu.degree}
+                onChange={(val) => handleEducationChange(idx, 'degree', val, true)}
+                onBlur={(e: any) => handleEducationChange(idx, 'degree', e.target.innerText, false)}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="focus:outline-none font-semibold"
+              />
             </p>
             <p
               className="text-gray-600 font-medium"
               style={{ fontSize: `${fontSize - 0.5}px` }}
             >
-              <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'institution', e.target.innerText)} className="focus:outline-none font-semibold">
-                {edu.institution}
-              </span>
+              <ContentEditable
+                tagName="span"
+                value={edu.institution}
+                onChange={(val) => handleEducationChange(idx, 'institution', val, true)}
+                onBlur={(e: any) => handleEducationChange(idx, 'institution', e.target.innerText, false)}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="focus:outline-none font-semibold"
+              />
               {edu.location && (
                 <>
                   {' – '}
-                  <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'location', e.target.innerText)} className="focus:outline-none">
-                    {edu.location}
-                  </span>
+                  <ContentEditable
+                    tagName="span"
+                    value={edu.location}
+                    onChange={(val) => handleEducationChange(idx, 'location', val, true)}
+                    onBlur={(e: any) => handleEducationChange(idx, 'location', e.target.innerText, false)}
+                    useInnerText={true}
+                    isMeasurement={isMeasurement}
+                    className="focus:outline-none"
+                  />
                 </>
               )}
             </p>
@@ -930,9 +1288,15 @@ export default function TailorWorkspace() {
                     fontSize: `${fontSize - 0.5}px`
                   }}
                 >
-                  <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'period', e.target.innerText)} className="focus:outline-none">
-                    {edu.period}
-                  </span>
+                  <ContentEditable
+                    tagName="span"
+                    value={edu.period}
+                    onChange={(val) => handleEducationChange(idx, 'period', val, true)}
+                    onBlur={(e: any) => handleEducationChange(idx, 'period', e.target.innerText, false)}
+                    useInnerText={true}
+                    isMeasurement={isMeasurement}
+                    className="focus:outline-none"
+                  />
                 </td>
                 <td
                   className="align-top text-gray-700 leading-[1.55]"
@@ -945,26 +1309,44 @@ export default function TailorWorkspace() {
                     className="font-semibold text-[#2980B9]"
                     style={{ fontSize: `${fontSize + 0.5}px` }}
                   >
-                    <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'degree', e.target.innerText)} className="focus:outline-none">
-                      {edu.degree}
-                    </span>
+                    <ContentEditable
+                      tagName="span"
+                      value={edu.degree}
+                      onChange={(val) => handleEducationChange(idx, 'degree', val, true)}
+                      onBlur={(e: any) => handleEducationChange(idx, 'degree', e.target.innerText, false)}
+                      useInnerText={true}
+                      isMeasurement={isMeasurement}
+                      className="focus:outline-none"
+                    />
                   </p>
                   <p
                     className="text-gray-600"
                     style={{ fontSize: `${fontSize - 0.5}px` }}
                   >
-                    <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'institution', e.target.innerText)} className="focus:outline-none">
-                      {edu.institution}
-                    </span>
+                    <ContentEditable
+                      tagName="span"
+                      value={edu.institution}
+                      onChange={(val) => handleEducationChange(idx, 'institution', val, true)}
+                      onBlur={(e: any) => handleEducationChange(idx, 'institution', e.target.innerText, false)}
+                      useInnerText={true}
+                      isMeasurement={isMeasurement}
+                      className="focus:outline-none"
+                    />
                   </p>
                   {edu.location && (
                     <p
                       className="text-gray-500"
                       style={{ fontSize: `${fontSize - 0.5}px` }}
                     >
-                      <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'location', e.target.innerText)} className="focus:outline-none">
-                        {edu.location}
-                      </span>
+                      <ContentEditable
+                        tagName="span"
+                        value={edu.location}
+                        onChange={(val) => handleEducationChange(idx, 'location', val, true)}
+                        onBlur={(e: any) => handleEducationChange(idx, 'location', e.target.innerText, false)}
+                        useInnerText={true}
+                        isMeasurement={isMeasurement}
+                        className="focus:outline-none"
+                      />
                     </p>
                   )}
                 </td>
@@ -1109,14 +1491,15 @@ export default function TailorWorkspace() {
               </svg>
             )}
           </div>
-          <p
-            contentEditable={!isMeasurement}
-            suppressContentEditableWarning
-            onBlur={(e) => handleSigningLineChange(e.target.innerText)}
+          <ContentEditable
+            tagName="p"
+            value={result.tailoredCv.signingLine || `${signingLocation || 'München'}, ${new Date().toLocaleDateString(cvLanguage === 'DE' ? 'de-DE' : 'en-US')}`}
+            onChange={(val) => handleSigningLineChange(val, true)}
+            onBlur={(e: any) => handleSigningLineChange(e.target.innerText, false)}
+            useInnerText={true}
+            isMeasurement={isMeasurement}
             className="text-[11px] text-gray-600 focus:outline-none"
-          >
-            {result.tailoredCv.signingLine || `${signingLocation || 'München'}, ${new Date().toLocaleDateString(cvLanguage === 'DE' ? 'de-DE' : 'en-US')}`}
-          </p>
+          />
           <p
             className="mt-1.5 italic text-gray-700"
             style={{ fontSize: `${fontSize + 0.5}px` }}
@@ -1226,14 +1609,45 @@ export default function TailorWorkspace() {
           pagesList.push(currentPage);
         }
 
-        setPages(pagesList);
+        setPages(prev => {
+          const isSame = prev.length === pagesList.length &&
+            prev.every((p, i) => p.length === pagesList[i].length && p.every((val, j) => val === pagesList[i][j]));
+          return isSame ? prev : pagesList;
+        });
         setNumPages(pagesList.length);
       };
+
+      // Listen to input events on the active preview container to sync the height in real-time
+      const cvSheet = cvPreviewRef.current;
+      const handleInput = (e: Event) => {
+        const target = e.target as HTMLElement;
+        const blockEl = target.closest('[data-block-id]') as HTMLElement;
+        if (blockEl) {
+          const blockId = blockEl.getAttribute('data-block-id');
+          if (blockId) {
+            const measEl = element.querySelector(`[data-block-id="${blockId}"]`) as HTMLElement;
+            if (measEl) {
+              measEl.innerHTML = blockEl.innerHTML;
+              measureAndSplit();
+            }
+          }
+        }
+      };
+
+      if (cvSheet) {
+        cvSheet.addEventListener('input', handleInput);
+      }
 
       measureAndSplit();
       const observer = new ResizeObserver(measureAndSplit);
       observer.observe(element);
-      return () => observer.disconnect();
+
+      return () => {
+        observer.disconnect();
+        if (cvSheet) {
+          cvSheet.removeEventListener('input', handleInput);
+        }
+      };
     }
   }, [result, fontSize, sectionSpacing, pagePaddingTop, pagePaddingBottom, pagePaddingSide, bulletSpacing, signatureSpacing, photoHeight, headerSpacing, bulletStyle, lengthTarget, previewTab]);
 
@@ -1449,64 +1863,159 @@ export default function TailorWorkspace() {
     }
   };
 
-  const handleExportPdf = async (type: 'cv' | 'cl') => {
-    try {
-      const isCv = type === 'cv';
-      const data = isCv ? result?.tailoredCv : result?.tailoredCoverLetter;
-      const options = {
-        fontSize,
-        bulletSpacing,
-        sectionSpacing,
-        paddingTop: pagePaddingTop,
-        paddingSide: pagePaddingSide,
-        paddingBottom: pagePaddingBottom,
-        bulletStyle,
-        clLength,
-        headerSpacing,
-        photoHeight,
-        signatureSpacing,
-      };
+  const handleExportPdf = (type: 'cv' | 'cl') => {
+    const isCv = type === 'cv';
+    let pagesHtml = '';
 
-      const res = await fetch('/api/export-pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type,
-          data,
-          options,
-          atsMode: isAtsMode,
-        }),
+    const cleanCompany = (companyName || 'Company').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
+    const cleanPosition = (roleName || 'Position').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
+    const docLabel = type === 'cv' ? 'CV' : 'Cover Letter';
+    const fileName = `${cleanCompany}_${cleanPosition}_${docLabel}`;
+
+    if (isCv) {
+      const pageElements = document.querySelectorAll('.cv-page-box');
+      pageElements.forEach((pageEl, pageIdx) => {
+        const isLastPage = pageIdx === pageElements.length - 1;
+        const clone = pageEl.cloneNode(true) as HTMLElement;
+        clone.querySelectorAll('.no-print').forEach(el => el.remove());
+        
+        // Apply CV page styles directly in style attribute (without scaling)
+        clone.setAttribute('style', `
+          width: 210mm !important;
+          height: 296mm !important;
+          min-height: 296mm !important;
+          max-height: 296mm !important;
+          padding: ${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm !important;
+          box-sizing: border-box !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          page-break-after: ${isLastPage ? 'avoid' : 'always'} !important;
+          background-color: #FFFFFF !important;
+          position: relative !important;
+          font-family: "Inter", "Calibri", "Segoe UI", system-ui, sans-serif !important;
+          font-size: ${fontSize}px !important;
+          line-height: 1.55 !important;
+          color: #1F2937 !important;
+          overflow: hidden !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: flex-start !important;
+        `);
+        pagesHtml += clone.outerHTML;
       });
-
-      if (!res.ok) {
-        let errorMsg = 'Failed to generate PDF';
-        try {
-          const errData = await res.json();
-          errorMsg = errData.error || errorMsg;
-        } catch {}
-        throw new Error(errorMsg);
+    } else {
+      const clSheet = document.getElementById('cl-sheet');
+      if (clSheet) {
+        const clone = clSheet.cloneNode(true) as HTMLElement;
+        clone.querySelectorAll('.no-print').forEach(el => el.remove());
+        
+        clone.setAttribute('style', `
+          width: 210mm !important;
+          height: 296mm !important;
+          min-height: 296mm !important;
+          max-height: 296mm !important;
+          padding: 32mm 28mm 24mm 28mm !important;
+          box-sizing: border-box !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          page-break-after: avoid !important;
+          background-color: #FFFFFF !important;
+          position: relative !important;
+          font-family: "Inter", "Calibri", "Segoe UI", system-ui, sans-serif !important;
+          font-size: 11.5px !important;
+          line-height: 1.65 !important;
+          color: #1A1A1A !important;
+          overflow: hidden !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: space-between !important;
+        `);
+        pagesHtml += clone.outerHTML;
       }
-
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const cleanCompany = (companyName || 'Company').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-      const cleanPosition = (roleName || 'Position').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-      const docLabel = type === 'cv' ? 'CV' : 'Cover Letter';
-      const fileName = `${cleanCompany}_${cleanPosition}_${docLabel}.pdf`;
-
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err: any) {
-      console.error(err);
-      alert(`PDF Export Failed: ${err.message}`);
     }
+
+    if (!pagesHtml) return;
+
+    // Create temporary iframe
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.style.opacity = '0';
+    iframe.style.pointerEvents = 'none';
+    document.body.appendChild(iframe);
+
+    // Copy stylesheet and font links from parent
+    let stylesHtml = '';
+    document.querySelectorAll('style, link[rel="stylesheet"]').forEach(el => {
+      stylesHtml += el.outerHTML;
+    });
+
+    const iframeDoc = iframe.contentWindow?.document || iframe.contentDocument;
+    if (!iframeDoc) return;
+
+    iframeDoc.open();
+    iframeDoc.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${fileName}</title>
+        <meta charset="utf-8">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+        ${stylesHtml}
+        <style>
+          * {
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            -webkit-user-select: text !important;
+            user-select: text !important;
+          }
+          body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background-color: #FFFFFF !important;
+          }
+          .print-page:last-child {
+            page-break-after: avoid !important;
+          }
+          @page {
+            size: A4;
+            margin: 0 !important;
+          }
+        </style>
+        <script>
+          window.onload = function() {
+            if (document.fonts && document.fonts.ready) {
+              document.fonts.ready.then(function() {
+                setTimeout(function() {
+                  window.focus();
+                  window.print();
+                }, 350);
+              });
+            } else {
+              setTimeout(function() {
+                window.focus();
+                window.print();
+              }, 500);
+            }
+          };
+        </script>
+      </head>
+      <body>${pagesHtml}</body>
+      </html>
+    `);
+    iframeDoc.close();
+
+    // Clean up after print triggers
+    setTimeout(() => {
+      document.body.removeChild(iframe);
+    }, 60000);
   };
 
 
@@ -1887,9 +2396,9 @@ export default function TailorWorkspace() {
   };
 
   // Inline result editing handlers
-  const handleCvDetailsChange = (key: string, value: string) => {
+  const handleCvDetailsChange = (key: string, value: string, isRealtime = false) => {
     if (!result) return;
-    setResult({
+    const updated = {
       ...result,
       tailoredCv: {
         ...result.tailoredCv,
@@ -1898,37 +2407,52 @@ export default function TailorWorkspace() {
           [key]: value
         }
       }
-    });
+    };
+    if (isRealtime) {
+      updateResultRealtime(updated);
+    } else {
+      setResult(updated);
+    }
   };
 
-  const handleCvSummaryChange = (val: string) => {
+  const handleCvSummaryChange = (val: string, isRealtime = false) => {
     if (!result) return;
-    setResult({
+    const updated = {
       ...result,
       tailoredCv: {
         ...result.tailoredCv,
         summary: val
       }
-    });
+    };
+    if (isRealtime) {
+      updateResultRealtime(updated);
+    } else {
+      setResult(updated);
+    }
   };
 
-  const handleWorkExperienceChange = (expIdx: number, key: 'period' | 'role' | 'company' | 'location', value: string) => {
+  const handleWorkExperienceChange = (expIdx: number, key: 'period' | 'role' | 'company' | 'location', value: string, isRealtime = false) => {
     if (!result) return;
     const newWorkExp = [...result.tailoredCv.workExperience];
     newWorkExp[expIdx] = {
       ...newWorkExp[expIdx],
       [key]: value
     };
-    setResult({
+    const updated = {
       ...result,
       tailoredCv: {
         ...result.tailoredCv,
         workExperience: newWorkExp
       }
-    });
+    };
+    if (isRealtime) {
+      updateResultRealtime(updated);
+    } else {
+      setResult(updated);
+    }
   };
 
-  const handleWorkExperienceBulletChange = (expIdx: number, bulletIdx: number, value: string) => {
+  const handleWorkExperienceBulletChange = (expIdx: number, bulletIdx: number, value: string, isRealtime = false) => {
     if (!result) return;
     const activeStyleKey = getActiveBulletStyleKey(bulletStyle);
     const newWorkExp = [...result.tailoredCv.workExperience];
@@ -1955,13 +2479,18 @@ export default function TailorWorkspace() {
       }
     };
 
-    setResult({
+    const updated = {
       ...result,
       tailoredCv: {
         ...result.tailoredCv,
         workExperience: newWorkExp
       }
-    });
+    };
+    if (isRealtime) {
+      updateResultRealtime(updated);
+    } else {
+      setResult(updated);
+    }
   };
 
   const handleDeleteWorkExperienceBullet = (expIdx: number, bulletIdx: number) => {
@@ -2004,23 +2533,28 @@ export default function TailorWorkspace() {
     });
   };
 
-  const handleEducationChange = (eduIdx: number, key: 'period' | 'degree' | 'institution' | 'location', value: string) => {
+  const handleEducationChange = (eduIdx: number, key: 'period' | 'degree' | 'institution' | 'location', value: string, isRealtime = false) => {
     if (!result) return;
     const newEdu = [...result.tailoredCv.education];
     newEdu[eduIdx] = {
       ...newEdu[eduIdx],
       [key]: value
     };
-    setResult({
+    const updated = {
       ...result,
       tailoredCv: {
         ...result.tailoredCv,
         education: newEdu
       }
-    });
+    };
+    if (isRealtime) {
+      updateResultRealtime(updated);
+    } else {
+      setResult(updated);
+    }
   };
 
-  const handleSkillsChange = (value: string) => {
+  const handleSkillsChange = (value: string, isRealtime = false) => {
     if (!result) return;
     const cleanValue = value.replace(/<[^>]*>/g, '');
     const names = cleanValue.split(/[,;\n]/).map(s => s.trim()).filter(Boolean);
@@ -2034,54 +2568,74 @@ export default function TailorWorkspace() {
       return { name, level: 'Intermediate' };
     });
 
-    setResult({
+    const updated = {
       ...result,
       tailoredCv: {
         ...result.tailoredCv,
         skills: newSkills
       }
-    });
+    };
+    if (isRealtime) {
+      updateResultRealtime(updated);
+    } else {
+      setResult(updated);
+    }
   };
 
-  const handleLanguagesChange = (idx: number, key: 'language' | 'level', value: string) => {
+  const handleLanguagesChange = (idx: number, key: 'language' | 'level', value: string, isRealtime = false) => {
     if (!result) return;
     const newLanguages = [...result.tailoredCv.languages];
     newLanguages[idx] = {
       ...newLanguages[idx],
       [key]: value
     };
-    setResult({
+    const updated = {
       ...result,
       tailoredCv: {
         ...result.tailoredCv,
         languages: newLanguages
       }
-    });
+    };
+    if (isRealtime) {
+      updateResultRealtime(updated);
+    } else {
+      setResult(updated);
+    }
   };
 
-  const handleSigningLineChange = (value: string) => {
+  const handleSigningLineChange = (value: string, isRealtime = false) => {
     if (!result) return;
-    setResult({
+    const updated = {
       ...result,
       tailoredCv: {
         ...result.tailoredCv,
         signingLine: value
       }
-    });
+    };
+    if (isRealtime) {
+      updateResultRealtime(updated);
+    } else {
+      setResult(updated);
+    }
   };
 
-  const handleClChange = (key: keyof TailoredCoverLetter, value: string) => {
+  const handleClChange = (key: keyof TailoredCoverLetter, value: string, isRealtime = false) => {
     if (!result) return;
-    setResult({
+    const updated = {
       ...result,
       tailoredCoverLetter: {
         ...result.tailoredCoverLetter,
         [key]: value
       }
-    });
+    };
+    if (isRealtime) {
+      updateResultRealtime(updated);
+    } else {
+      setResult(updated);
+    }
   };
 
-  const handleClParagraphChange = (index: number, val: string) => {
+  const handleClParagraphChange = (index: number, val: string, isRealtime = false) => {
     if (!result) return;
     const activeLengthKey = clLength.includes('Short') ? 'short' : 'detailed';
     const newCl = { ...result.tailoredCoverLetter };
@@ -2104,10 +2658,15 @@ export default function TailorWorkspace() {
       [activeLengthKey]: variantParas
     };
 
-    setResult({
+    const updated = {
       ...result,
       tailoredCoverLetter: newCl
-    });
+    };
+    if (isRealtime) {
+      updateResultRealtime(updated);
+    } else {
+      setResult(updated);
+    }
   };
 
   if (profileLoading) {
@@ -3253,80 +3812,87 @@ export default function TailorWorkspace() {
                         <div className="text-xs">
                           {/* Sender block */}
                           <div className={`${isAtsMode ? 'text-left' : 'text-right'} text-[11.5px] leading-[1.7]`}>
-                            <pre
-                              contentEditable={true}
-                              suppressContentEditableWarning={true}
-                              onBlur={(e) => handleClChange('senderAddress', e.target.innerText)}
+                            <ContentEditable
+                              tagName="pre"
+                              value={result.tailoredCoverLetter.senderAddress}
+                              onChange={(val) => handleClChange('senderAddress', val, true)}
+                              onBlur={(e: any) => handleClChange('senderAddress', e.target.innerText, false)}
+                              useInnerText={true}
+                              isMeasurement={false}
                               className={`font-sans text-[11.5px] leading-[1.7] whitespace-pre-wrap inline-block ${isAtsMode ? 'text-left w-full' : 'text-right'}`}
-                            >
-                              {result.tailoredCoverLetter.senderAddress}
-                            </pre>
+                            />
                           </div>
 
                           {/* Recipient address + Date row */}
                           <div className={isAtsMode ? "mt-10 flex flex-col items-start gap-y-4 text-left font-sans" : "mt-10 flex justify-between items-end text-left font-sans"}>
                             <div>
-                              <pre
-                                contentEditable={true}
-                                suppressContentEditableWarning={true}
-                                onBlur={(e) => handleClChange('recipientAddress', e.target.innerText)}
+                              <ContentEditable
+                                tagName="pre"
+                                value={result.tailoredCoverLetter.recipientAddress}
+                                onChange={(val) => handleClChange('recipientAddress', val, true)}
+                                onBlur={(e: any) => handleClChange('recipientAddress', e.target.innerText, false)}
+                                useInnerText={true}
+                                isMeasurement={false}
                                 className="font-sans text-[11.5px] leading-[1.7] whitespace-pre-wrap"
-                              >
-                                {result.tailoredCoverLetter.recipientAddress}
-                              </pre>
+                              />
                             </div>
-                            <div
-                              contentEditable={true}
-                              suppressContentEditableWarning={true}
-                              onBlur={(e) => handleClChange('dateLine', e.target.innerText)}
+                            <ContentEditable
+                              tagName="div"
+                              value={result.tailoredCoverLetter.dateLine}
+                              onChange={(val) => handleClChange('dateLine', val, true)}
+                              onBlur={(e: any) => handleClChange('dateLine', e.target.innerText, false)}
+                              useInnerText={true}
+                              isMeasurement={false}
                               className="text-[11.5px]"
-                            >
-                              {result.tailoredCoverLetter.dateLine}
-                            </div>
+                            />
                           </div>
 
                           {/* Subject line */}
-                          <p
-                            contentEditable={true}
-                            suppressContentEditableWarning={true}
-                            onBlur={(e) => handleClChange('subjectLine', e.target.innerText)}
+                          <ContentEditable
+                            tagName="p"
+                            value={result.tailoredCoverLetter.subjectLine}
+                            onChange={(val) => handleClChange('subjectLine', val, true)}
+                            onBlur={(e: any) => handleClChange('subjectLine', e.target.innerText, false)}
+                            useInnerText={true}
+                            isMeasurement={false}
                             className="mt-12 font-bold text-[12px] text-left font-sans"
-                          >
-                            {result.tailoredCoverLetter.subjectLine}
-                          </p>
+                          />
 
                           {/* Salutation */}
-                          <p
-                            contentEditable={true}
-                            suppressContentEditableWarning={true}
-                            onBlur={(e) => handleClChange('salutation', e.target.innerText)}
+                          <ContentEditable
+                            tagName="p"
+                            value={result.tailoredCoverLetter.salutation}
+                            onChange={(val) => handleClChange('salutation', val, true)}
+                            onBlur={(e: any) => handleClChange('salutation', e.target.innerText, false)}
+                            useInnerText={true}
+                            isMeasurement={false}
                             className="mt-8 text-[11.5px] text-left font-sans"
-                          >
-                            {result.tailoredCoverLetter.salutation}
-                          </p>
+                          />
 
                           {/* Body paragraphs */}
                           <div className="mt-5 space-y-4 text-[11.5px] leading-[1.65] text-left font-sans">
                             {getRenderedParagraphs(result.tailoredCoverLetter, clLength).map((p: string, i: number) => (
-                              <p
+                              <ContentEditable
                                 key={i}
-                                contentEditable={true}
-                                suppressContentEditableWarning={true}
-                                onBlur={(e) => handleClParagraphChange(i, e.target.innerHTML)}
-                                dangerouslySetInnerHTML={{ __html: p }}
+                                tagName="p"
+                                value={p}
+                                onChange={(val) => handleClParagraphChange(i, val, true)}
+                                onBlur={(e: any) => handleClParagraphChange(i, e.target.innerHTML, false)}
+                                isMeasurement={false}
                               />
                             ))}
                           </div>
 
                           {/* Closing */}
-                          <p
-                            contentEditable={true}
-                            suppressContentEditableWarning={true}
-                            onBlur={(e) => handleClChange('closing', e.target.innerText)}
+                          <ContentEditable
+                            tagName="p"
+                            value={result.tailoredCoverLetter.closing}
+                            onChange={(val) => handleClChange('closing', val, true)}
+                            onBlur={(e: any) => handleClChange('closing', e.target.innerText, false)}
+                            useInnerText={true}
+                            isMeasurement={false}
                             className="mt-8 text-[11.5px] text-left font-sans"
-                          >
-                            {result.tailoredCoverLetter.closing}
-                          </p>
+                          />
 
                           {/* Signature */}
                           <div className="mt-3 h-[32px] flex items-end">
@@ -3357,14 +3923,15 @@ export default function TailorWorkspace() {
                           </div>
 
                           {/* Printed Name */}
-                          <p
-                            contentEditable={true}
-                            suppressContentEditableWarning={true}
-                            onBlur={(e) => handleClChange('signatureName', e.target.innerText)}
+                          <ContentEditable
+                            tagName="p"
+                            value={result.tailoredCoverLetter.signatureName}
+                            onChange={(val) => handleClChange('signatureName', val, true)}
+                            onBlur={(e: any) => handleClChange('signatureName', e.target.innerText, false)}
+                            useInnerText={true}
+                            isMeasurement={false}
                             className="mt-1.5 text-[11.5px] text-left font-sans"
-                          >
-                            {result.tailoredCoverLetter.signatureName}
-                          </p>
+                          />
 
                           {/* Enclosures */}
                           <div className="mt-8 text-[11.5px] text-left font-sans">
