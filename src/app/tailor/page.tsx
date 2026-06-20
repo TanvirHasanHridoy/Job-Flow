@@ -1491,9 +1491,14 @@ export default function TailorWorkspace() {
 
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
+      const cleanCompany = (companyName || 'Company').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
+      const cleanPosition = (roleName || 'Position').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
+      const docLabel = type === 'cv' ? 'CV' : 'Cover Letter';
+      const fileName = `${cleanCompany}_${cleanPosition}_${docLabel}.pdf`;
+
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${type === 'cv' ? 'Resume' : 'Cover_Letter'}_${isAtsMode ? 'ATS' : 'Standard'}.pdf`;
+      a.download = fileName;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1648,9 +1653,14 @@ export default function TailorWorkspace() {
     const blob = new Blob(['\ufeff' + docContent], { type: 'application/msword' });
     const url = URL.createObjectURL(blob);
 
+    const cleanCompany = (companyName || 'Company').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
+    const cleanPosition = (roleName || 'Position').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
+    const docLabel = type === 'cv' ? 'CV' : 'Cover Letter';
+    const fileName = `${cleanCompany}_${cleanPosition}_${docLabel}.doc`;
+
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${type === 'cv' ? 'Resume' : 'Cover_Letter'}_${companyName.replace(/\s+/g, '_')}_${roleName.replace(/\s+/g, '_')}.doc`;
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1745,9 +1755,14 @@ export default function TailorWorkspace() {
     const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
 
+    const cleanCompany = (companyName || 'Company').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
+    const cleanPosition = (roleName || 'Position').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
+    const docLabel = type === 'cv' ? 'CV' : 'Cover Letter';
+    const fileName = `${cleanCompany}_${cleanPosition}_${docLabel}.txt`;
+
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${type === 'cv' ? 'Resume' : 'Cover_Letter'}_${companyName.replace(/\s+/g, '_')}_${roleName.replace(/\s+/g, '_')}.txt`;
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
