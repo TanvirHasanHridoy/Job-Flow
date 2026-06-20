@@ -1160,8 +1160,16 @@ export default function TailorWorkspace() {
       });
 
       if (!res.ok) {
-        const errJson = await res.json();
-        throw new Error(errJson.error || 'Failed to scrape URL');
+        let errMsg = 'Failed to scrape URL';
+        const rawText = await res.text();
+        try {
+          const errJson = JSON.parse(rawText);
+          errMsg = errJson.error || errMsg;
+        } catch {
+          console.error('Server error response:', rawText);
+          errMsg = `Server Error (${res.status}): ${rawText.slice(0, 150)}...`;
+        }
+        throw new Error(errMsg);
       }
 
       const data = await res.json();
@@ -1206,8 +1214,16 @@ export default function TailorWorkspace() {
       });
 
       if (!res.ok) {
-        const errJson = await res.json();
-        throw new Error(errJson.error || 'Failed to parse Job PDF');
+        let errMsg = 'Failed to parse Job PDF';
+        const rawText = await res.text();
+        try {
+          const errJson = JSON.parse(rawText);
+          errMsg = errJson.error || errMsg;
+        } catch {
+          console.error('Server error response:', rawText);
+          errMsg = `Server Error (${res.status}): ${rawText.slice(0, 150)}...`;
+        }
+        throw new Error(errMsg);
       }
 
       const data = await res.json();

@@ -147,8 +147,16 @@ export default function ProfileVault() {
       });
 
       if (!res.ok) {
-        const errJson = await res.json();
-        throw new Error(errJson.error || 'Failed to parse PDF CV');
+        let errMsg = 'Failed to parse PDF CV';
+        const rawText = await res.text();
+        try {
+          const errJson = JSON.parse(rawText);
+          errMsg = errJson.error || errMsg;
+        } catch {
+          console.error('Server error response:', rawText);
+          errMsg = `Server Error (${res.status}): ${rawText.slice(0, 150)}...`;
+        }
+        throw new Error(errMsg);
       }
 
       const parsedProfile = await res.json();
