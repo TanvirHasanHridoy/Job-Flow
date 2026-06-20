@@ -300,6 +300,7 @@ export default function TailorWorkspace() {
   const [matchStrategy, setMatchStrategy] = useState<'TACTICAL_PIVOT' | 'AGGRESIVE_BRIDGING'>('TACTICAL_PIVOT');
   const [styleTemplate, setStyleTemplate] = useState<'CLASSIC_CORPORATE' | 'MODERN_MINIMALIST' | 'TECH_CREATIVE'>('CLASSIC_CORPORATE');
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
+  const [isAtsMode, setIsAtsMode] = useState(false);
 
   // Mobile responsive layout states
   const [activeMobileTab, setActiveMobileTab] = useState<'edit' | 'preview'>('edit');
@@ -412,6 +413,29 @@ export default function TailorWorkspace() {
     if (!result) return null;
     
     if (blockId === 'personal-header') {
+      if (isAtsMode) {
+        return (
+          <div key={blockId} data-block-id={blockId} className="flex flex-col items-start w-full animate-none" style={{ marginBottom: `${bulletSpacing}px` }}>
+            <h1
+              contentEditable={!isMeasurement}
+              suppressContentEditableWarning={true}
+              onBlur={(e) => handleCvDetailsChange('fullName', e.target.innerText)}
+              className="text-[24px] font-bold text-gray-800 leading-tight text-left focus:outline-none"
+            >
+              {result.tailoredCv.personalDetails.fullName}
+            </h1>
+            <p
+              contentEditable={!isMeasurement}
+              suppressContentEditableWarning={true}
+              onBlur={(e) => handleCvDetailsChange('occupation', e.target.innerText)}
+              className="text-[#2980B9] text-[13px] font-medium mt-0.5 text-left font-sans cursor-pointer focus:outline-none"
+            >
+              {result.tailoredCv.personalDetails.occupation || roleName || 'Professional'}
+            </p>
+          </div>
+        );
+      }
+
       return (
         <div key={blockId} data-block-id={blockId} className="flex justify-between items-start w-full" style={{ marginBottom: `${bulletSpacing}px` }}>
           <div>
@@ -461,7 +485,7 @@ export default function TailorWorkspace() {
         <div
           key={blockId}
           data-block-id={blockId}
-          className="grid grid-cols-2 gap-x-8 text-gray-700 text-left w-full"
+          className={`${isAtsMode ? 'flex flex-col gap-y-1 border-b border-[#CBD5E1] pb-2' : 'grid grid-cols-2 gap-x-8'} text-gray-700 text-left w-full`}
           style={{
             marginTop: `${headerSpacing}px`,
             rowGap: `${bulletSpacing * 0.5}px`,
@@ -637,6 +661,88 @@ export default function TailorWorkspace() {
       const idx = parseInt(blockId.substring(9));
       const exp = result.tailoredCv.workExperience[idx];
       if (!exp) return null;
+      if (isAtsMode) {
+        return (
+          <div
+            key={blockId}
+            data-block-id={blockId}
+            className="w-full text-left font-sans flex flex-col"
+            style={{ marginBottom: `${bulletSpacing * 1.5}px` }}
+          >
+            <p
+              className="font-bold text-gray-500"
+              style={{ fontSize: `${fontSize - 0.5}px`, marginBottom: '2px' }}
+            >
+              <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'period', e.target.innerText)} className="focus:outline-none font-semibold">
+                {exp.period}
+              </span>
+            </p>
+            <p
+              className="font-semibold text-[#2980B9]"
+              style={{ fontSize: `${fontSize + 0.5}px` }}
+            >
+              <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'role', e.target.innerText)} className="focus:outline-none">
+                {exp.role}
+              </span>
+            </p>
+            <p
+              className="text-gray-600 font-medium"
+              style={{ fontSize: `${fontSize - 0.5}px` }}
+            >
+              <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'company', e.target.innerText)} className="focus:outline-none font-semibold">
+                {exp.company}
+              </span>
+              {exp.location && (
+                <>
+                  {' – '}
+                  <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleWorkExperienceChange(idx, 'location', e.target.innerText)} className="focus:outline-none">
+                    {exp.location}
+                  </span>
+                </>
+              )}
+            </p>
+            <ul
+              className="list-none pl-0 animate-none"
+              style={{ marginTop: `${bulletSpacing * 0.35}px` }}
+            >
+              {getRenderedBullets(exp, bulletStyle, lengthTarget, idx === 0).map((b: string, bIdx: number) => (
+                <li
+                  key={bIdx}
+                  className="group flex items-start gap-1.5 text-gray-700 leading-[1.55] relative animate-none"
+                  style={{
+                    fontSize: `${fontSize}px`,
+                    marginTop: `${bulletSpacing}px`
+                  }}
+                >
+                  <span className="text-gray-500 leading-none mt-[2px] select-none">•</span>
+                  <span
+                    contentEditable={!isMeasurement}
+                    suppressContentEditableWarning
+                    onBlur={(e) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerHTML)}
+                    dangerouslySetInnerHTML={{ __html: b }}
+                    className="focus:outline-none flex-1"
+                  />
+                  {!isMeasurement && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteWorkExperienceBullet(idx, bIdx)}
+                      className="no-print opacity-0 group-hover:opacity-100 ml-1.5 text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 cursor-pointer w-4 h-4 rounded-full flex items-center justify-center transition-all duration-150 shrink-0 select-none border border-rose-200 font-sans"
+                      title="Delete bullet point"
+                      style={{
+                        fontSize: '10px',
+                        lineHeight: '1',
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      }
+
       return (
         <div key={blockId} data-block-id={blockId} className="w-full text-left font-sans" style={{ marginBottom: `${bulletSpacing}px` }}>
           <table className="w-full border-collapse">
@@ -767,6 +873,50 @@ export default function TailorWorkspace() {
       const idx = parseInt(blockId.substring(4));
       const edu = result.tailoredCv.education[idx];
       if (!edu) return null;
+      if (isAtsMode) {
+        return (
+          <div
+            key={blockId}
+            data-block-id={blockId}
+            className="w-full text-left font-sans flex flex-col"
+            style={{ marginBottom: `${bulletSpacing * 1.5}px` }}
+          >
+            <p
+              className="font-bold text-gray-500"
+              style={{ fontSize: `${fontSize - 0.5}px`, marginBottom: '2px' }}
+            >
+              <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'period', e.target.innerText)} className="focus:outline-none font-semibold">
+                {edu.period}
+              </span>
+            </p>
+            <p
+              className="font-semibold text-[#2980B9]"
+              style={{ fontSize: `${fontSize + 0.5}px` }}
+            >
+              <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'degree', e.target.innerText)} className="focus:outline-none font-semibold">
+                {edu.degree}
+              </span>
+            </p>
+            <p
+              className="text-gray-600 font-medium"
+              style={{ fontSize: `${fontSize - 0.5}px` }}
+            >
+              <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'institution', e.target.innerText)} className="focus:outline-none font-semibold">
+                {edu.institution}
+              </span>
+              {edu.location && (
+                <>
+                  {' – '}
+                  <span contentEditable={!isMeasurement} suppressContentEditableWarning onBlur={(e) => handleEducationChange(idx, 'location', e.target.innerText)} className="focus:outline-none">
+                    {edu.location}
+                  </span>
+                </>
+              )}
+            </p>
+          </div>
+        );
+      }
+
       return (
         <div key={blockId} data-block-id={blockId} className="w-full text-left font-sans" style={{ marginBottom: `${bulletSpacing}px` }}>
           <table className="w-full border-collapse">
@@ -1299,139 +1449,56 @@ export default function TailorWorkspace() {
     }
   };
 
-  const handleExportPdf = (type: 'cv' | 'cl') => {
-    const isCv = type === 'cv';
-    let pagesHtml = '';
+  const handleExportPdf = async (type: 'cv' | 'cl') => {
+    try {
+      const isCv = type === 'cv';
+      const data = isCv ? result?.tailoredCv : result?.tailoredCoverLetter;
+      const options = {
+        fontSize,
+        bulletSpacing,
+        sectionSpacing,
+        paddingTop: pagePaddingTop,
+        paddingSide: pagePaddingSide,
+        paddingBottom: pagePaddingBottom,
+        bulletStyle,
+        clLength,
+      };
 
-    if (isCv) {
-      const pageElements = document.querySelectorAll('.cv-page-box');
-      pageElements.forEach((pageEl) => {
-        const clone = pageEl.cloneNode(true) as HTMLElement;
-        clone.querySelectorAll('.no-print').forEach(el => el.remove());
-        
-        // Wrap cloned content in a print-page container to guarantee margins/padding
-        const printPage = document.createElement('div');
-        printPage.className = 'print-page';
-        // Apply CV page styles directly in style attribute
-        printPage.setAttribute('style', `
-          width: 210mm !important;
-          height: 297mm !important;
-          padding: ${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm !important;
-          box-sizing: border-box !important;
-          page-break-after: always !important;
-          background-color: #FFFFFF !important;
-          position: relative !important;
-          font-family: "Inter", "Calibri", "Segoe UI", system-ui, sans-serif !important;
-          font-size: ${fontSize}px !important;
-          line-height: 1.55 !important;
-          color: #1F2937 !important;
-          overflow: hidden !important;
-        `);
-        printPage.innerHTML = clone.innerHTML;
-        pagesHtml += printPage.outerHTML;
+      const res = await fetch('/api/export-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type,
+          data,
+          options,
+          atsMode: isAtsMode,
+        }),
       });
-    } else {
-      const clSheet = document.getElementById('cl-sheet');
-      if (clSheet) {
-        const clone = clSheet.cloneNode(true) as HTMLElement;
-        clone.querySelectorAll('.no-print').forEach(el => el.remove());
-        
-        const printPage = document.createElement('div');
-        printPage.className = 'print-page';
-        printPage.setAttribute('style', `
-          width: 210mm !important;
-          height: 297mm !important;
-          padding: 32mm 28mm 24mm 28mm !important;
-          box-sizing: border-box !important;
-          page-break-after: always !important;
-          background-color: #FFFFFF !important;
-          position: relative !important;
-          font-family: "Inter", "Calibri", "Segoe UI", system-ui, sans-serif !important;
-          font-size: 11.5px !important;
-          line-height: 1.65 !important;
-          color: #1A1A1A !important;
-          overflow: hidden !important;
-        `);
-        printPage.innerHTML = clone.innerHTML;
-        pagesHtml += printPage.outerHTML;
+
+      if (!res.ok) {
+        let errorMsg = 'Failed to generate PDF';
+        try {
+          const errData = await res.json();
+          errorMsg = errData.error || errorMsg;
+        } catch {}
+        throw new Error(errorMsg);
       }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${type === 'cv' ? 'Resume' : 'Cover_Letter'}_${isAtsMode ? 'ATS' : 'Standard'}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error(err);
+      alert(`PDF Export Failed: ${err.message}`);
     }
-
-    if (!pagesHtml) return;
-
-    // Create temporary iframe
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    iframe.style.opacity = '0';
-    iframe.style.pointerEvents = 'none';
-    document.body.appendChild(iframe);
-
-    // Copy stylesheet and font links from parent
-    let stylesHtml = '';
-    document.querySelectorAll('style, link[rel="stylesheet"]').forEach(el => {
-      stylesHtml += el.outerHTML;
-    });
-
-    const iframeDoc = iframe.contentWindow?.document || iframe.contentDocument;
-    if (!iframeDoc) return;
-
-    iframeDoc.open();
-    iframeDoc.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${isCv ? 'Resume' : 'Cover_Letter'}</title>
-        <meta charset="utf-8">
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-        ${stylesHtml}
-        <style>
-          * {
-            box-sizing: border-box;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            -webkit-user-select: text !important;
-            user-select: text !important;
-          }
-          body {
-            margin: 0 !important;
-            padding: 0 !important;
-            background-color: #FFFFFF !important;
-          }
-          .print-page:last-child {
-            page-break-after: avoid !important;
-          }
-          @page {
-            size: A4;
-            margin: 0 !important;
-          }
-        </style>
-      </head>
-      <body>
-        ${pagesHtml}
-        <script>
-          window.onload = function() {
-            setTimeout(function() {
-              window.focus();
-              window.print();
-            }, 250);
-          };
-        </script>
-      </body>
-      </html>
-    `);
-    iframeDoc.close();
-
-    // Clean up after print triggers
-    setTimeout(() => {
-      document.body.removeChild(iframe);
-    }, 60000);
   };
 
 
@@ -2836,7 +2903,7 @@ export default function TailorWorkspace() {
         {/* Toolbar */}
         <div className="sticky top-0 z-20 no-print flex items-center justify-between px-6 py-3 bg-[#0a061b] border-b border-white/5">
           <div className="flex items-center gap-3">
-            <div className="flex gap-1.5">
+            <div className="flex gap-1.5 font-sans">
               <button
                 onClick={() => setPreviewTab('cv')}
                 className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${previewTab === 'cv'
@@ -2854,6 +2921,31 @@ export default function TailorWorkspace() {
                   }`}
               >
                 Tailored {clLanguage === 'DE' ? 'Anschreiben' : 'Cover Letter'}
+              </button>
+            </div>
+
+            <div className="flex bg-zinc-900/80 backdrop-blur-md border border-white/10 rounded-lg p-0.5 font-sans">
+              <button
+                type="button"
+                onClick={() => setIsAtsMode(false)}
+                className={`px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${
+                  !isAtsMode
+                    ? 'bg-zinc-800 text-white shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                Visual Layout (Standard)
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAtsMode(true)}
+                className={`px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${
+                  isAtsMode
+                    ? 'bg-zinc-800 text-white shadow-sm'
+                    : 'text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                Strict ATS Layout
               </button>
             </div>
 
@@ -3142,19 +3234,19 @@ export default function TailorWorkspace() {
                       >
                         <div className="text-xs">
                           {/* Sender block */}
-                          <div className="text-right text-[11.5px] leading-[1.7]">
+                          <div className={`${isAtsMode ? 'text-left' : 'text-right'} text-[11.5px] leading-[1.7]`}>
                             <pre
                               contentEditable={true}
                               suppressContentEditableWarning={true}
                               onBlur={(e) => handleClChange('senderAddress', e.target.innerText)}
-                              className="font-sans text-[11.5px] leading-[1.7] whitespace-pre-wrap inline-block text-right"
+                              className={`font-sans text-[11.5px] leading-[1.7] whitespace-pre-wrap inline-block ${isAtsMode ? 'text-left w-full' : 'text-right'}`}
                             >
                               {result.tailoredCoverLetter.senderAddress}
                             </pre>
                           </div>
 
                           {/* Recipient address + Date row */}
-                          <div className="mt-10 flex justify-between items-end text-left font-sans">
+                          <div className={isAtsMode ? "mt-10 flex flex-col items-start gap-y-4 text-left font-sans" : "mt-10 flex justify-between items-end text-left font-sans"}>
                             <div>
                               <pre
                                 contentEditable={true}

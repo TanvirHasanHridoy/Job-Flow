@@ -161,7 +161,8 @@ ${lengthDirective}
    - **Relevancy Cut-offs:** ${lengthTarget.includes('1-Page') ? 'Filter and list only the last three companies' : 'Filter and list only the last four companies'} in the tailored work experience. Mention the total cumulative years of experience in the professional summary instead.
    - **Show, Don't Tell Soft Skills:** Do NOT list soft skills standalone. Integrate them naturally within the professional summary or the work history bullet points (e.g., "Strong communication skills developed through customer-facing roles...").
    - **Strict Rules for Hobbies:** Exclude generic hobbies like "reading," "traveling," or "music". Only include hobbies if they are directly relevant to the target job or demonstrate valuable workplace traits like leadership or teamwork.
-   - **Software Developer Bullet Progression:** Transform weak bullet points into high-impact, metrics-driven, and result-oriented outcomes. Target a "Great" formulation quality: explain how a specific action (e.g. stack modernization, speed optimization) drove business metrics (e.g., increased conversion rate of the online shop by 25% by modernizing the tech stack and increasing page speed by 60%).
+   - **Software Developer Bullet Progression:** Transform weak bullet points into high-impact, metrics-driven, and result-oriented outcomes following a 4-part formula: (1) start with a strong action verb, (2) provide a concrete metric or result, (3) specify the technical implementation detail (how it was done, including tech stack/tools), and (4) explain the business context/value.
+   - **No Literal Labels or Prefixes:** In all generated bullets (including "star", "punchy", and "standard" categories), you MUST write the bullet points directly as cohesive sentences. Never include literal labels or prefixes such as "STAR Method:", "Situation:", "Task:", "Action:", "Result:", "Context:", or "Value:". The formula must be baked into the sentence naturally (e.g., "Developed a scalable CRM API that handled 50,000 monthly active users using React and WebSockets, improving user engagement by 15%").
    - **References:** Do NOT include the phrase "References available upon request". Keep it completely out.
    - **Gender Pronouns:** Gender pronouns are optional. Do not include them by default. If requested or explicitly provided in custom notes, place them directly under the signature/signing line as "Pronouns: [pronouns]".
 
@@ -201,7 +202,7 @@ You must respond with a raw JSON object containing these exact keys:
         "company": "<exact original company name from the profile experience list to map back>",
         "role": "<tailored job title / role name in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
         "bullets": {
-          "star": [<array of tailored achievement strings in STAR Method format (Situation, Task, Action, Result) in ${cvLanguage === 'DE' ? 'German' : 'English'}>],
+          "star": [<array of tailored achievement strings following the 4-part STAR formula (Strong Action Verb + Concrete Metric + Tech Stack + Business Context) in ${cvLanguage === 'DE' ? 'German' : 'English'}, written directly as a single cohesive sentence WITHOUT any literal labels or prefixes like "Situation:", "Action:", etc.>],
           "punchy": [<array of tailored achievement strings that are short, high-impact highlights in ${cvLanguage === 'DE' ? 'German' : 'English'}>],
           "standard": [<array of tailored achievement strings of standard roles/responsibilities in ${cvLanguage === 'DE' ? 'German' : 'English'}>]
         }
