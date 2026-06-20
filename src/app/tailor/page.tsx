@@ -289,6 +289,13 @@ export default function TailorWorkspace() {
   const [signingLocation, setSigningLocation] = useState('');
   const [customNotes, setCustomNotes] = useState('');
 
+  // Intake Method States
+  const [intakeMethod, setIntakeMethod] = useState<'text' | 'url' | 'pdf'>('text');
+  const [jobUrl, setJobUrl] = useState('');
+  const [scraping, setScraping] = useState(false);
+  const [scrapeError, setScrapeError] = useState<string | null>(null);
+  const [scrapeWarning, setScrapeWarning] = useState<string | null>(null);
+
   // Strategy & Style States
   const [matchStrategy, setMatchStrategy] = useState<'TACTICAL_PIVOT' | 'AGGRESIVE_BRIDGING'>('TACTICAL_PIVOT');
   const [styleTemplate, setStyleTemplate] = useState<'CLASSIC_CORPORATE' | 'MODERN_MINIMALIST' | 'TECH_CREATIVE'>('CLASSIC_CORPORATE');
@@ -1134,6 +1141,90 @@ export default function TailorWorkspace() {
       }
     } catch (err) {
       console.error('Error loading application details:', err);
+    }
+  };
+
+  const handleUrlScrape = async () => {
+    if (!jobUrl.trim() || !jobUrl.startsWith('http')) {
+      alert('Please enter a valid job posting URL.');
+      return;
+    }
+    setScraping(true);
+    setScrapeError(null);
+    setScrapeWarning(null);
+    try {
+      const res = await fetch('/api/intake/scrape-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: jobUrl.trim() })
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json();
+        throw new Error(errJson.error || 'Failed to scrape URL');
+      }
+
+      const data = await res.json();
+      if (data.fallback) {
+        setScrapeWarning(data.message);
+        // Switch to text mode so they know they need to paste it
+        setIntakeMethod('text');
+      } else {
+        if (data.roleName) setRoleName(data.roleName);
+        if (data.companyName) setCompanyName(data.companyName);
+        if (data.jobDescription) setJobDescription(data.jobDescription);
+        
+        confetti({
+          particleCount: 50,
+          spread: 45,
+          origin: { y: 0.8 }
+        });
+      }
+    } catch (err: any) {
+      console.error(err);
+      setScrapeError(err.message || 'An error occurred while scraping the job details.');
+    } finally {
+      setScraping(false);
+    }
+  };
+
+  const handleJobPdfUpload = async (file: File) => {
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      alert('Please select a valid PDF file.');
+      return;
+    }
+    setScraping(true);
+    setScrapeError(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/intake/parse-job-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json();
+        throw new Error(errJson.error || 'Failed to parse Job PDF');
+      }
+
+      const data = await res.json();
+      if (data.roleName) setRoleName(data.roleName);
+      if (data.companyName) setCompanyName(data.companyName);
+      if (data.jobDescription) setJobDescription(data.jobDescription);
+
+      confetti({
+        particleCount: 50,
+        spread: 45,
+        origin: { y: 0.8 }
+      });
+    } catch (err: any) {
+      console.error(err);
+      setScrapeError(err.message || 'An error occurred while parsing the Job PDF.');
+    } finally {
+      setScraping(false);
     }
   };
 
@@ -2347,7 +2438,138 @@ export default function TailorWorkspace() {
 
 
 
-          <div className="flex flex-col gap-1">
+          {/* Intake Method Tabs */}
+          <div className="flex flex-col gap-1.5 text-left">
+            <label className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">Job Intake Method</label>
+            <div className="grid grid-cols-3 gap-1 bg-white/5 p-1 rounded-xl border border-white/5 font-sans">
+              <button
+                type="button"
+                onClick={() => setIntakeMethod('text')}
+                className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${intakeMethod === 'text'
+                  ? 'bg-indigo-600 text-white shadow'
+                  : 'text-zinc-400 hover:text-white'
+                  }`}
+              >
+                Text Paste
+              </button>
+              <button
+                type="button"
+                onClick={() => setIntakeMethod('url')}
+                className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${intakeMethod === 'url'
+                  ? 'bg-indigo-600 text-white shadow'
+                  : 'text-zinc-400 hover:text-white'
+                  }`}
+              >
+                Job URL
+              </button>
+              <button
+                type="button"
+                onClick={() => setIntakeMethod('pdf')}
+                className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${intakeMethod === 'pdf'
+                  ? 'bg-indigo-600 text-white shadow'
+                  : 'text-zinc-400 hover:text-white'
+                  }`}
+              >
+                Job PDF
+              </button>
+            </div>
+          </div>
+
+          {/* Conditional Intake Content */}
+          {intakeMethod === 'url' && (
+            <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] space-y-3 text-left">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Job Posting URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={jobUrl}
+                    onChange={e => setJobUrl(e.target.value)}
+                    placeholder="https://example.com/jobs/123"
+                    className="glass-input px-3 py-2 text-xs flex-1"
+                    disabled={scraping}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleUrlScrape}
+                    disabled={scraping}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                  >
+                    {scraping ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        Scraping...
+                      </>
+                    ) : (
+                      'Scrape URL'
+                    )}
+                  </button>
+                </div>
+              </div>
+              {scrapeWarning && (
+                <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>{scrapeWarning}</span>
+                </div>
+              )}
+              {scrapeError && (
+                <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>{scrapeError}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {intakeMethod === 'pdf' && (
+            <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] space-y-3 text-left">
+              <label className="text-[10px] text-zinc-400 font-semibold uppercase">Upload Job Advertisement PDF</label>
+              <div className="relative group">
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handleJobPdfUpload(file);
+                  }}
+                  className="hidden"
+                  id="job-pdf-upload"
+                  disabled={scraping}
+                />
+                <label
+                  htmlFor="job-pdf-upload"
+                  className="flex flex-col items-center justify-center border border-dashed border-zinc-700/50 bg-white/[0.02] hover:bg-white/[0.04] transition-all rounded-xl p-5 text-center cursor-pointer"
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={e => {
+                    e.preventDefault();
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) handleJobPdfUpload(file);
+                  }}
+                >
+                  <FileText className="w-8 h-8 text-indigo-400 mb-2 group-hover:scale-110 transition-transform duration-300" />
+                  {scraping ? (
+                    <div className="flex items-center gap-1.5 font-sans">
+                      <div className="w-3.5 h-3.5 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin"></div>
+                      <span className="text-[11px] text-zinc-400">Parsing PDF job description...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="text-xs text-white font-medium">Click to select JD PDF</span>
+                      <span className="text-[10px] text-zinc-500 mt-1">Drag and drop here</span>
+                    </>
+                  )}
+                </label>
+              </div>
+              {scrapeError && (
+                <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>{scrapeError}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1 text-left">
             <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Job Description (Raw Text)</label>
             <textarea
               value={jobDescription}
