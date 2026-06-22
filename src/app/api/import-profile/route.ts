@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
+import { deductTokens, TOKEN_PRICING } from '@/lib/tokens';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
@@ -7,6 +8,16 @@ export async function POST(req: Request) {
   try {
     const auth = await getAuthUserId();
     if ('error' in auth) return auth.error;
+    const { userId } = auth;
+
+    // Deduct tokens
+    const deduction = await deductTokens(userId, TOKEN_PRICING.IMPORT_PROFILE);
+    if (!deduction.success) {
+      return NextResponse.json(
+        { error: 'Insufficient tokens. Please top up your account.' },
+        { status: 403 }
+      );
+    }
 
     const { githubUsername, linkedinText } = await req.json();
 

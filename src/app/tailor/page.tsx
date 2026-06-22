@@ -4,10 +4,11 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
   Sparkles, FileText, Download, Briefcase, Award, CheckCircle2, AlertTriangle, Languages, Save, Check,
-  List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Palette, Highlighter, RotateCcw, Sliders
+  List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Palette, Highlighter, RotateCcw, Sliders, Coins, Plus
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { groupSkillsByCategory } from '@/lib/skills';
+import { useTokens } from '@/context/TokenContext';
 
 interface WorkExperience {
   company: string;
@@ -358,6 +359,7 @@ const ContentEditable = ({
 export default function TailorWorkspace() {
   const [profile, setProfile] = useState<any>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const { tokens, setIsTokenModalOpen, fetchTokens } = useTokens();
 
   // Form states
   const [jobDescription, setJobDescription] = useState('');
@@ -395,6 +397,7 @@ export default function TailorWorkspace() {
   const [clLength, setClLength] = useState<string>('Short & Punchy (under 300 words)');
   const [skillsFocus, setSkillsFocus] = useState<string>('Tech-Heavy Focus');
   const [skillsLayout, setSkillsLayout] = useState<'level' | 'category'>('level');
+  const [themeDirective, setThemeDirective] = useState('');
 
   // Visual Customization States
   const [sectionSpacing, setSectionSpacing] = useState(24); // px
@@ -1756,6 +1759,11 @@ export default function TailorWorkspace() {
         body: JSON.stringify({ url: jobUrl.trim() })
       });
 
+      if (res.status === 403) {
+        setIsTokenModalOpen(true);
+        return;
+      }
+
       if (!res.ok) {
         let errMsg = 'Failed to scrape URL';
         const rawText = await res.text();
@@ -1779,6 +1787,7 @@ export default function TailorWorkspace() {
         if (data.companyName) setCompanyName(data.companyName);
         if (data.jobDescription) setJobDescription(data.jobDescription);
         
+        fetchTokens();
         confetti({
           particleCount: 50,
           spread: 45,
@@ -1810,6 +1819,11 @@ export default function TailorWorkspace() {
         body: formData,
       });
 
+      if (res.status === 403) {
+        setIsTokenModalOpen(true);
+        return;
+      }
+
       if (!res.ok) {
         let errMsg = 'Failed to parse Job PDF';
         const rawText = await res.text();
@@ -1828,6 +1842,7 @@ export default function TailorWorkspace() {
       if (data.companyName) setCompanyName(data.companyName);
       if (data.jobDescription) setJobDescription(data.jobDescription);
 
+      fetchTokens();
       confetti({
         particleCount: 50,
         spread: 45,
@@ -1865,12 +1880,18 @@ export default function TailorWorkspace() {
           noticePeriod,
           signingLocation,
           customNotes,
+          themeDirective,
           profile,
           matchStrategy,
           applicationId: editingAppId,
           roleName
         })
       });
+
+      if (res.status === 403) {
+        setIsTokenModalOpen(true);
+        return;
+      }
 
       if (!res.ok) {
         const errJson = await res.json();
@@ -1879,6 +1900,7 @@ export default function TailorWorkspace() {
 
       const data = (await res.json()) as TailorResponse;
       setResult(data);
+      fetchTokens();
 
       // Trigger celebrate confetti if match score is high
       if (data.matchScore >= 70) {
@@ -2790,6 +2812,17 @@ export default function TailorWorkspace() {
           </p>
         </div>
 
+        {/* Token Balance Widget */}
+        {tokens !== null && (
+          <div className="p-3.5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 flex items-center gap-2 text-xs animate-in fade-in duration-200">
+            <Coins className="w-4 h-4 text-indigo-400" />
+            <div>
+              <span className="text-zinc-400 block text-[9px] uppercase font-semibold tracking-wider">Remaining Balance</span>
+              <span className="font-bold text-zinc-200 text-xs">{tokens} Tokens</span>
+            </div>
+          </div>
+        )}
+
         {/* Form Inputs */}
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -3234,7 +3267,7 @@ export default function TailorWorkspace() {
                         Scraping...
                       </>
                     ) : (
-                      'Scrape URL'
+                      'Scrape URL (5 tokens)'
                     )}
                   </button>
                 </div>
@@ -3287,7 +3320,7 @@ export default function TailorWorkspace() {
                     </div>
                   ) : (
                     <>
-                      <span className="text-xs text-white font-medium">Click to select JD PDF</span>
+                      <span className="text-xs text-white font-medium">Select JD PDF (5 tokens)</span>
                       <span className="text-[10px] text-zinc-500 mt-1">Drag and drop here</span>
                     </>
                   )}
@@ -3367,6 +3400,17 @@ export default function TailorWorkspace() {
                 />
               </div>
             </div>
+
+            <div className="flex flex-col gap-1 mt-3">
+              <label className="text-[10px] text-zinc-400 font-semibold uppercase text-left">Overarching Theme / Directive (Optional)</label>
+              <textarea
+                value={themeDirective}
+                onChange={e => setThemeDirective(e.target.value)}
+                placeholder="e.g. Focus heavily on my leadership experience and crisis management in the cover letter..."
+                rows={3}
+                className="glass-input px-3 py-2 text-xs w-full resize-none"
+              />
+            </div>
           </div>
 
           {/* Missing Assets Prompt */}
@@ -3401,7 +3445,7 @@ export default function TailorWorkspace() {
             ) : (
               <>
                 <Sparkles className="w-4 h-4 animate-pulse" />
-                Tailor CV & Cover Letter Now
+                Tailor CV & Cover Letter (20 tokens)
               </>
             )}
           </button>

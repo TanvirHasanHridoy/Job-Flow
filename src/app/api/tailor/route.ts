@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUserId } from '@/lib/auth';
 import { classifySkillCategory } from '@/lib/skills';
+import { deductTokens, TOKEN_PRICING } from '@/lib/tokens';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
@@ -10,6 +11,15 @@ export async function POST(req: Request) {
     const auth = await getAuthUserId();
     if ('error' in auth) return auth.error;
     const { userId } = auth;
+
+    // Deduct tokens
+    const deduction = await deductTokens(userId, TOKEN_PRICING.TAILOR);
+    if (!deduction.success) {
+      return NextResponse.json(
+        { error: 'Insufficient tokens. Please top up your account.' },
+        { status: 403 }
+      );
+    }
 
     const {
       jobDescription,
@@ -25,6 +35,7 @@ export async function POST(req: Request) {
       noticePeriod,
       signingLocation,
       customNotes,
+      themeDirective,
       profile,
       matchStrategy = 'TACTICAL_PIVOT',
       applicationId = null,
@@ -131,6 +142,14 @@ The user wants maximum keyword alignment. Without fabricating non-existent emplo
 - The summary can be more comprehensive (3-5 sentences).
 - Provide up to 4-5 tailored bullet points per role to thoroughly document achievements and responsibilities.`;
 
+    const themeInjection = themeDirective ? `
+[USER NARRATIVE DIRECTIVE]
+The user has requested a specific overarching theme for this generation: "${themeDirective}"
+- INSTRUCTION: Prioritize this theme in the professional summary, the cover letter narrative, and by highlighting relevant metrics in the bullet points.
+- STRICT CONSTRAINT: This theme DOES NOT override the Absolute Truthfulness rule. Do not invent facts to satisfy this theme. 
+- STRICT CONSTRAINT: This theme DOES NOT override the JSON formatting rules. You must still output the exact required JSON schema without any conversational filler.
+` : '';
+
     const systemPrompt = `You are an elite recruitment expert and ATS optimization engine. Your goal is to write a flawless, professional CV/Resume and Cover Letter based on the user's profile and the target job description.
 
 CV TARGET LANGUAGE: Write the tailored CV (summary, roles, bullets, skills) entirely in ${cvLanguage === 'DE' ? 'German' : 'English'}.
@@ -192,6 +211,8 @@ ${strategyDirective}
    - Do NOT calculate or output a match score or percentage yourself. 
    - You are only responsible for listing the specific semantic keyword categorization in the arrays: exactMatches, adjacentMatches, and missingSkills. 
    - The final score will be calculated programmatically on the backend.
+
+${themeInjection}
 
 You must respond with a raw JSON object containing these exact keys:
 {
