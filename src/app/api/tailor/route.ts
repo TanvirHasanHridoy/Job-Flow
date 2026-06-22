@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUserId } from '@/lib/auth';
+import { classifySkillCategory } from '@/lib/skills';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
@@ -216,7 +217,8 @@ You must respond with a raw JSON object containing these exact keys:
     "skills": [
       {
         "name": "<name of tailored skill in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
-        "level": "<skill level matching user's profile if present, otherwise assign 'Expert' | 'Advanced' | 'Intermediate' | 'Beginner' based on context>"
+        "level": "<skill level matching user's profile if present, otherwise assign 'Expert' | 'Advanced' | 'Intermediate' | 'Beginner' based on context>",
+        "category": "<category of skill, strictly one of: Frontend, Backend, Database, Tools>"
       }
     ],
     "signingLine": "<string for signature, e.g. 'München, 17. Juni 2026' or empty if EN>"
@@ -316,14 +318,28 @@ ${contextStr}`
       occupation: tailoredResult.tailoredCv?.personalDetails?.occupation || roleName || 'Professional'
     };
 
+    const matchedIndices = new Set<number>();
     const mergedWorkExperience = tailoredResult.tailoredCv?.workExperience
       ? tailoredResult.tailoredCv.workExperience.map((tailoredJob: any, idx: number) => {
-          // Find matching original job from user profile by company name or fallback to index
-          const originalJob = parsedWorkExp.find(
-            (j: any) => j.company.toLowerCase() === tailoredJob.company.toLowerCase() ||
-                        j.company.toLowerCase().includes(tailoredJob.company.toLowerCase()) ||
-                        tailoredJob.company.toLowerCase().includes(j.company.toLowerCase())
-          ) || parsedWorkExp[idx] || {};
+          // Find matching original job from user profile by company name (excluding already matched ones)
+          let originalIdx = parsedWorkExp.findIndex((j: any, oIdx: number) => {
+            if (matchedIndices.has(oIdx)) return false;
+            return j.company.toLowerCase() === tailoredJob.company.toLowerCase() ||
+                   j.company.toLowerCase().includes(tailoredJob.company.toLowerCase()) ||
+                   tailoredJob.company.toLowerCase().includes(j.company.toLowerCase());
+          });
+
+          // Fallback to index if no company match found and it's not already matched
+          if (originalIdx === -1) {
+            if (idx < parsedWorkExp.length && !matchedIndices.has(idx)) {
+              originalIdx = idx;
+            }
+          }
+
+          const originalJob = originalIdx !== -1 ? parsedWorkExp[originalIdx] : {};
+          if (originalIdx !== -1) {
+            matchedIndices.add(originalIdx);
+          }
 
           let bullets = tailoredJob.bullets;
           if (!bullets) {
@@ -393,11 +409,29 @@ ${contextStr}`
       tailoredResult.tailoredCoverLetter.paragraphs = paragraphs || { short: [], detailed: [] };
     }
 
+    const mergedSkills = (tailoredResult.tailoredCv?.skills || []).map((skill: any) => {
+      let name = '';
+      let level = 'Intermediate';
+      let category = '';
+      if (typeof skill === 'string') {
+        name = skill;
+      } else if (skill && typeof skill === 'object') {
+        name = skill.name || '';
+        level = skill.level || 'Intermediate';
+        category = skill.category || '';
+      }
+      if (name && !category) {
+        category = classifySkillCategory(name);
+      }
+      return { name, level, category };
+    });
+
     tailoredResult.tailoredCv = {
       ...tailoredResult.tailoredCv,
       personalDetails,
       workExperience: mergedWorkExperience,
       education: mergedEducation,
+      skills: mergedSkills,
       languages: parsedLanguages
     };
 

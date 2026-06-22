@@ -119,7 +119,6 @@ export function CvDocument({ cv, options }: { cv: any; options: any }) {
       fontSize: pxToPt(15),
       fontFamily: 'Inter',
       fontWeight: 700,
-      letterSpacing: 2,
     },
     summaryText: {
       fontSize: baseFontSizePt,

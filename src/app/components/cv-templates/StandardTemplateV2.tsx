@@ -176,7 +176,6 @@ export function CvDocument({ cv, options }: { cv: any; options: any }) {
       fontSize: pxToPt(15),
       fontFamily: fontFam,
       fontWeight: 700,
-      letterSpacing: 2,
       textTransform: headingTransform,
     },
     summaryText: {

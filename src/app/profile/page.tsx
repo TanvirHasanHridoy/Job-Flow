@@ -5,6 +5,7 @@ import {
   User, Briefcase, GraduationCap, Code2, Globe2, Plus, Trash2, Save, Sparkles, CheckCircle2, RefreshCw, FileText 
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { classifySkillCategory, SKILL_CATEGORIES } from '@/lib/skills';
 
 interface WorkExperience {
   company: string;
@@ -28,6 +29,7 @@ interface Education {
 interface Skill {
   name: string;
   level: string;
+  category?: string;
 }
 
 interface Language {
@@ -283,7 +285,7 @@ export default function ProfileVault() {
   });
 
   // Skills temp states
-  const [newSkill, setNewSkill] = useState<Skill>({ name: '', level: 'Intermediate' });
+  const [newSkill, setNewSkill] = useState<Skill>({ name: '', level: 'Intermediate', category: 'Tools' });
 
   // Languages temp states
   const [newLang, setNewLang] = useState<Language>({ language: '', level: 'B2' });
@@ -431,11 +433,12 @@ export default function ProfileVault() {
   // Skill Operations
   const addSkill = () => {
     if (!newSkill.name.trim()) return;
+    const category = newSkill.category || classifySkillCategory(newSkill.name);
     setProfile(prev => ({
       ...prev,
-      skills: [...prev.skills, { ...newSkill }]
+      skills: [...prev.skills, { ...newSkill, category }]
     }));
-    setNewSkill({ name: '', level: 'Intermediate' });
+    setNewSkill({ name: '', level: 'Intermediate', category: 'Tools' });
   };
 
   const removeSkill = (index: number) => {
@@ -1226,6 +1229,11 @@ export default function ProfileVault() {
                       <span key={idx} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-xs text-indigo-300">
                         <span className="font-semibold text-white">{skill.name}</span>
                         <span className="opacity-50 text-[10px]">({skill.level})</span>
+                        {skill.category && (
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-indigo-500/10 text-indigo-200">
+                            {skill.category}
+                          </span>
+                        )}
                         <button
                           onClick={() => removeSkill(idx)}
                           className="hover:text-rose-400 p-0.5 rounded cursor-pointer"
@@ -1239,15 +1247,35 @@ export default function ProfileVault() {
 
                 {/* Add Skill Form */}
                 <div className="flex flex-col md:flex-row items-end gap-3 p-4 rounded-xl border border-white/5 bg-white/[0.01]">
-                  <div className="flex-1 flex flex-col gap-1">
+                  <div className="flex-1 flex flex-col gap-1 w-full">
                     <label className="text-xs text-zinc-400">Skill Name</label>
                     <input
                       type="text"
                       value={newSkill.name}
-                      onChange={e => setNewSkill(prev => ({ ...prev, name: e.target.value }))}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setNewSkill(prev => ({
+                          ...prev,
+                          name: val,
+                          category: classifySkillCategory(val)
+                        }));
+                      }}
                       className="glass-input px-3 py-2 text-xs w-full"
                       placeholder="e.g. React.js, Kubernetes, Rust"
                     />
+                  </div>
+
+                  <div className="flex flex-col gap-1 w-full md:w-48">
+                    <label className="text-xs text-zinc-400">Category</label>
+                    <select
+                      value={newSkill.category || 'Tools'}
+                      onChange={e => setNewSkill(prev => ({ ...prev, category: e.target.value }))}
+                      className="glass-input px-3 py-2 text-xs w-full"
+                    >
+                      {SKILL_CATEGORIES.map(cat => (
+                        <option key={cat} value={cat} className="bg-zinc-950 text-white">{cat}</option>
+                      ))}
+                    </select>
                   </div>
                   
                   <div className="flex flex-col gap-1 w-full md:w-48">

@@ -78,7 +78,8 @@ CRITICAL RULES:
 1. TRUTHFULNESS: Rely ONLY on the facts, dates, coordinates, and skills contained in the inputs. Do not invent company names or credentials.
 2. SYNTHESIZE PROJECTS & SKILLS: Extract programming languages, framework keywords, and project names from the GitHub repository list and list them as technical skills or achievements.
 3. SKILL LEVEL MAPPING: For each skill, search the raw text and GitHub repositories for self-reported seniority or experience indicators (e.g., "Senior TypeScript Architect" or "6 years experience in Java" -> Expert; "Mid-level React Developer" -> Advanced or Intermediate; "Junior Python coder" -> Beginner; "experience with AWS" -> Intermediate; "basic understanding of Docker" -> Beginner). Map all detected skill proficiencies strictly to one of these four levels: 'Expert', 'Advanced', 'Intermediate', 'Beginner'. If no seniority/experience is indicated for a skill, default to 'Intermediate'.
-4. OUTPUT FORMAT: You must return a raw JSON object matching the exact keys below. Experience and Education dates should be parsed cleanly (e.g. "Jan 2021" or "2018").
+4. SKILL CATEGORY MAPPING: Map each skill to one of these four categories based on its nature: 'Frontend', 'Backend', 'Database', or 'Tools'. Default to 'Tools' if it doesn't clearly fit others.
+5. OUTPUT FORMAT: You must return a raw JSON object matching the exact keys below. Experience and Education dates should be parsed cleanly (e.g. "Jan 2021" or "2018").
 
 Return a JSON object conforming to this template:
 {
@@ -114,7 +115,7 @@ Return a JSON object conforming to this template:
     }
   ],
   "skills": [
-    { "name": "<string>", "level": "<string, strictly one of: Expert, Advanced, Intermediate, Beginner>" }
+    { "name": "<string>", "level": "<string, strictly one of: Expert, Advanced, Intermediate, Beginner>", "category": "<string, strictly one of: Frontend, Backend, Database, Tools>" }
   ],
   "languages": [
     { "language": "<string>", "level": "<string, e.g. Native, C1, B2>" }

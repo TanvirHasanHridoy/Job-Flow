@@ -7,6 +7,7 @@ import {
   List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Palette, Highlighter, RotateCcw, Sliders
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { groupSkillsByCategory } from '@/lib/skills';
 
 interface WorkExperience {
   company: string;
@@ -35,6 +36,7 @@ interface Language {
 interface TailoredSkill {
   name: string;
   level: string;
+  category?: string;
 }
 
 interface TailoredCv {
@@ -392,6 +394,7 @@ export default function TailorWorkspace() {
   const [bulletStyle, setBulletStyle] = useState<string>('STAR Method');
   const [clLength, setClLength] = useState<string>('Short & Punchy (under 300 words)');
   const [skillsFocus, setSkillsFocus] = useState<string>('Tech-Heavy Focus');
+  const [skillsLayout, setSkillsLayout] = useState<'level' | 'category'>('level');
 
   // Visual Customization States
   const [sectionSpacing, setSectionSpacing] = useState(24); // px
@@ -888,7 +891,7 @@ export default function TailorWorkspace() {
                   marginBottom: `${sectionSpacing * 0.3}px`
                 }}
               >
-                <h2 className="text-[15px] font-bold tracking-[0.22em] uppercase">
+                <h2 className="text-[15px] font-bold uppercase">
                   <span className="text-gray-800">{first}</span>
                   {rest && <span className="text-[#2980B9]">&nbsp;{rest}</span>}
                 </h2>
@@ -930,7 +933,7 @@ export default function TailorWorkspace() {
             const rest = idx === -1 ? '' : title.slice(idx + 1);
             return (
               <>
-                <h2 className="text-[15px] font-bold tracking-[0.22em] uppercase">
+                <h2 className="text-[15px] font-bold uppercase">
                   <span className="text-gray-800">{first}</span>
                   {rest && <span className="text-[#2980B9]">&nbsp;{rest}</span>}
                 </h2>
@@ -1192,7 +1195,7 @@ export default function TailorWorkspace() {
             const rest = idx === -1 ? '' : title.slice(idx + 1);
             return (
               <>
-                <h2 className="text-[15px] font-bold tracking-[0.22em] uppercase">
+                <h2 className="text-[15px] font-bold uppercase">
                   <span className="text-gray-800">{first}</span>
                   {rest && <span className="text-[#2980B9]">&nbsp;{rest}</span>}
                 </h2>
@@ -1374,7 +1377,7 @@ export default function TailorWorkspace() {
                   marginBottom: `${sectionSpacing * 0.3}px`
                 }}
               >
-                <h2 className="text-[15px] font-bold tracking-[0.22em] uppercase">
+                <h2 className="text-[15px] font-bold uppercase">
                   <span className="text-gray-800">{first}</span>
                   {rest && <span className="text-[#2980B9]">&nbsp;{rest}</span>}
                 </h2>
@@ -1384,32 +1387,55 @@ export default function TailorWorkspace() {
           })()}
           <div style={{ marginTop: `${bulletSpacing * 0.5}px` }}>
             <ul className="list-none pl-0">
-              {Object.entries(getGroupedSkills(result.tailoredCv.skills)).map(([level, names], gIdx) => {
-                if (names.length === 0) return null;
+              {skillsLayout === 'level' ? (
+                Object.entries(getGroupedSkills(result.tailoredCv.skills)).map(([level, names], gIdx) => {
+                  if (names.length === 0) return null;
 
-                let levelLabel = 'Intermediate';
-                if (level === 'Expert') levelLabel = 'Expert Knowledge';
-                else if (level === 'Advanced') levelLabel = 'Advanced Knowledge';
-                else if (level === 'Intermediate') levelLabel = 'Intermediate';
-                else if (level === 'Beginner') levelLabel = 'Basic';
+                  let levelLabel = 'Intermediate';
+                  if (level === 'Expert') levelLabel = 'Expert Knowledge';
+                  else if (level === 'Advanced') levelLabel = 'Advanced Knowledge';
+                  else if (level === 'Intermediate') levelLabel = 'Intermediate';
+                  else if (level === 'Beginner') levelLabel = 'Basic';
 
-                return (
-                  <li
-                    key={gIdx}
-                    className="flex items-start gap-1.5 text-gray-700 leading-[1.55]"
-                    style={{
-                      fontSize: `${fontSize}px`,
-                      marginTop: `${bulletSpacing}px`
-                    }}
-                  >
-                    <span className="text-gray-500 leading-none mt-[2px] shrink-0">•</span>
-                    <span>
-                      <span className="font-semibold text-gray-800">{levelLabel}:</span>{' '}
-                      <span className="text-gray-700">{names.join(', ')}</span>
-                    </span>
-                  </li>
-                );
-              })}
+                  return (
+                    <li
+                      key={gIdx}
+                      className="flex items-start gap-1.5 text-gray-700 leading-[1.55]"
+                      style={{
+                        fontSize: `${fontSize}px`,
+                        marginTop: `${bulletSpacing}px`
+                      }}
+                    >
+                      <span className="text-gray-500 leading-none mt-[2px] shrink-0">•</span>
+                      <span>
+                        <span className="font-semibold text-gray-800">{levelLabel}:</span>{' '}
+                        <span className="text-gray-700">{names.join(', ')}</span>
+                      </span>
+                    </li>
+                  );
+                })
+              ) : (
+                Object.entries(groupSkillsByCategory(result.tailoredCv.skills)).map(([cat, names], gIdx) => {
+                  if (names.length === 0) return null;
+
+                  return (
+                    <li
+                      key={gIdx}
+                      className="flex items-start gap-1.5 text-gray-700 leading-[1.55]"
+                      style={{
+                        fontSize: `${fontSize}px`,
+                        marginTop: `${bulletSpacing}px`
+                      }}
+                    >
+                      <span className="text-gray-500 leading-none mt-[2px] shrink-0">•</span>
+                      <span>
+                        <span className="font-semibold text-gray-800">{cat}:</span>{' '}
+                        <span className="text-gray-700">{names.join(', ')}</span>
+                      </span>
+                    </li>
+                  );
+                })
+              )}
             </ul>
           </div>
         </div>
@@ -2901,6 +2927,20 @@ export default function TailorWorkspace() {
                 >
                   <option value="Tech-Heavy Focus">Tech-Heavy Focus</option>
                   <option value="Soft Skills & Leadership focus">Soft Skills & Leadership Focus</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mt-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Skills Layout</label>
+                <select
+                  value={skillsLayout}
+                  onChange={e => setSkillsLayout(e.target.value as any)}
+                  className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                >
+                  <option value="level">By Level</option>
+                  <option value="category">By Category</option>
                 </select>
               </div>
             </div>
