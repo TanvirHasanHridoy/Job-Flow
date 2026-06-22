@@ -94,3 +94,13 @@ model TailorDiagnosticLog {
 
   @@index([userId])
 }
+
+model UserToken {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  tokens    Int      @default(60)
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+

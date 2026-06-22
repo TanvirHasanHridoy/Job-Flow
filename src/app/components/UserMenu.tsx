@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/lib/supabase-browser';
-import { LogOut, User, ChevronDown } from 'lucide-react';
+import { LogOut, User, ChevronDown, Coins } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useTokens } from '@/context/TokenContext';
 
 interface UserData {
   email: string;
@@ -17,6 +18,7 @@ export default function UserMenu() {
   const [loading, setLoading] = useState(true);
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const { tokens, setIsTokenModalOpen } = useTokens();
 
   useEffect(() => {
     const supabase = createClient();
@@ -81,7 +83,7 @@ export default function UserMenu() {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-white/5 transition-all duration-200 group"
+        className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 transition-all duration-200 group cursor-pointer"
       >
         {user.avatar ? (
           <img
@@ -95,9 +97,18 @@ export default function UserMenu() {
             {user.name.charAt(0).toUpperCase()}
           </div>
         )}
-        <span className="text-sm text-zinc-300 font-medium hidden sm:inline max-w-[120px] truncate">
+        <span className="text-sm text-zinc-300 font-medium hidden sm:inline max-w-[100px] truncate">
           {user.name}
         </span>
+        
+        {/* Header Token Badge */}
+        {tokens !== null && (
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 flex items-center gap-1">
+            <Coins className="w-3 h-3 text-indigo-400" />
+            {tokens}
+          </span>
+        )}
+
         <ChevronDown className={`w-3.5 h-3.5 text-zinc-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
       </button>
 
@@ -126,11 +137,28 @@ export default function UserMenu() {
             </div>
           </div>
 
+          {/* Tokens Panel */}
+          {tokens !== null && (
+            <div className="px-4 py-3 border-b border-white/5 bg-white/[0.01]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-indigo-400" />
+                  <span className="text-xs text-zinc-400">Balance</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-white bg-zinc-800/80 px-2 py-0.5 rounded border border-white/5">
+                    {tokens} Tokens
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Actions */}
           <div className="p-1.5">
             <button
               onClick={handleSignOut}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-red-500/10 transition-all duration-200 group"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-red-500/10 transition-all duration-200 group cursor-pointer"
             >
               <LogOut className="w-4 h-4 text-zinc-500 group-hover:text-red-400 transition-colors" />
               Sign out
@@ -141,3 +169,4 @@ export default function UserMenu() {
     </div>
   );
 }
+
