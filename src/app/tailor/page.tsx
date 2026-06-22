@@ -1587,15 +1587,18 @@ export default function TailorWorkspace() {
             heights[blockId] = blockEl.offsetHeight + marginTop + marginBottom;
           }
         });
-
         const pagesList: string[][] = [];
         let currentPage: string[] = [];
         let currentHeight = 0;
         const printableHeight = (297 - (pagePaddingTop + pagePaddingBottom)) * 3.779527559;
+        const bottomPaddingPx = pagePaddingBottom * 3.779527559;
+        const sigTolerance = Math.max(0, bottomPaddingPx - 15); // Maintain at least a 15px safety margin at the absolute page bottom
 
         ordered.forEach(blockId => {
           const blockHeight = heights[blockId] || 0;
-          if (currentHeight + blockHeight > printableHeight && currentPage.length > 0) {
+          const limit = blockId === 'signature' ? printableHeight + sigTolerance : printableHeight;
+
+          if (currentHeight + blockHeight > limit && currentPage.length > 0) {
             pagesList.push(currentPage);
             currentPage = [blockId];
             currentHeight = blockHeight;
