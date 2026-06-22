@@ -10,21 +10,18 @@ Applicant Tracking Systems (ATS) are automated database engines used by HR depar
 
 Our document rendering templates (including the International Resume format and the German DIN 5008 Cover Letter template) are engineered to be **100% ATS-friendly** through the following technical design patterns:
 
-### A. Direct Vector Text Layering (No Canvas or Image Flattening)
-- **Problem:** Programmatic conversions that output PDFs as static image layers or flat canvas pixels are completely blank to an ATS parser.
-- **Solution:** Our print-to-PDF export pipeline uses a clean native browser print command operating inside a sandboxed `iframe`. The output PDF retains direct vector text nodes. ATS parsers can directly extract the native text layer without needing OCR (Optical Character Recognition).
-- **Text Selectability:** All text (including bullet points `•`, header text, and dates) remains fully copy-selectable and searchable.
+### A. Programmatic Vector Text Layering (No Canvas or Browser print)
+- **Problem:** Programmatic conversions that output PDFs as static image layers or flat canvas pixels are completely blank to an ATS parser. Similarly, browser-dependent iframe-based printing (`window.print()`) introduces visual variance and system print layout interference (like automatic headers, footers, and margins).
+- **Solution:** Our PDF export pipeline utilizes programmatically controlled PDF generation (such as `@react-pdf/renderer` or similar server-side document rendering engines) to directly compile the layout. This ensures exact, pixel-perfect DIN 5008 spacing and standard UTF-8 text layering without browser UI print dialog interference.
+- **Text Selectability:** All text (including bullet points, header text, and dates) is generated as native vector text streams, making it 100% copy-selectable, searchable, and machine-readable.
 
 ### B. Standard Character Encoding (Unicode Compliance)
 - **Problem:** Many modern visual builders use custom web fonts with corrupt Unicode character maps. When printed to PDF, the characters look normal visually but decode into garbled junk characters in text streams.
 - **Solution:** We enforce standardized, widely indexed fonts (such as "Inter", "Arial", "Calibri", and "Georgia") in both visual styling and exported files. This guarantees that character bytes map to standard UTF-8 indices, preventing parsed text from corrupting during ingestion.
 
-### C. Clean Single-Column Semantic Text-Flow
-- **Problem:** Multi-column tables, floated sidebar columns, and absolute-positioned text boxes confuse basic ATS reading models. Most scanners read text strictly left-to-right, top-to-bottom across the physical width of the page. In multi-column layouts, they merge horizontal lines from unrelated columns together.
-- **Solution:** 
-  - Our tailoring layouts are structured semantically. The HTML structure flows linearly in the DOM. 
-  - While visual columns are represented in templates (e.g., personal grids in `EuropassClassic`), they are mapped using standard linear flex rows or clear side-by-side grids containing distinct headers, ensuring that the DOM-level reading order matches the visual reading order.
-  - Tables are avoided for layout purposes and only used for structured chronological data, preventing text segment interleaving.
+### C. DOM Reading Order (Column-First Hierarchy)
+- **Problem:** Multi-column layouts (e.g., sidebar column next to main experience column) often scramble text when processed by ATS engines. If columns are grouped horizontally line-by-line (such as layout systems that place Sidebar Item 1 next to Experience Item 1 in the markup), standard ATS scanners—which read text strictly horizontally left-to-right—will interleave unrelated text fragments across columns, completely scrambling chronological timelines and profile descriptions.
+- **Solution:** To maintain structural integrity, all two-column templates are enforced to render as complete vertical subtrees in the DOM. The DOM structure must compile Column A entirely (top-to-bottom) before starting Column B entirely. By keeping columns completely separate in the DOM tree hierarchy, ATS parsers naturally extract all information from the first column in sequence, followed by the second column, preserving logical sections and timelines.
 
 ### D. Conforming DIN 5008 Structural Predictability (German Markets)
 - **DIN 5008 Alignment:** In the DACH region, resumes and cover letters are ingested by specialized parsers trained on the German DIN 5008 layout guidelines. 
@@ -40,28 +37,40 @@ The **Match Score** is a dynamic percentage value (0 to 100) indicating how well
 1. **Strict Keyword Intersection:** If a job description asks for "Go" and the profile lists "Golang", keyword intersection fails. If it asks for "AWS" and the candidate has "Amazon Web Services", it scores 0.
 2. **TF-IDF (Term Frequency-Inverse Document Frequency):** While good for document classification, TF-IDF only measures word frequency. A resume filled with keyword repetitions would score artificially high, while a qualified candidate with a concise profile would score low.
 
-### B. Current Semantic Implementation
-Our backend tailoring route ([api/tailor/route.ts](file:///d:/Projects/ALL%20AI%20RELATED%20STUFFS/AntiGravity/Job Master/src/app/api/tailor/route.ts)) delegates scoring to a **semantic similarity evaluation** processed by the DeepSeek LLM. The scoring logic follows three vectors:
+### B. Deterministic Hybrid Scoring Implementation
+To eliminate scoring variance, hallucinations, and inconsistencies associated with letting the LLM estimate percentages directly, the LLM is restricted from calculating the final match score. Instead, the scoring process is partitioned between semantic classification (done by the LLM) and deterministic calculation (done by backend TypeScript logic):
 
 ```mermaid
 graph TD
     A[User Profile Vault] --> D(DeepSeek Semantic Alignment Engine)
     B[Job Description] --> D
     C[Custom Focus Notes] --> D
-    D --> E[Factual Alignment Vector]
-    D --> F[Keyword & Skill Gap Vector]
-    D --> G[Adjacent Transferable Skills Vector]
-    E & F & G --> H[Unified Match Score %]
+    D --> E[exactMatches Array]
+    D --> F[adjacentMatches Array]
+    D --> G[missingSkills Array]
+    E & F & G --> H[TypeScript Deterministic Backend Calculator]
+    H --> I[Predictable Match Score %]
 ```
 
-1. **Factual Alignment Vector:** The engine checks for direct, verified matches in the core fields:
-   - Specific programming languages, tech frameworks, or certifications listed in the User Profile skills list.
-   - Minimum years of experience calculated from the work experience timelines.
-   - Academic levels matching candidate degrees.
-2. **Keyword & Skill Gap Vector:** The engine crawls the job requirements for must-have skills and records mismatches. A high density of missing core requirements reduces the baseline match score proportionally.
-3. **Adjacent/Transferable Skills Vector:** Unlike keyword matches, the semantic engine evaluates adjacent capabilities:
-   - If a job description asks for "PostgreSQL" and the profile lists "MySQL" or "Oracle SQL", the engine recognizes SQL relational database competency and awards partial credit.
-   - If the candidate has adjacent leadership skills (e.g., "Led team of 5 developers") for a project management role, it bridges the gap and score.
+1. **Semantic Categorization (LLM Role):** The DeepSeek LLM receives the profile, job description, and custom focus notes. Its sole output is a structured JSON payload categorizing skills and requirements into three distinct arrays:
+   - `exactMatches`: Core required skills, technologies, or certifications that the candidate directly possesses (e.g., "TypeScript" in requirements matches "TypeScript" in profile).
+   - `adjacentMatches`: Skills or qualifications that are not keyword-identical but are semantically equivalent or transferable (e.g., "PostgreSQL" matches "MySQL", or candidate's leadership accomplishments satisfy organizational requirements).
+   - `missingSkills`: Core competencies or experience requirements mentioned in the job description that are completely absent from the candidate's profile.
 
-### C. Mathematical Output
-The final score is synthesized as a rounded integer from the joint vectors, outputting directly in the JSON response structure. This ensures the score accurately reflects the semantic depth of the match, not just keyword occurrence.
+### C. Deterministic Match Score Calculation
+Once the structured semantic categorization is returned by the LLM, our backend TypeScript engine calculates the final percentage score using a deterministic formula.
+
+$$\text{Match Score} = \text{round}\left( \frac{w_e \cdot |E| + w_a \cdot |A|}{w_e \cdot |E| + w_a \cdot |A| + w_m \cdot |M|} \times 100 \right)$$
+
+Where:
+- $E$ = Set of Exact Matches (`exactMatches`)
+- $A$ = Set of Adjacent Matches (`adjacentMatches`)
+- $M$ = Set of Missing Skills (`missingSkills`)
+- $w_e$ = Weight of Exact Matches (default = `1.0`)
+- $w_a$ = Weight of Adjacent Matches (default = `0.5`)
+- $w_m$ = Penalty Weight of Missing Skills (default = `1.0`)
+
+This formula ensures that:
+- Identical profile/job matches always yield the exact same integer score.
+- The score is completely audit-ready and free from stochastic LLM behavior.
+- Missing skills consistently apply a predictable penalty, while transferable adjacent skills consistently contribute partial weight.

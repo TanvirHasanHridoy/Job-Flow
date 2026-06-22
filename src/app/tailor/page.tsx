@@ -1866,161 +1866,173 @@ export default function TailorWorkspace() {
     }
   };
 
-  const handleExportPdf = (type: 'cv' | 'cl') => {
-    const isCv = type === 'cv';
-    let pagesHtml = '';
+  const handleExportPdf = async (type: 'cv' | 'cl') => {
+    if (!result) return;
+    
+    try {
+      setLoading(true);
+      const isCv = type === 'cv';
+      let pagesHtml = '';
 
-    const cleanCompany = (companyName || 'Company').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-    const cleanPosition = (roleName || 'Position').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-    const docLabel = type === 'cv' ? 'CV' : 'Cover Letter';
-    const fileName = `${cleanCompany}_${cleanPosition}_${docLabel}`;
+      const cleanCompany = (companyName || 'Company').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
+      const cleanPosition = (roleName || 'Position').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
+      const docLabel = type === 'cv' ? 'CV' : 'Cover Letter';
+      const fileName = `${cleanCompany}_${cleanPosition}_${docLabel}`;
 
-    if (isCv) {
-      const pageElements = document.querySelectorAll('.cv-page-box');
-      pageElements.forEach((pageEl, pageIdx) => {
-        const isLastPage = pageIdx === pageElements.length - 1;
-        const clone = pageEl.cloneNode(true) as HTMLElement;
-        clone.querySelectorAll('.no-print').forEach(el => el.remove());
-        
-        // Apply CV page styles directly in style attribute (without scaling)
-        clone.setAttribute('style', `
-          width: 210mm !important;
-          height: 296mm !important;
-          min-height: 296mm !important;
-          max-height: 296mm !important;
-          padding: ${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm !important;
-          box-sizing: border-box !important;
-          page-break-inside: avoid !important;
-          break-inside: avoid !important;
-          page-break-after: ${isLastPage ? 'avoid' : 'always'} !important;
-          background-color: #FFFFFF !important;
-          position: relative !important;
-          font-family: "Inter", "Calibri", "Segoe UI", system-ui, sans-serif !important;
-          font-size: ${fontSize}px !important;
-          line-height: 1.55 !important;
-          color: #1F2937 !important;
-          overflow: hidden !important;
-          display: flex !important;
-          flex-direction: column !important;
-          justify-content: flex-start !important;
-        `);
-        pagesHtml += clone.outerHTML;
-      });
-    } else {
-      const clSheet = document.getElementById('cl-sheet');
-      if (clSheet) {
-        const clone = clSheet.cloneNode(true) as HTMLElement;
-        clone.querySelectorAll('.no-print').forEach(el => el.remove());
-        
-        clone.setAttribute('style', `
-          width: 210mm !important;
-          height: 296mm !important;
-          min-height: 296mm !important;
-          max-height: 296mm !important;
-          padding: 32mm 28mm 24mm 28mm !important;
-          box-sizing: border-box !important;
-          page-break-inside: avoid !important;
-          break-inside: avoid !important;
-          page-break-after: avoid !important;
-          background-color: #FFFFFF !important;
-          position: relative !important;
-          font-family: "Inter", "Calibri", "Segoe UI", system-ui, sans-serif !important;
-          font-size: 11.5px !important;
-          line-height: 1.65 !important;
-          color: #1A1A1A !important;
-          overflow: hidden !important;
-          display: flex !important;
-          flex-direction: column !important;
-          justify-content: space-between !important;
-        `);
-        pagesHtml += clone.outerHTML;
-      }
-    }
-
-    if (!pagesHtml) return;
-
-    // Create temporary iframe
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    iframe.style.opacity = '0';
-    iframe.style.pointerEvents = 'none';
-    document.body.appendChild(iframe);
-
-    // Copy stylesheet and font links from parent
-    let stylesHtml = '';
-    document.querySelectorAll('style, link[rel="stylesheet"]').forEach(el => {
-      stylesHtml += el.outerHTML;
-    });
-
-    const iframeDoc = iframe.contentWindow?.document || iframe.contentDocument;
-    if (!iframeDoc) return;
-
-    iframeDoc.open();
-    iframeDoc.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${fileName}</title>
-        <meta charset="utf-8">
-        <link rel="preconnect" href="https://fonts.googleapis.com">
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-        ${stylesHtml}
-        <style>
-          * {
-            box-sizing: border-box;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            -webkit-user-select: text !important;
-            user-select: text !important;
-          }
-          body {
-            margin: 0 !important;
-            padding: 0 !important;
+      if (isCv) {
+        const pageElements = document.querySelectorAll('.cv-page-box');
+        pageElements.forEach((pageEl, pageIdx) => {
+          const isLastPage = pageIdx === pageElements.length - 1;
+          const clone = pageEl.cloneNode(true) as HTMLElement;
+          clone.querySelectorAll('.no-print').forEach(el => el.remove());
+          
+          // Apply CV page styles directly in style attribute (without scaling)
+          clone.setAttribute('style', `
+            width: 210mm !important;
+            height: 296mm !important;
+            min-height: 296mm !important;
+            max-height: 296mm !important;
+            padding: ${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm !important;
+            box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            page-break-after: ${isLastPage ? 'avoid' : 'always'} !important;
             background-color: #FFFFFF !important;
-          }
-          .print-page:last-child {
+            position: relative !important;
+            font-family: "Inter", "Calibri", "Segoe UI", system-ui, sans-serif !important;
+            font-size: ${fontSize}px !important;
+            line-height: 1.55 !important;
+            color: #1F2937 !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+          `);
+          pagesHtml += clone.outerHTML;
+        });
+      } else {
+        const clSheet = document.getElementById('cl-sheet');
+        if (clSheet) {
+          const clone = clSheet.cloneNode(true) as HTMLElement;
+          clone.querySelectorAll('.no-print').forEach(el => el.remove());
+          
+          clone.setAttribute('style', `
+            width: 210mm !important;
+            height: 296mm !important;
+            min-height: 296mm !important;
+            max-height: 296mm !important;
+            padding: 32mm 28mm 24mm 28mm !important;
+            box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
             page-break-after: avoid !important;
-          }
-          @page {
-            size: A4;
-            margin: 0 !important;
-          }
-        </style>
-        <script>
-          window.onload = function() {
-            if (document.fonts && document.fonts.ready) {
-              document.fonts.ready.then(function() {
-                setTimeout(function() {
-                  window.focus();
-                  window.print();
-                }, 350);
+            background-color: #FFFFFF !important;
+            position: relative !important;
+            font-family: "Inter", "Calibri", "Segoe UI", system-ui, sans-serif !important;
+            font-size: 11.5px !important;
+            line-height: 1.65 !important;
+            color: #1A1A1A !important;
+            overflow: hidden !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+          `);
+          pagesHtml += clone.outerHTML;
+        }
+      }
+
+      if (!pagesHtml) return;
+
+      // Extract and package all active stylesheet rules in memory to guarantee visual parity
+      let stylesHtml = '';
+      try {
+        const sheets = Array.from(document.styleSheets);
+        sheets.forEach((sheet) => {
+          try {
+            const rules = sheet.cssRules || sheet.rules;
+            if (rules) {
+              let sheetCss = '';
+              Array.from(rules).forEach((rule) => {
+                sheetCss += rule.cssText + '\n';
               });
-            } else {
-              setTimeout(function() {
-                window.focus();
-                window.print();
-              }, 500);
+              stylesHtml += `<style>${sheetCss}</style>\n`;
             }
-          };
-        </script>
-      </head>
-      <body>${pagesHtml}</body>
-      </html>
-    `);
-    iframeDoc.close();
+          } catch (err) {
+            // For cross-origin/external stylesheets, resolve relative URLs to absolute links
+            if (sheet.href) {
+              const href = sheet.href.startsWith('/') ? `${window.location.origin}${sheet.href}` : sheet.href;
+              stylesHtml += `<link rel="stylesheet" href="${href}">\n`;
+            }
+          }
+        });
+      } catch (e) {
+        console.error('Error gathering stylesheets:', e);
+      }
 
-    // Clean up after print triggers
-    setTimeout(() => {
-      document.body.removeChild(iframe);
-    }, 60000);
+      // Construct the full HTML document string
+      const fullHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>${isCv ? 'Resume' : 'Cover_Letter'}</title>
+          <meta charset="utf-8">
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+          ${stylesHtml}
+          <style>
+            * {
+              box-sizing: border-box;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              -webkit-user-select: text !important;
+              user-select: text !important;
+            }
+            body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background-color: #FFFFFF !important;
+            }
+            @page {
+              size: A4;
+              margin: 0 !important;
+            }
+          </style>
+        </head>
+        <body>
+          ${pagesHtml}
+        </body>
+        </html>
+      `;
+
+      const response = await fetch('/api/export-pdf', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ html: fullHtml }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to generate PDF: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${fileName}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      console.error(err);
+      alert(`PDF Export Failed: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
-
 
   const handleExportWord = () => {
     const type = previewTab === 'cv' ? 'cv' : 'cl';
