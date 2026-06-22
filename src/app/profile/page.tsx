@@ -88,6 +88,80 @@ export default function ProfileVault() {
   const [linkedinText, setLinkedinText] = useState('');
   const [importing, setImporting] = useState(false);
 
+  // Signature Background Removal Modal States
+  const [showSigProcessor, setShowSigProcessor] = useState(false);
+  const [sigProcessorOriginal, setSigProcessorOriginal] = useState<string>('');
+  const [sigProcessorProcessed, setSigProcessorProcessed] = useState<string>('');
+  const [sigProcessorThreshold, setSigProcessorThreshold] = useState<number>(200);
+  const [sigProcessing, setSigProcessing] = useState(false);
+
+  const processImage = (imageUrl: string, thresholdValue: number) => {
+    return new Promise<string>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Could not get 2D context'));
+          return;
+        }
+
+        // Draw original image
+        ctx.drawImage(img, 0, 0);
+
+        // Get pixel data
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+
+          // Calculate luminance: standard NTSC formula
+          const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+
+          if (luminance >= thresholdValue) {
+            // High luminance = background paper. Make it transparent.
+            data[i + 3] = 0; // Alpha = 0
+          } else {
+            // Low luminance = stroke (ink). Enhance contrast to clean shadows.
+            const factor = luminance / thresholdValue; // range [0, 1]
+            data[i] = Math.max(0, Math.min(255, r * factor * 0.7));     // R
+            data[i + 1] = Math.max(0, Math.min(255, g * factor * 0.7)); // G
+            data[i + 2] = Math.max(0, Math.min(255, b * factor * 0.7)); // B
+          }
+        }
+
+        // Put modified pixels back
+        ctx.putImageData(imgData, 0, 0);
+
+        // Export as base64 transparent PNG
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = (err) => reject(err);
+      img.src = imageUrl;
+    });
+  };
+
+  useEffect(() => {
+    if (sigProcessorOriginal) {
+      setSigProcessing(true);
+      processImage(sigProcessorOriginal, sigProcessorThreshold)
+        .then(resultUrl => {
+          setSigProcessorProcessed(resultUrl);
+        })
+        .catch(err => {
+          console.error('Error processing signature background:', err);
+        })
+        .finally(() => {
+          setSigProcessing(false);
+        });
+    }
+  }, [sigProcessorOriginal, sigProcessorThreshold]);
+
   const handleImport = async () => {
     if (!githubUsername.trim() && !linkedinText.trim()) {
       alert('Please enter a GitHub username or paste LinkedIn profile text.');
@@ -280,7 +354,9 @@ export default function ProfileVault() {
     }
     const reader = new FileReader();
     reader.onloadend = () => {
-      setProfile(prev => ({ ...prev, signature: reader.result as string }));
+      setSigProcessorOriginal(reader.result as string);
+      setSigProcessorThreshold(200);
+      setShowSigProcessor(true);
     };
     reader.readAsDataURL(file);
   };
@@ -1262,6 +1338,118 @@ export default function ProfileVault() {
 
         </div>
       </div>
+
+      {/* Signature Processing Modal */}
+      {showSigProcessor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+          <style>{`
+            .checkerboard-bg {
+              background-image: linear-gradient(45deg, #181818 25%, transparent 25%), 
+                                linear-gradient(-45deg, #181818 25%, transparent 25%), 
+                                linear-gradient(45deg, transparent 75%, #181818 75%), 
+                                linear-gradient(-45deg, transparent 75%, #181818 75%);
+              background-size: 16px 16px;
+              background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+              background-color: #0d0d0d;
+            }
+          `}</style>
+          <div className="relative w-full max-w-3xl bg-[#0b081e] border border-zinc-800/80 rounded-2xl p-6 shadow-2xl flex flex-col gap-6">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-center pb-4 border-b border-zinc-800/60">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-lg font-bold text-white">Signature Background Removal</h3>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowSigProcessor(false);
+                  setSigProcessorOriginal('');
+                  setSigProcessorProcessed('');
+                }}
+                className="text-xs text-zinc-400 hover:text-white px-2.5 py-1 rounded bg-zinc-900 cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column: Original */}
+              <div className="flex flex-col gap-2 p-3 bg-zinc-950/60 rounded-xl border border-zinc-900">
+                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider text-center">Original Upload</span>
+                <div className="w-full h-40 bg-zinc-900 rounded-lg flex items-center justify-center overflow-hidden p-2">
+                  <img src={sigProcessorOriginal} alt="Original Signature" className="max-h-full max-w-full object-contain" />
+                </div>
+              </div>
+
+              {/* Right Column: Processed */}
+              <div className="flex flex-col gap-2 p-3 bg-zinc-950/60 rounded-xl border border-zinc-900 relative">
+                <span className="text-xs font-semibold text-zinc-400 uppercase tracking-wider text-center flex items-center justify-center gap-1.5">
+                  Processed Output
+                  {sigProcessing && <div className="w-3.5 h-3.5 rounded-full border-2 border-indigo-500/30 border-t-indigo-500 animate-spin" />}
+                </span>
+                <div className="w-full h-40 bg-zinc-900 rounded-lg flex items-center justify-center overflow-hidden p-2 checkerboard-bg">
+                  {sigProcessorProcessed ? (
+                    <img src={sigProcessorProcessed} alt="Processed Signature" className="max-h-full max-w-full object-contain" />
+                  ) : (
+                    <div className="text-zinc-600 text-xs text-center">Processing...</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Sensitivity Controls */}
+            <div className="flex flex-col gap-2 p-4 bg-zinc-950/40 border border-zinc-900 rounded-xl">
+              <div className="flex justify-between items-center text-xs text-zinc-400">
+                <span className="font-semibold text-zinc-300">Background Tolerance Sensitivity</span>
+                <span className="font-mono text-indigo-400 font-semibold">{sigProcessorThreshold}</span>
+              </div>
+              <input 
+                type="range"
+                min="50"
+                max="250"
+                step="1"
+                value={sigProcessorThreshold}
+                onChange={e => setSigProcessorThreshold(parseInt(e.target.value))}
+                className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+              />
+              <p className="text-[10px] text-zinc-500 mt-1">
+                Drag the slider to the left if lines are missing (lower threshold keeps more ink details). Drag to the right if there is still grey paper background visible (higher threshold removes lighter colors).
+              </p>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t border-zinc-800/60">
+              <button
+                onClick={() => {
+                  setShowSigProcessor(false);
+                  setSigProcessorOriginal('');
+                  setSigProcessorProcessed('');
+                }}
+                className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-semibold text-xs cursor-pointer transition-colors"
+              >
+                Cancel & Discard
+              </button>
+              <button
+                onClick={() => {
+                  if (sigProcessorProcessed) {
+                    setProfile(prev => ({ ...prev, signature: sigProcessorProcessed }));
+                  }
+                  setShowSigProcessor(false);
+                  setSigProcessorOriginal('');
+                  setSigProcessorProcessed('');
+                }}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs cursor-pointer shadow-lg shadow-indigo-500/20 transition-all"
+              >
+                Accept Processed Signature
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

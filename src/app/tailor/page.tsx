@@ -403,6 +403,7 @@ export default function TailorWorkspace() {
   const [signatureSpacing, setSignatureSpacing] = useState(40); // px
   const [photoHeight, setPhotoHeight] = useState(105); // px
   const [headerSpacing, setHeaderSpacing] = useState(12); // px
+  const [showSignatureImage, setShowSignatureImage] = useState(true);
 
   const applyPreset = (preset: 'default' | 'compact' | 'tight') => {
     if (preset === 'default') {
@@ -1466,29 +1467,31 @@ export default function TailorWorkspace() {
           }}
         >
           <div className="mb-2 h-[32px] flex items-end">
-            {result.tailoredCv.personalDetails.signature ? (
-              <img
-                src={result.tailoredCv.personalDetails.signature}
-                alt="Signature"
-                className="max-h-full max-w-[120px] object-contain"
-              />
-            ) : (
-              <svg
-                width="80"
-                height="32"
-                viewBox="0 0 80 32"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="text-gray-800"
-              >
-                <path
-                  d="M 8 20 C 8 8, 16 6, 20 18 C 24 10, 28 8, 30 18 C 32 18, 34 22, 36 20 C 38 18, 42 16, 46 22 C 48 24, 50 16, 52 18 C 54 20, 56 22, 58 20 C 60 18, 62 20, 66 22 C 68 24, 70 20, 74 18"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+            {showSignatureImage && (
+              result.tailoredCv.personalDetails.signature ? (
+                <img
+                  src={result.tailoredCv.personalDetails.signature}
+                  alt="Signature"
+                  className="max-h-full max-w-[120px] object-contain"
                 />
-              </svg>
+              ) : (
+                <svg
+                  width="80"
+                  height="32"
+                  viewBox="0 0 80 32"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="text-gray-800"
+                >
+                  <path
+                    d="M 8 20 C 8 8, 16 6, 20 18 C 24 10, 28 8, 30 18 C 32 18, 34 22, 36 20 C 38 18, 42 16, 46 22 C 48 24, 50 16, 52 18 C 54 20, 56 22, 58 20 C 60 18, 62 20, 66 22 C 68 24, 70 20, 74 18"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )
             )}
           </div>
           <ContentEditable
@@ -1559,9 +1562,10 @@ export default function TailorWorkspace() {
       if (!element) return;
 
       const measureCl = () => {
-        const height = element.scrollHeight;
-        const printableHeight = 910.9; // A4 height - cl padding
-        const pagesVal = Math.max(1, Math.ceil((height - 211.6) / printableHeight));
+        const firstChild = element.firstElementChild as HTMLElement;
+        const contentHeight = firstChild ? firstChild.offsetHeight : 0;
+        const printableHeight = 911; // A4 height (1123px) - vertical padding (121px + 91px)
+        const pagesVal = Math.max(1, Math.ceil(contentHeight / printableHeight));
         setNumPages(pagesVal);
       };
 
@@ -1652,7 +1656,7 @@ export default function TailorWorkspace() {
         }
       };
     }
-  }, [result, fontSize, sectionSpacing, pagePaddingTop, pagePaddingBottom, pagePaddingSide, bulletSpacing, signatureSpacing, photoHeight, headerSpacing, bulletStyle, lengthTarget, previewTab]);
+  }, [result, fontSize, sectionSpacing, pagePaddingTop, pagePaddingBottom, pagePaddingSide, bulletSpacing, signatureSpacing, photoHeight, headerSpacing, bulletStyle, lengthTarget, previewTab, showSignatureImage]);
 
 
   const fetchProfile = async () => {
@@ -3074,6 +3078,20 @@ export default function TailorWorkspace() {
                     onChange={e => setSignatureSpacing(parseInt(e.target.value))}
                     className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
                   />
+                </div>
+
+                {/* Show Signature Toggle */}
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-zinc-800/50">
+                  <input
+                    type="checkbox"
+                    id="show-signature-toggle"
+                    checked={showSignatureImage}
+                    onChange={e => setShowSignatureImage(e.target.checked)}
+                    className="w-3.5 h-3.5 text-indigo-600 bg-zinc-950 border-zinc-800 rounded focus:ring-indigo-500 focus:ring-2 accent-indigo-500 cursor-pointer"
+                  />
+                  <label htmlFor="show-signature-toggle" className="text-[10px] font-semibold text-zinc-300 select-none cursor-pointer">
+                    Show Signature Image
+                  </label>
                 </div>
               </div>
             </div>
