@@ -1936,67 +1936,167 @@ export default function TailorWorkspace() {
     }
   };
 
-  const handleExportPdf = async (type: 'cv' | 'cl') => {
-    if (!result) return;
-    
+  const handleExportPdf = (type: 'cv' | 'cl') => {
+    const isCv = type === 'cv';
+    let pagesHtml = '';
+
+    const cleanCompany = (companyName || 'Company').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
+    const cleanPosition = (roleName || 'Position').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
+    const docLabel = type === 'cv' ? 'CV' : 'Cover Letter';
+    const fileName = `${cleanCompany}_${cleanPosition}_${docLabel}`;
+
+    if (isCv) {
+      const pageElements = document.querySelectorAll('.cv-page-box');
+      pageElements.forEach((pageEl, pageIdx) => {
+        const isLastPage = pageIdx === pageElements.length - 1;
+        const clone = pageEl.cloneNode(true) as HTMLElement;
+        clone.querySelectorAll('.no-print').forEach(el => el.remove());
+        
+        // Apply CV page styles directly in style attribute (without scaling)
+        clone.setAttribute('style', `
+          width: 210mm !important;
+          height: 296mm !important;
+          min-height: 296mm !important;
+          max-height: 296mm !important;
+          padding: ${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm !important;
+          box-sizing: border-box !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          page-break-after: ${isLastPage ? 'avoid' : 'always'} !important;
+          background-color: #FFFFFF !important;
+          position: relative !important;
+          font-family: "Inter", "Calibri", "Segoe UI", system-ui, sans-serif !important;
+          font-size: ${fontSize}px !important;
+          line-height: 1.55 !important;
+          color: #1F2937 !important;
+          overflow: hidden !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: flex-start !important;
+        `);
+        pagesHtml += clone.outerHTML;
+      });
+    } else {
+      const clSheet = document.getElementById('cl-sheet');
+      if (clSheet) {
+        const clone = clSheet.cloneNode(true) as HTMLElement;
+        clone.querySelectorAll('.no-print').forEach(el => el.remove());
+        
+        clone.setAttribute('style', `
+          width: 210mm !important;
+          height: 296mm !important;
+          min-height: 296mm !important;
+          max-height: 296mm !important;
+          padding: 32mm 28mm 24mm 28mm !important;
+          box-sizing: border-box !important;
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          page-break-after: avoid !important;
+          background-color: #FFFFFF !important;
+          position: relative !important;
+          font-family: "Inter", "Calibri", "Segoe UI", system-ui, sans-serif !important;
+          font-size: 11.5px !important;
+          line-height: 1.65 !important;
+          color: #1A1A1A !important;
+          overflow: hidden !important;
+          display: flex !important;
+          flex-direction: column !important;
+          justify-content: space-between !important;
+        `);
+        pagesHtml += clone.outerHTML;
+      }
+    }
+
+    if (!pagesHtml) return;
+
     try {
-      setLoading(true);
-      const response = await fetch('/api/export-pdf', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type,
-          data: result,
-          options: {
-            fontSize,
-            bulletSpacing,
-            sectionSpacing,
-            paddingTop: pagePaddingTop,
-            paddingSide: pagePaddingSide,
-            paddingBottom: pagePaddingBottom,
-            bulletStyle,
-            lengthTarget,
-            clLength,
-          },
-        }),
+      // Create temporary iframe
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.style.opacity = '0';
+      iframe.style.pointerEvents = 'none';
+      document.body.appendChild(iframe);
+
+      // Copy stylesheet and font links from parent
+      let stylesHtml = '';
+      document.querySelectorAll('style, link[rel="stylesheet"]').forEach(el => {
+        stylesHtml += el.outerHTML;
       });
 
-      if (!response.ok) {
-        let errMsg = 'Failed to generate PDF';
-        try {
-          const errJson = await response.json();
-          errMsg = errJson.error || errMsg;
-        } catch {
-          errMsg = `${response.statusText || 'Server Error'} (Status: ${response.status})`;
-        }
-        throw new Error(errMsg);
-      }
+      const iframeDoc = iframe.contentWindow?.document || iframe.contentDocument;
+      if (!iframeDoc) return;
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      const cleanCompany = (companyName || 'Company').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-      const cleanPosition = (roleName || 'Position').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-      const docLabel = type === 'cv' ? 'CV' : 'Cover Letter';
-      const fileName = `${cleanCompany}_${cleanPosition}_${docLabel}`;
+      iframeDoc.open();
+      iframeDoc.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>${fileName}</title>
+          <meta charset="utf-8">
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+          ${stylesHtml}
+          <style>
+            * {
+              box-sizing: border-box;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+              -webkit-user-select: text !important;
+              user-select: text !important;
+            }
+            body {
+              margin: 0 !important;
+              padding: 0 !important;
+              background-color: #FFFFFF !important;
+            }
+            .print-page:last-child {
+              page-break-after: avoid !important;
+            }
+            @page {
+              size: A4;
+              margin: 0 !important;
+            }
+          </style>
+          <script>
+            window.onload = function() {
+              if (document.fonts && document.fonts.ready) {
+                document.fonts.ready.then(function() {
+                  setTimeout(function() {
+                    window.focus();
+                    window.print();
+                  }, 350);
+                });
+              } else {
+                setTimeout(function() {
+                  window.focus();
+                  window.print();
+                }, 500);
+              }
+            };
+          </script>
+        </head>
+        <body>${pagesHtml}</body>
+        </html>
+      `);
+      iframeDoc.close();
 
-      link.href = url;
-      link.download = `${fileName}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
+      // Clean up after print triggers
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 60000);
     } catch (err: any) {
       console.error(err);
       showAlert({
         title: 'PDF Export Failed',
-        message: err.message || 'An error occurred while exporting the PDF.',
+        message: err.message || 'An error occurred while printing the PDF.',
         type: 'error'
       });
-    } finally {
-      setLoading(false);
     }
   };
 
