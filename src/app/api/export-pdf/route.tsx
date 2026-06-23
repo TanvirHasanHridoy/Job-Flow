@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing required parameter: html' }, { status: 400 });
     }
 
-    let puppeteerModule;
+    let puppeteerModule: any;
     let launchOptions: any = {};
 
     const isProduction = process.env.NODE_ENV === 'production';
@@ -23,12 +23,12 @@ export async function POST(req: Request) {
     if (isProduction) {
       // In production (Vercel/serverless/AWS/Docker)
       puppeteerModule = await import('puppeteer-core');
-      const chromium = await import('@sparticuz/chromium');
+      const chromium = (await import('@sparticuz/chromium')) as any;
       launchOptions = {
-        args: chromium.default.args,
-        defaultViewport: chromium.default.defaultViewport,
-        executablePath: await chromium.default.executablePath(),
-        headless: chromium.default.headless,
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
       };
     } else {
       // In local development (Windows / standard node env)
@@ -39,9 +39,9 @@ export async function POST(req: Request) {
       };
     }
 
-    browser = await puppeteerModule.launch(launchOptions);
+    browser = (await puppeteerModule.launch(launchOptions)) as any;
 
-    const page = await browser.newPage();
+    const page = (await browser.newPage()) as any;
     
     // Set exact content
     await page.setContent(html, { waitUntil: 'networkidle0' as any });
