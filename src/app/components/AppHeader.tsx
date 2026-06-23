@@ -37,7 +37,7 @@ export default function AppHeader() {
           <Link 
             href="/dashboard" 
             className={`text-sm font-medium transition-colors duration-200 ${
-              pathname === '/dashboard' ? 'text-white' : 'text-zinc-400 hover:text-white'
+              pathname === '/dashboard' ? 'text-[var(--foreground)] font-semibold' : 'text-zinc-400 hover:text-[var(--foreground)]'
             }`}
           >
             Dashboard
@@ -45,7 +45,7 @@ export default function AppHeader() {
           <Link 
             href="/profile" 
             className={`text-sm font-medium transition-colors duration-200 ${
-              pathname === '/profile' ? 'text-white' : 'text-zinc-400 hover:text-white'
+              pathname === '/profile' ? 'text-[var(--foreground)] font-semibold' : 'text-zinc-400 hover:text-[var(--foreground)]'
             }`}
           >
             Master Profile Vault
@@ -67,7 +67,7 @@ export default function AppHeader() {
         {/* Mobile Hamburger Toggle Button */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="md:hidden p-1.5 rounded-lg border border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+          className="md:hidden p-1.5 rounded-lg border border-white/10 text-zinc-400 hover:text-[var(--foreground)] hover:bg-white/5 transition-all cursor-pointer"
           title="Toggle Navigation"
         >
           {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -81,7 +81,7 @@ export default function AppHeader() {
             href="/dashboard"
             onClick={() => setMenuOpen(false)}
             className={`text-sm font-medium p-2.5 rounded-xl hover:bg-white/5 transition-colors ${
-              pathname === '/dashboard' ? 'text-white bg-white/5' : 'text-zinc-400'
+              pathname === '/dashboard' ? 'text-[var(--foreground)] font-semibold bg-white/5' : 'text-zinc-400'
             }`}
           >
             Dashboard
@@ -90,7 +90,7 @@ export default function AppHeader() {
             href="/profile"
             onClick={() => setMenuOpen(false)}
             className={`text-sm font-medium p-2.5 rounded-xl hover:bg-white/5 transition-colors ${
-              pathname === '/profile' ? 'text-white bg-white/5' : 'text-zinc-400'
+              pathname === '/profile' ? 'text-[var(--foreground)] font-semibold bg-white/5' : 'text-zinc-400'
             }`}
           >
             Master Profile Vault

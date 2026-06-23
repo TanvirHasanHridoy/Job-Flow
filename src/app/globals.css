@@ -19,6 +19,10 @@
   --input-focus-bg: rgba(255, 255, 255, 0.07);
   
   --scroll-track: rgba(3, 0, 20, 0.5);
+  
+  --gradient-text-from: #ffffff;
+  --gradient-text-via: #e4e4e7;
+  --gradient-text-to: #a5b4fc;
 }
 
 /* Light Theme CSS Variables */
@@ -41,6 +45,10 @@
   --input-focus-bg: rgba(0, 0, 0, 0.04);
   
   --scroll-track: rgba(243, 244, 246, 0.5);
+  
+  --gradient-text-from: #111827;
+  --gradient-text-via: #374151;
+  --gradient-text-to: #4f46e5;
 }
 
 @theme {
@@ -311,6 +319,137 @@ body::after {
 
 .light .text-zinc-800 {
   color: #1f2937 !important;
+}
+
+/* Glass Panels & Inputs */
+.light .glass-panel {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border-color: rgba(0, 0, 0, 0.06) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+.light .glass-panel-hover:hover {
+  background: rgba(255, 255, 255, 0.85) !important;
+  border-color: rgba(99, 102, 241, 0.2) !important;
+  box-shadow: 0 12px 40px 0 rgba(99, 102, 241, 0.08) !important;
+}
+
+.light .glass-input {
+  background: rgba(0, 0, 0, 0.02) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: #111827 !important;
+}
+
+.light .glass-input:focus {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-color: rgba(99, 102, 241, 0.4) !important;
+}
+
+/* Gradient Text Dynamic Scaling Overrides */
+.light .text-transparent.bg-clip-text {
+  background-image: linear-gradient(to right, var(--gradient-text-from), var(--gradient-text-via), var(--gradient-text-to)) !important;
+  color: transparent !important;
+}
+
+/* WCAG AA Compliant Accent Colors on Light Mode */
+.light .text-indigo-400 { color: #4f46e5 !important; }
+.light .text-purple-400 { color: #7c3aed !important; }
+.light .text-cyan-400 { color: #0891b2 !important; }
+.light .text-emerald-400 { color: #059669 !important; }
+.light .text-rose-400 { color: #e11d48 !important; }
+.light .text-amber-400 { color: #d97706 !important; }
+
+/* Status Column & Badge Borders in Light Mode */
+.light .border-indigo-500\/30 { border-color: rgba(79, 70, 229, 0.25) !important; }
+.light .border-indigo-500\/20 { border-color: rgba(79, 70, 229, 0.15) !important; }
+.light .bg-indigo-500\/5 { background-color: rgba(79, 70, 229, 0.05) !important; }
+.light .text-indigo-300 { color: #4f46e5 !important; }
+
+.light .border-cyan-500\/30 { border-color: rgba(8, 145, 178, 0.25) !important; }
+.light .border-cyan-500\/20 { border-color: rgba(8, 145, 178, 0.15) !important; }
+.light .bg-cyan-500\/5 { background-color: rgba(8, 145, 178, 0.05) !important; }
+.light .text-cyan-300 { color: #0891b2 !important; }
+
+.light .border-purple-500\/30 { border-color: rgba(124, 58, 237, 0.25) !important; }
+.light .border-purple-500\/20 { border-color: rgba(124, 58, 237, 0.15) !important; }
+.light .bg-purple-500\/5 { background-color: rgba(124, 58, 237, 0.05) !important; }
+.light .text-purple-300 { color: #7c3aed !important; }
+
+.light .border-emerald-500\/30 { border-color: rgba(5, 150, 105, 0.25) !important; }
+.light .border-emerald-500\/20 { border-color: rgba(5, 150, 105, 0.15) !important; }
+.light .bg-emerald-500\/5 { background-color: rgba(5, 150, 105, 0.05) !important; }
+.light .text-emerald-300 { color: #059669 !important; }
+
+/* Dropdown Drawer and Profile Menus in Light Mode */
+.light .bg-\[\#0a061b\]\/95 {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+.light .bg-zinc-900\/95 {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.15) !important;
+}
+
+.light .bg-zinc-900\/95 * {
+  color: #111827 !important;
+}
+
+.light .bg-zinc-900\/95 .text-zinc-400 {
+  color: #4b5563 !important;
+}
+
+.light .bg-zinc-900\/95 button:hover {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Accessibility & Hover Contrast Overrides in Light Mode */
+.light select.glass-input {
+  background-color: var(--card-bg) !important;
+  color: var(--foreground) !important;
+  border-color: var(--card-border) !important;
+}
+
+.light select.glass-input option {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+/* Inactive button/link hover states on light background to avoid white-out */
+.light .hover\:text-white:hover {
+  color: var(--foreground) !important;
+}
+
+.light .hover\:text-zinc-200:hover {
+  color: var(--foreground) !important;
+}
+
+.light .hover\:text-indigo-300:hover {
+  color: #3730a3 !important; /* Darker indigo for WCAG AA compliance on light background */
+}
+
+/* Interactive elements background and border hover highlights */
+.light .hover\:bg-white\/5:hover {
+  background-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+.light .hover\:border-white\/5:hover {
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Active states using bg-zinc-800 shouldn't retain text-white on light bg */
+.light .bg-zinc-800.text-white {
+  color: #111827 !important;
+}
+
+/* Enhanced separator borders for columns */
+.light .border-white\/5 {
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+.light .border-white\/10 {
+  border-color: rgba(0, 0, 0, 0.16) !important;
 }
 
 /* Compact styling for strict 1-page CV limit */

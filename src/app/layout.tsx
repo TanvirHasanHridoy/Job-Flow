@@ -44,7 +44,7 @@ export default function RootLayout({
           })();
         `}} />
       </head>
-      <body className="font-sans antialiased text-zinc-100 min-h-screen flex flex-col bg-[#030014]">
+      <body className="font-sans antialiased text-[var(--foreground)] min-h-screen flex flex-col bg-[var(--background)]">
         <TokenProvider>
           <AlertModalProvider>
             <AppHeader />

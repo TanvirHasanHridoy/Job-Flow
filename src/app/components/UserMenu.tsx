@@ -131,7 +131,7 @@ export default function UserMenu() {
                 </div>
               )}
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-white truncate">{user.name}</p>
+                <p className="text-sm font-semibold text-[var(--foreground)] truncate">{user.name}</p>
                 <p className="text-xs text-zinc-400 truncate">{user.email}</p>
               </div>
             </div>
@@ -146,7 +146,7 @@ export default function UserMenu() {
                   <span className="text-xs text-zinc-400">Balance</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-white bg-zinc-800/80 px-2 py-0.5 rounded border border-white/5">
+                  <span className="text-sm font-bold text-[var(--foreground)] bg-[var(--card-bg)] px-2 py-0.5 rounded border border-white/10">
                     {tokens} Tokens
                   </span>
                 </div>
@@ -158,7 +158,7 @@ export default function UserMenu() {
           <div className="p-1.5">
             <button
               onClick={handleSignOut}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-300 hover:text-white hover:bg-red-500/10 transition-all duration-200 group cursor-pointer"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-zinc-300 hover:text-[var(--foreground)] hover:bg-red-500/10 transition-all duration-200 group cursor-pointer"
             >
               <LogOut className="w-4 h-4 text-zinc-500 group-hover:text-red-400 transition-colors" />
               Sign out
