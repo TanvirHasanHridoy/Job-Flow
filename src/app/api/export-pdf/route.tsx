@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import puppeteer from 'puppeteer';
 import { getAuthUserId } from '@/lib/auth';
+
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   let browser;
@@ -14,11 +15,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing required parameter: html' }, { status: 400 });
     }
 
-    // Launch headless chromium
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security']
-    });
+    let puppeteerModule;
+    let launchOptions: any = {};
+
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    if (isProduction) {
+      // In production (Vercel/serverless/AWS/Docker)
+      puppeteerModule = await import('puppeteer-core');
+      const chromium = await import('@sparticuz/chromium');
+      launchOptions = {
+        args: chromium.default.args,
+        defaultViewport: chromium.default.defaultViewport,
+        executablePath: await chromium.default.executablePath(),
+        headless: chromium.default.headless,
+      };
+    } else {
+      // In local development (Windows / standard node env)
+      puppeteerModule = await import('puppeteer');
+      launchOptions = {
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-web-security']
+      };
+    }
+
+    browser = await puppeteerModule.launch(launchOptions);
 
     const page = await browser.newPage();
     
