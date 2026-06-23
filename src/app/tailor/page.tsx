@@ -9,6 +9,7 @@ import {
 import confetti from 'canvas-confetti';
 import { groupSkillsByCategory } from '@/lib/skills';
 import { useTokens } from '@/context/TokenContext';
+import { useAlertModal } from '@/context/AlertModalContext';
 
 interface WorkExperience {
   company: string;
@@ -360,6 +361,7 @@ export default function TailorWorkspace() {
   const [profile, setProfile] = useState<any>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const { tokens, setIsTokenModalOpen, fetchTokens } = useTokens();
+  const { showAlert } = useAlertModal();
 
   // Form states
   const [jobDescription, setJobDescription] = useState('');
@@ -1746,7 +1748,11 @@ export default function TailorWorkspace() {
 
   const handleUrlScrape = async () => {
     if (!jobUrl.trim() || !jobUrl.startsWith('http')) {
-      alert('Please enter a valid job posting URL.');
+      showAlert({
+        title: 'Invalid URL',
+        message: 'Please enter a valid job posting URL.',
+        type: 'warning'
+      });
       return;
     }
     setScraping(true);
@@ -1805,7 +1811,11 @@ export default function TailorWorkspace() {
   const handleJobPdfUpload = async (file: File) => {
     if (!file) return;
     if (file.type !== 'application/pdf') {
-      alert('Please select a valid PDF file.');
+      showAlert({
+        title: 'Invalid File Format',
+        message: 'Please select a valid PDF file.',
+        type: 'warning'
+      });
       return;
     }
     setScraping(true);
@@ -1858,7 +1868,11 @@ export default function TailorWorkspace() {
 
   const handleTailor = async () => {
     if (!jobDescription.trim() || !companyName.trim() || !roleName.trim()) {
-      alert('Please fill out Company Name, Role Name, and Job Description.');
+      showAlert({
+        title: 'Missing Fields',
+        message: 'Please fill out Company Name, Role Name, and Job Description.',
+        type: 'warning'
+      });
       return;
     }
     setLoading(true);
@@ -1912,7 +1926,11 @@ export default function TailorWorkspace() {
       }
     } catch (err: any) {
       console.error(err);
-      alert(`Tailoring Failed: ${err.message}`);
+      showAlert({
+        title: 'Tailoring Failed',
+        message: err.message || 'An error occurred during CV/Cover Letter tailoring.',
+        type: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -2066,7 +2084,14 @@ export default function TailorWorkspace() {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to generate PDF: ${response.statusText}`);
+        let errMsg = 'Failed to generate PDF';
+        try {
+          const errJson = await response.json();
+          errMsg = errJson.error || errMsg;
+        } catch {
+          errMsg = `${response.statusText || 'Server Error'} (Status: ${response.status})`;
+        }
+        throw new Error(errMsg);
       }
 
       const blob = await response.blob();
@@ -2080,7 +2105,11 @@ export default function TailorWorkspace() {
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
       console.error(err);
-      alert(`PDF Export Failed: ${err.message}`);
+      showAlert({
+        title: 'PDF Export Failed',
+        message: err.message || 'An error occurred while exporting the PDF.',
+        type: 'error'
+      });
     } finally {
       setLoading(false);
     }
@@ -2456,7 +2485,11 @@ export default function TailorWorkspace() {
       }
     } catch (err: any) {
       console.error('Save error:', err);
-      alert(`Failed to save: ${err.message}`);
+      showAlert({
+        title: 'Save Failed',
+        message: err.message || 'An error occurred while saving the application details.',
+        type: 'error'
+      });
     } finally {
       setIsSaving(false);
     }

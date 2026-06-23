@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Outfit, Inter } from "next/font/google";
 import AppHeader from "./components/AppHeader";
 import { TokenProvider } from "@/context/TokenContext";
+import { AlertModalProvider } from "@/context/AlertModalContext";
 import "./globals.css";
 
 const outfit = Outfit({ 
@@ -45,12 +46,14 @@ export default function RootLayout({
       </head>
       <body className="font-sans antialiased text-zinc-100 min-h-screen flex flex-col bg-[#030014]">
         <TokenProvider>
-          <AppHeader />
+          <AlertModalProvider>
+            <AppHeader />
 
-          {/* Content Shell */}
-          <main className="flex-1 flex flex-col relative z-10">
-            {children}
-          </main>
+            {/* Content Shell */}
+            <main className="flex-1 flex flex-col relative z-10">
+              {children}
+            </main>
+          </AlertModalProvider>
         </TokenProvider>
       </body>
     </html>

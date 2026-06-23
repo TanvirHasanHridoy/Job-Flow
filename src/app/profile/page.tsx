@@ -7,6 +7,7 @@ import {
 import confetti from 'canvas-confetti';
 import { classifySkillCategory, SKILL_CATEGORIES } from '@/lib/skills';
 import { useTokens } from '@/context/TokenContext';
+import { useAlertModal } from '@/context/AlertModalContext';
 
 interface WorkExperience {
   company: string;
@@ -85,6 +86,7 @@ export default function ProfileVault() {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const { setIsTokenModalOpen, fetchTokens } = useTokens();
+  const { showAlert } = useAlertModal();
 
   // Importer states
   const [importOpen, setImportOpen] = useState(false);
@@ -168,7 +170,11 @@ export default function ProfileVault() {
 
   const handleImport = async () => {
     if (!githubUsername.trim() && !linkedinText.trim()) {
-      alert('Please enter a GitHub username or paste LinkedIn profile text.');
+      showAlert({
+        title: 'Input Required',
+        message: 'Please enter a GitHub username or paste LinkedIn profile text.',
+        type: 'warning'
+      });
       return;
     }
     setImporting(true);
@@ -204,13 +210,21 @@ export default function ProfileVault() {
         origin: { y: 0.3 }
       });
 
-      alert('AI Import Completed! The parsed details have been pre-populated in the tabs below. Review them and click "Save Vault" to commit changes.');
+      showAlert({
+        title: 'Import Completed',
+        message: 'AI Import Completed! The parsed details have been pre-populated in the tabs below. Review them and click "Save Vault" to commit changes.',
+        type: 'success'
+      });
       setImportOpen(false);
       setGithubUsername('');
       setLinkedinText('');
     } catch (err: any) {
       console.error(err);
-      alert(`Import failed: ${err.message}`);
+      showAlert({
+        title: 'Import Failed',
+        message: err.message || 'An error occurred while importing your profile.',
+        type: 'error'
+      });
     } finally {
       setImporting(false);
     }
@@ -219,7 +233,11 @@ export default function ProfileVault() {
   const handlePdfUpload = async (file: File) => {
     if (!file) return;
     if (file.type !== 'application/pdf') {
-      alert('Please select a valid PDF file.');
+      showAlert({
+        title: 'Invalid File Format',
+        message: 'Please select a valid PDF file.',
+        type: 'warning'
+      });
       return;
     }
     setImporting(true);
@@ -270,11 +288,19 @@ export default function ProfileVault() {
         origin: { y: 0.3 }
       });
 
-      alert('AI PDF Import Completed! The parsed details have been pre-populated in the tabs below. Review them and click "Save Vault" to commit changes.');
+      showAlert({
+        title: 'Import Completed',
+        message: 'AI PDF Import Completed! The parsed details have been pre-populated in the tabs below. Review them and click "Save Vault" to commit changes.',
+        type: 'success'
+      });
       setImportOpen(false);
     } catch (err: any) {
       console.error(err);
-      alert(`PDF Import failed: ${err.message}`);
+      showAlert({
+        title: 'PDF Import Failed',
+        message: err.message || 'An error occurred while parsing the PDF.',
+        type: 'error'
+      });
     } finally {
       setImporting(false);
     }
@@ -355,7 +381,11 @@ export default function ProfileVault() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file.');
+      showAlert({
+        title: 'Invalid File',
+        message: 'Please select an image file.',
+        type: 'warning'
+      });
       return;
     }
     const reader = new FileReader();
@@ -369,7 +399,11 @@ export default function ProfileVault() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file.');
+      showAlert({
+        title: 'Invalid File',
+        message: 'Please select an image file.',
+        type: 'warning'
+      });
       return;
     }
     const reader = new FileReader();
