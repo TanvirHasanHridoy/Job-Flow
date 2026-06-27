@@ -8,13 +8,13 @@ export const TOKEN_PRICING = {
 
 /**
  * Retrieves the user's token balance. 
- * Automatically initializes new users with 60 tokens if no record exists.
+ * Automatically initializes new users with 200 tokens if no record exists.
  */
 export async function getUserTokens(userId: string): Promise<number> {
   const record = await prisma.userToken.upsert({
     where: { userId },
     update: {},
-    create: { userId, tokens: 60 }
+    create: { userId, tokens: 200 }
   });
   return record.tokens;
 }
@@ -34,7 +34,7 @@ export async function deductTokens(
 
     if (!record) {
       record = await tx.userToken.create({
-        data: { userId, tokens: 60 }
+        data: { userId, tokens: 200 }
       });
     }
 
@@ -68,7 +68,7 @@ export async function topUpTokens(userId: string, amount: number): Promise<numbe
     },
     create: {
       userId,
-      tokens: 60 + amount
+      tokens: 200 + amount
     }
   });
   return record.tokens;
