@@ -404,8 +404,27 @@ body::after {
   background-color: rgba(0, 0, 0, 0.04) !important;
 }
 
-/* Accessibility & Hover Contrast Overrides in Light Mode */
+/* Accessibility & Hover Contrast Overrides for Select inputs */
+select.glass-input {
+  color-scheme: dark;
+}
+
+/* Default to dark text on light background for options to prevent white-on-white text in browsers rendering light native dropdowns */
+select.glass-input option {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+}
+
+/* If the user's browser/OS uses a dark theme, use white text on dark background */
+@media (prefers-color-scheme: dark) {
+  select.glass-input option {
+    background-color: #0f0c1e !important;
+    color: #ffffff !important;
+  }
+}
+
 .light select.glass-input {
+  color-scheme: light;
   background-color: var(--card-bg) !important;
   color: var(--foreground) !important;
   border-color: var(--card-border) !important;

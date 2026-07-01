@@ -1325,7 +1325,7 @@ export default function ProfileVault() {
                       className="glass-input px-3 py-2 text-xs w-full"
                     >
                       {SKILL_CATEGORIES.map(cat => (
-                        <option key={cat} value={cat} className="bg-zinc-950 text-white">{cat}</option>
+                        <option key={cat} value={cat}>{cat}</option>
                       ))}
                     </select>
                   </div>
@@ -1338,7 +1338,7 @@ export default function ProfileVault() {
                       className="glass-input px-3 py-2 text-xs w-full"
                     >
                       {SKILL_LEVELS.map(level => (
-                        <option key={level} value={level} className="bg-zinc-950 text-white">{level}</option>
+                        <option key={level} value={level}>{level}</option>
                       ))}
                     </select>
                   </div>

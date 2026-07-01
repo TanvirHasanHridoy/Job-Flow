@@ -564,11 +564,11 @@ export default function TailorWorkspace() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isZ = e.key.toLowerCase() === 'z';
       const isY = e.key.toLowerCase() === 'y';
-      
+
       const activeEl = document.activeElement;
       const isInsidePreview = activeEl && (
-        activeEl.closest('#cv-sheet') || 
-        activeEl.closest('#cl-sheet') || 
+        activeEl.closest('#cv-sheet') ||
+        activeEl.closest('#cl-sheet') ||
         activeEl.closest('#cv-measurement-root')
       );
 
@@ -633,7 +633,7 @@ export default function TailorWorkspace() {
 
   const renderBlock = (blockId: string, isMeasurement: boolean) => {
     if (!result) return null;
-    
+
     if (blockId === 'personal-header') {
       if (isAtsMode) {
         return (
@@ -692,9 +692,9 @@ export default function TailorWorkspace() {
           >
             {result.tailoredCv.personalDetails.photo ? (
               <img
-                 src={result.tailoredCv.personalDetails.photo}
-                 alt="Profile Photo"
-                 className="w-full h-full object-cover"
+                src={result.tailoredCv.personalDetails.photo}
+                alt="Profile Photo"
+                className="w-full h-full object-cover"
               />
             ) : (
               <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
@@ -705,7 +705,7 @@ export default function TailorWorkspace() {
         </div>
       );
     }
-    
+
     if (blockId === 'contact-grid') {
       return (
         <div
@@ -1792,7 +1792,7 @@ export default function TailorWorkspace() {
         if (data.roleName) setRoleName(data.roleName);
         if (data.companyName) setCompanyName(data.companyName);
         if (data.jobDescription) setJobDescription(data.jobDescription);
-        
+
         fetchTokens();
         confetti({
           particleCount: 50,
@@ -1951,7 +1951,7 @@ export default function TailorWorkspace() {
         const isLastPage = pageIdx === pageElements.length - 1;
         const clone = pageEl.cloneNode(true) as HTMLElement;
         clone.querySelectorAll('.no-print').forEach(el => el.remove());
-        
+
         // Apply CV page styles directly in style attribute (without scaling)
         clone.setAttribute('style', `
           width: 210mm !important;
@@ -1981,7 +1981,7 @@ export default function TailorWorkspace() {
       if (clSheet) {
         const clone = clSheet.cloneNode(true) as HTMLElement;
         clone.querySelectorAll('.no-print').forEach(el => el.remove());
-        
+
         clone.setAttribute('style', `
           width: 210mm !important;
           height: 296mm !important;
@@ -2793,22 +2793,20 @@ export default function TailorWorkspace() {
       <div className="lg:hidden sticky top-0 z-30 flex bg-[#030014]/90 backdrop-blur-md border-b border-white/5 p-2 gap-2 w-full shrink-0">
         <button
           onClick={() => setActiveMobileTab('edit')}
-          className={`flex-grow flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-            activeMobileTab === 'edit'
-              ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/20'
-              : 'text-zinc-400 hover:text-white bg-white/5'
-          }`}
+          className={`flex-grow flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeMobileTab === 'edit'
+            ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/20'
+            : 'text-zinc-400 hover:text-white bg-white/5'
+            }`}
         >
           <Sliders className="w-3.5 h-3.5" />
           Edit & Strategy
         </button>
         <button
           onClick={() => setActiveMobileTab('preview')}
-          className={`flex-grow flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-            activeMobileTab === 'preview'
-              ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/20'
-              : 'text-zinc-400 hover:text-white bg-white/5'
-          }`}
+          className={`flex-grow flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeMobileTab === 'preview'
+            ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/20'
+            : 'text-zinc-400 hover:text-white bg-white/5'
+            }`}
         >
           <FileText className="w-3.5 h-3.5" />
           Document Preview
@@ -2817,1313 +2815,1309 @@ export default function TailorWorkspace() {
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 w-full overflow-hidden">
         {/* Left Input Pane: Col 5 */}
-        <div className={`lg:col-span-5 border-r border-white/5 bg-zinc-950/40 p-6 md:p-8 overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] space-y-6 ${
-          activeMobileTab === 'edit' ? 'block' : 'hidden lg:block'
-        }`}>
-        <div>
-          <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-400" />
-            AI Tailoring Workspace
-          </h1>
-          <p className="text-xs text-zinc-400">
-            Feed the job post requirements and details. The engine builds hyper-aligned outputs based exclusively on your master details.
-          </p>
-        </div>
-
-        {/* Token Balance Widget */}
-        {tokens !== null && (
-          <div className="p-3.5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 flex items-center gap-2 text-xs animate-in fade-in duration-200">
-            <Coins className="w-4 h-4 text-indigo-400" />
-            <div>
-              <span className="text-zinc-400 block text-[9px] uppercase font-semibold tracking-wider">Remaining Balance</span>
-              <span className="font-bold text-zinc-200 text-xs">{tokens} Tokens</span>
-            </div>
-          </div>
-        )}
-
-        {/* Form Inputs */}
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Company Name</label>
-              <input
-                type="text"
-                value={companyName}
-                onChange={e => setCompanyName(e.target.value)}
-                placeholder="e.g. BMW Group"
-                className="glass-input px-3.5 py-2.5 text-xs"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Role Name</label>
-              <input
-                type="text"
-                value={roleName}
-                onChange={e => setRoleName(e.target.value)}
-                placeholder="e.g. Senior Cloud Engineer"
-                className="glass-input px-3.5 py-2.5 text-xs"
-              />
-            </div>
+        <div className={`lg:col-span-5 border-r border-white/5 bg-zinc-950/40 p-6 md:p-8 overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] space-y-6 ${activeMobileTab === 'edit' ? 'block' : 'hidden lg:block'
+          }`}>
+          <div>
+            <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-indigo-400" />
+              AI Tailoring Workspace
+            </h1>
+            <p className="text-xs text-zinc-400">
+              Feed the job post requirements and details. The engine builds hyper-aligned outputs based exclusively on your master details.
+            </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">CV Language</label>
-              <div className="grid grid-cols-2 gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
-                <button
-                  type="button"
-                  onClick={() => setCvLanguage('EN')}
-                  className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'EN'
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'text-zinc-400 hover:text-white'
-                    }`}
-                >
-                  EN
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCvLanguage('DE')}
-                  className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'DE'
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'text-zinc-400 hover:text-white'
-                    }`}
-                >
-                  DE
-                </button>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Cover Letter Language</label>
-              <div className="grid grid-cols-2 gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
-                <button
-                  type="button"
-                  onClick={() => setClLanguage('EN')}
-                  className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'EN'
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'text-zinc-400 hover:text-white'
-                    }`}
-                >
-                  EN
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setClLanguage('DE')}
-                  className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'DE'
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'text-zinc-400 hover:text-white'
-                    }`}
-                >
-                  DE
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Prompt Customization Options */}
-          <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-              Tailoring Customizations
-            </h3>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Tone</label>
-                <select
-                  value={tone}
-                  onChange={e => setTone(e.target.value)}
-                  className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                >
-                  <option value="Bold & Action-oriented">Bold & Action-oriented</option>
-                  <option value="Academic & Technical">Academic & Technical</option>
-                  <option value="Executive & High-level">Executive & High-level</option>
-                  <option value="Humble & Fact-driven">Humble & Fact-driven</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Length Target</label>
-                <select
-                  value={lengthTarget}
-                  onChange={e => setLengthTarget(e.target.value)}
-                  className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                >
-                  <option value="Strict 1-Page (concise)">Strict 1-Page</option>
-                  <option value="Standard 2-Page (detailed)">Standard 2-Page</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">CL Length</label>
-                <select
-                  value={clLength}
-                  onChange={e => setClLength(e.target.value)}
-                  className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                >
-                  <option value="Short & Punchy (under 300 words)">Short & Punchy</option>
-                  <option value="Detailed & Elaborate">Detailed & Elaborate</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Skills Highlight Mode</label>
-                <select
-                  value={skillsFocus}
-                  onChange={e => setSkillsFocus(e.target.value)}
-                  className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                >
-                  <option value="Tech-Heavy Focus">Tech-Heavy Focus</option>
-                  <option value="Soft Skills & Leadership focus">Soft Skills & Leadership Focus</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 mt-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Skills Layout</label>
-                <select
-                  value={skillsLayout}
-                  onChange={e => setSkillsLayout(e.target.value as any)}
-                  className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                >
-                  <option value="level">By Level</option>
-                  <option value="category">By Category</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Visual Spacing Fine-Tuning Sidebar Panel */}
-          {result && previewTab === 'cv' && (
-            <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5 justify-between">
-                <span className="flex items-center gap-1.5 font-sans">
-                  <Sliders className="w-3.5 h-3.5 text-indigo-400" />
-                  Visual Spacing Adjuster
-                </span>
-                <span className="text-[9px] text-zinc-500 font-normal font-sans">Fine-tune gaps</span>
-              </h3>
-
-              {/* Presets Row */}
-              <div className="grid grid-cols-3 gap-1.5 p-1 bg-white/5 rounded-lg border border-white/5 font-sans">
-                <button
-                  type="button"
-                  onClick={() => applyPreset('default')}
-                  className="py-1 text-[10px] font-bold rounded text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
-                >
-                  Default
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyPreset('compact')}
-                  className="py-1 text-[10px] font-bold rounded text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
-                >
-                  Compact
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applyPreset('tight')}
-                  className="py-1 text-[10px] font-bold rounded text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
-                >
-                  Ultra-Tight
-                </button>
-              </div>
-
-              {/* Sliders */}
-              <div className="space-y-2.5 pt-1 text-xs font-sans">
-                {/* Font Size */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[10px] text-zinc-400">
-                    <span>Base Font Size</span>
-                    <span className="font-semibold text-white">{fontSize}px</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="9.5"
-                    max="13"
-                    step="0.1"
-                    value={fontSize}
-                    onChange={e => setFontSize(parseFloat(e.target.value))}
-                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                  />
-                </div>
-
-                {/* Section Spacing */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[10px] text-zinc-400">
-                    <span>Section Gaps</span>
-                    <span className="font-semibold text-white">{sectionSpacing}px</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="4"
-                    max="36"
-                    step="1"
-                    value={sectionSpacing}
-                    onChange={e => setSectionSpacing(parseInt(e.target.value))}
-                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                  />
-                </div>
-
-                {/* Header Spacing (Gap between Occupation and Contact info) */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[10px] text-zinc-400">
-                    <span>Header Gap</span>
-                    <span className="font-semibold text-white">{headerSpacing}px</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="2"
-                    max="32"
-                    step="1"
-                    value={headerSpacing}
-                    onChange={e => setHeaderSpacing(parseInt(e.target.value))}
-                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                  />
-                </div>
-
-                {/* Page Padding Top */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[10px] text-zinc-400">
-                    <span>Top Margins</span>
-                    <span className="font-semibold text-white">{pagePaddingTop}mm</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="10"
-                    max="40"
-                    step="1"
-                    value={pagePaddingTop}
-                    onChange={e => setPagePaddingTop(parseInt(e.target.value))}
-                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                  />
-                </div>
-
-                {/* Page Padding Bottom */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[10px] text-zinc-400">
-                    <span>Bottom Margins</span>
-                    <span className="font-semibold text-white">{pagePaddingBottom}mm</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="10"
-                    max="35"
-                    step="1"
-                    value={pagePaddingBottom}
-                    onChange={e => setPagePaddingBottom(parseInt(e.target.value))}
-                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                  />
-                </div>
-
-                {/* Page Padding Side */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[10px] text-zinc-400">
-                    <span>Side Margins</span>
-                    <span className="font-semibold text-white">{pagePaddingSide}mm</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="10"
-                    max="35"
-                    step="1"
-                    value={pagePaddingSide}
-                    onChange={e => setPagePaddingSide(parseInt(e.target.value))}
-                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                  />
-                </div>
-
-                {/* Bullet Spacing */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[10px] text-zinc-400">
-                    <span>Bullet Spacing</span>
-                    <span className="font-semibold text-white">{bulletSpacing}px</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="12"
-                    step="0.5"
-                    value={bulletSpacing}
-                    onChange={e => setBulletSpacing(parseFloat(e.target.value))}
-                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                  />
-                </div>
-
-                {/* Signature Spacing */}
-                <div className="flex flex-col gap-1">
-                  <div className="flex justify-between text-[10px] text-zinc-400">
-                    <span>Signature Space</span>
-                    <span className="font-semibold text-white">{signatureSpacing}px</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="4"
-                    max="60"
-                    step="1"
-                    value={signatureSpacing}
-                    onChange={e => setSignatureSpacing(parseInt(e.target.value))}
-                    className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                  />
-                </div>
-
-                {/* Show Signature Toggle */}
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-zinc-800/50">
-                  <input
-                    type="checkbox"
-                    id="show-signature-toggle"
-                    checked={showSignatureImage}
-                    onChange={e => setShowSignatureImage(e.target.checked)}
-                    className="w-3.5 h-3.5 text-indigo-600 bg-zinc-950 border-zinc-800 rounded focus:ring-indigo-500 focus:ring-2 accent-indigo-500 cursor-pointer"
-                  />
-                  <label htmlFor="show-signature-toggle" className="text-[10px] font-semibold text-zinc-300 select-none cursor-pointer">
-                    Show Signature Image
-                  </label>
-                </div>
+          {/* Token Balance Widget */}
+          {tokens !== null && (
+            <div className="p-3.5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 flex items-center gap-2 text-xs animate-in fade-in duration-200">
+              <Coins className="w-4 h-4 text-indigo-400" />
+              <div>
+                <span className="text-zinc-400 block text-[9px] uppercase font-semibold tracking-wider">Remaining Balance</span>
+                <span className="font-bold text-zinc-200 text-xs">{tokens} Tokens</span>
               </div>
             </div>
           )}
 
-          {/* Match Strategy Selection */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Match Strategy</label>
-              <span className="text-[9px] text-zinc-500 font-medium">Selects AI prompt logic</span>
+          {/* Form Inputs */}
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Company Name</label>
+                <input
+                  type="text"
+                  value={companyName}
+                  onChange={e => setCompanyName(e.target.value)}
+                  placeholder="e.g. BMW Group"
+                  className="glass-input px-3.5 py-2.5 text-xs"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Role Name</label>
+                <input
+                  type="text"
+                  value={roleName}
+                  onChange={e => setRoleName(e.target.value)}
+                  placeholder="e.g. Senior Cloud Engineer"
+                  className="glass-input px-3.5 py-2.5 text-xs"
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
-              <button
-                type="button"
-                onClick={() => setMatchStrategy('TACTICAL_PIVOT')}
-                className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${matchStrategy === 'TACTICAL_PIVOT'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-zinc-400 hover:text-white'
-                  }`}
-                title="Explain skill gaps constructively in the cover letter"
-              >
-                Tactical Pivot
-              </button>
-              <button
-                type="button"
-                onClick={() => setMatchStrategy('AGGRESIVE_BRIDGING')}
-                className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${matchStrategy === 'AGGRESIVE_BRIDGING'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-zinc-400 hover:text-white'
-                  }`}
-                title="Optimize terminology aggressively to align with ATS filters"
-              >
-                Aggressive Bridging
-              </button>
-            </div>
-          </div>
 
-
-
-          {/* Intake Method Tabs */}
-          <div className="flex flex-col gap-1.5 text-left">
-            <label className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">Job Intake Method</label>
-            <div className="grid grid-cols-3 gap-1 bg-white/5 p-1 rounded-xl border border-white/5 font-sans">
-              <button
-                type="button"
-                onClick={() => setIntakeMethod('text')}
-                className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${intakeMethod === 'text'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-zinc-400 hover:text-white'
-                  }`}
-              >
-                Text Paste
-              </button>
-              <button
-                type="button"
-                onClick={() => setIntakeMethod('url')}
-                className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${intakeMethod === 'url'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-zinc-400 hover:text-white'
-                  }`}
-              >
-                Job URL
-              </button>
-              <button
-                type="button"
-                onClick={() => setIntakeMethod('pdf')}
-                className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${intakeMethod === 'pdf'
-                  ? 'bg-indigo-600 text-white shadow'
-                  : 'text-zinc-400 hover:text-white'
-                  }`}
-              >
-                Job PDF
-              </button>
-            </div>
-          </div>
-
-          {/* Conditional Intake Content */}
-          {intakeMethod === 'url' && (
-            <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] space-y-3 text-left">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Job Posting URL</label>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={jobUrl}
-                    onChange={e => setJobUrl(e.target.value)}
-                    placeholder="https://example.com/jobs/123"
-                    className="glass-input px-3 py-2 text-xs flex-1"
-                    disabled={scraping}
-                  />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">CV Language</label>
+                <div className="grid grid-cols-2 gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
                   <button
                     type="button"
-                    onClick={handleUrlScrape}
-                    disabled={scraping}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                    onClick={() => setCvLanguage('EN')}
+                    className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'EN'
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
                   >
-                    {scraping ? (
-                      <>
-                        <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        Scraping...
-                      </>
-                    ) : (
-                      'Scrape URL (5 tokens)'
-                    )}
+                    EN
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCvLanguage('DE')}
+                    className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'DE'
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
+                  >
+                    DE
                   </button>
                 </div>
               </div>
-              {scrapeWarning && (
-                <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                  <span>{scrapeWarning}</span>
-                </div>
-              )}
-              {scrapeError && (
-                <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                  <span>{scrapeError}</span>
-                </div>
-              )}
-            </div>
-          )}
 
-          {intakeMethod === 'pdf' && (
-            <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] space-y-3 text-left">
-              <label className="text-[10px] text-zinc-400 font-semibold uppercase">Upload Job Advertisement PDF</label>
-              <div className="relative group">
-                <input
-                  type="file"
-                  accept="application/pdf"
-                  onChange={e => {
-                    const file = e.target.files?.[0];
-                    if (file) handleJobPdfUpload(file);
-                  }}
-                  className="hidden"
-                  id="job-pdf-upload"
-                  disabled={scraping}
-                />
-                <label
-                  htmlFor="job-pdf-upload"
-                  className="flex flex-col items-center justify-center border border-dashed border-zinc-700/50 bg-white/[0.02] hover:bg-white/[0.04] transition-all rounded-xl p-5 text-center cursor-pointer"
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={e => {
-                    e.preventDefault();
-                    const file = e.dataTransfer.files?.[0];
-                    if (file) handleJobPdfUpload(file);
-                  }}
-                >
-                  <FileText className="w-8 h-8 text-indigo-400 mb-2 group-hover:scale-110 transition-transform duration-300" />
-                  {scraping ? (
-                    <div className="flex items-center gap-1.5 font-sans">
-                      <div className="w-3.5 h-3.5 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin"></div>
-                      <span className="text-[11px] text-zinc-400">Parsing PDF job description...</span>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Cover Letter Language</label>
+                <div className="grid grid-cols-2 gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => setClLanguage('EN')}
+                    className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'EN'
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
+                  >
+                    EN
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setClLanguage('DE')}
+                    className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'DE'
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
+                  >
+                    DE
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Prompt Customization Options */}
+            <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                Tailoring Customizations
+              </h3>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Tone</label>
+                  <select
+                    value={tone}
+                    onChange={e => setTone(e.target.value)}
+                    className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                  >
+                    <option value="Bold & Action-oriented">Bold & Action-oriented</option>
+                    <option value="Academic & Technical">Academic & Technical</option>
+                    <option value="Executive & High-level">Executive & High-level</option>
+                    <option value="Humble & Fact-driven">Humble & Fact-driven</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Length Target</label>
+                  <select
+                    value={lengthTarget}
+                    onChange={e => setLengthTarget(e.target.value)}
+                    className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                  >
+                    <option value="Strict 1-Page (concise)">Strict 1-Page</option>
+                    <option value="Standard 2-Page (detailed)">Standard 2-Page</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">CL Length</label>
+                  <select
+                    value={clLength}
+                    onChange={e => setClLength(e.target.value)}
+                    className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                  >
+                    <option value="Short & Punchy (under 300 words)">Short & Punchy</option>
+                    <option value="Detailed & Elaborate">Detailed & Elaborate</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Skills Highlight Mode</label>
+                  <select
+                    value={skillsFocus}
+                    onChange={e => setSkillsFocus(e.target.value)}
+                    className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                  >
+                    <option value="Tech-Heavy Focus">Tech-Heavy Focus</option>
+                    <option value="Soft Skills & Leadership focus">Soft Skills & Leadership Focus</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Skills Layout</label>
+                  <select
+                    value={skillsLayout}
+                    onChange={e => setSkillsLayout(e.target.value as any)}
+                    className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                  >
+                    <option value="level">By Level</option>
+                    <option value="category">By Category</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Visual Spacing Fine-Tuning Sidebar Panel */}
+            {result && previewTab === 'cv' && (
+              <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5 justify-between">
+                  <span className="flex items-center gap-1.5 font-sans">
+                    <Sliders className="w-3.5 h-3.5 text-indigo-400" />
+                    Visual Spacing Adjuster
+                  </span>
+                  <span className="text-[9px] text-zinc-500 font-normal font-sans">Fine-tune gaps</span>
+                </h3>
+
+                {/* Presets Row */}
+                <div className="grid grid-cols-3 gap-1.5 p-1 bg-white/5 rounded-lg border border-white/5 font-sans">
+                  <button
+                    type="button"
+                    onClick={() => applyPreset('default')}
+                    className="py-1 text-[10px] font-bold rounded text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
+                  >
+                    Default
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset('compact')}
+                    className="py-1 text-[10px] font-bold rounded text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
+                  >
+                    Compact
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset('tight')}
+                    className="py-1 text-[10px] font-bold rounded text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
+                  >
+                    Ultra-Tight
+                  </button>
+                </div>
+
+                {/* Sliders */}
+                <div className="space-y-2.5 pt-1 text-xs font-sans">
+                  {/* Font Size */}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between text-[10px] text-zinc-400">
+                      <span>Base Font Size</span>
+                      <span className="font-semibold text-white">{fontSize}px</span>
                     </div>
-                  ) : (
-                    <>
-                      <span className="text-xs text-white font-medium">Select JD PDF (5 tokens)</span>
-                      <span className="text-[10px] text-zinc-500 mt-1">Drag and drop here</span>
-                    </>
-                  )}
-                </label>
-              </div>
-              {scrapeError && (
-                <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                  <span>{scrapeError}</span>
+                    <input
+                      type="range"
+                      min="9.5"
+                      max="13"
+                      step="0.1"
+                      value={fontSize}
+                      onChange={e => setFontSize(parseFloat(e.target.value))}
+                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                  </div>
+
+                  {/* Section Spacing */}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between text-[10px] text-zinc-400">
+                      <span>Section Gaps</span>
+                      <span className="font-semibold text-white">{sectionSpacing}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="4"
+                      max="36"
+                      step="1"
+                      value={sectionSpacing}
+                      onChange={e => setSectionSpacing(parseInt(e.target.value))}
+                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                  </div>
+
+                  {/* Header Spacing (Gap between Occupation and Contact info) */}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between text-[10px] text-zinc-400">
+                      <span>Header Gap</span>
+                      <span className="font-semibold text-white">{headerSpacing}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="2"
+                      max="32"
+                      step="1"
+                      value={headerSpacing}
+                      onChange={e => setHeaderSpacing(parseInt(e.target.value))}
+                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                  </div>
+
+                  {/* Page Padding Top */}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between text-[10px] text-zinc-400">
+                      <span>Top Margins</span>
+                      <span className="font-semibold text-white">{pagePaddingTop}mm</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="10"
+                      max="40"
+                      step="1"
+                      value={pagePaddingTop}
+                      onChange={e => setPagePaddingTop(parseInt(e.target.value))}
+                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                  </div>
+
+                  {/* Page Padding Bottom */}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between text-[10px] text-zinc-400">
+                      <span>Bottom Margins</span>
+                      <span className="font-semibold text-white">{pagePaddingBottom}mm</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="10"
+                      max="35"
+                      step="1"
+                      value={pagePaddingBottom}
+                      onChange={e => setPagePaddingBottom(parseInt(e.target.value))}
+                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                  </div>
+
+                  {/* Page Padding Side */}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between text-[10px] text-zinc-400">
+                      <span>Side Margins</span>
+                      <span className="font-semibold text-white">{pagePaddingSide}mm</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="10"
+                      max="35"
+                      step="1"
+                      value={pagePaddingSide}
+                      onChange={e => setPagePaddingSide(parseInt(e.target.value))}
+                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                  </div>
+
+                  {/* Bullet Spacing */}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between text-[10px] text-zinc-400">
+                      <span>Bullet Spacing</span>
+                      <span className="font-semibold text-white">{bulletSpacing}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="12"
+                      step="0.5"
+                      value={bulletSpacing}
+                      onChange={e => setBulletSpacing(parseFloat(e.target.value))}
+                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                  </div>
+
+                  {/* Signature Spacing */}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex justify-between text-[10px] text-zinc-400">
+                      <span>Signature Space</span>
+                      <span className="font-semibold text-white">{signatureSpacing}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="4"
+                      max="60"
+                      step="1"
+                      value={signatureSpacing}
+                      onChange={e => setSignatureSpacing(parseInt(e.target.value))}
+                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                    />
+                  </div>
+
+                  {/* Show Signature Toggle */}
+                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-zinc-800/50">
+                    <input
+                      type="checkbox"
+                      id="show-signature-toggle"
+                      checked={showSignatureImage}
+                      onChange={e => setShowSignatureImage(e.target.checked)}
+                      className="w-3.5 h-3.5 text-indigo-600 bg-zinc-950 border-zinc-800 rounded focus:ring-indigo-500 focus:ring-2 accent-indigo-500 cursor-pointer"
+                    />
+                    <label htmlFor="show-signature-toggle" className="text-[10px] font-semibold text-zinc-300 select-none cursor-pointer">
+                      Show Signature Image
+                    </label>
+                  </div>
                 </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex flex-col gap-1 text-left">
-            <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Job Description (Raw Text)</label>
-            <textarea
-              value={jobDescription}
-              onChange={e => setJobDescription(e.target.value)}
-              placeholder="Paste the target job description or requirements here..."
-              rows={6}
-              className="glass-input p-3 text-xs font-mono w-full resize-none"
-            />
-          </div>
-
-          {/* Context Panel Toggle */}
-          <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3">
-            <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5">
-              <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
-              Additional Details / Overrides
-            </h3>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Salary Expectation</label>
-                <input
-                  type="text"
-                  value={salaryExpectation}
-                  onChange={e => setSalaryExpectation(e.target.value)}
-                  placeholder="e.g. €85,000 / year"
-                  className="glass-input px-3 py-2 text-xs"
-                />
               </div>
+            )}
 
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Notice Period / Availability</label>
-                <input
-                  type="text"
-                  value={noticePeriod}
-                  onChange={e => setNoticePeriod(e.target.value)}
-                  placeholder="e.g. 2 months notice"
-                  className="glass-input px-3 py-2 text-xs"
-                />
+            {/* Match Strategy Selection */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Match Strategy</label>
+                <span className="text-[9px] text-zinc-500 font-medium">Selects AI prompt logic</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setMatchStrategy('TACTICAL_PIVOT')}
+                  className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${matchStrategy === 'TACTICAL_PIVOT'
+                    ? 'bg-indigo-600 text-white shadow'
+                    : 'text-zinc-400 hover:text-white'
+                    }`}
+                  title="Explain skill gaps constructively in the cover letter"
+                >
+                  Tactical Pivot
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMatchStrategy('AGGRESIVE_BRIDGING')}
+                  className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${matchStrategy === 'AGGRESIVE_BRIDGING'
+                    ? 'bg-indigo-600 text-white shadow'
+                    : 'text-zinc-400 hover:text-white'
+                    }`}
+                  title="Optimize terminology aggressively to align with ATS filters"
+                >
+                  Aggressive Bridging
+                </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Signing Location</label>
-                <input
-                  type="text"
-                  value={signingLocation}
-                  onChange={e => setSigningLocation(e.target.value)}
-                  placeholder="e.g. Munich"
-                  className="glass-input px-3 py-2 text-xs"
-                />
-              </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Custom Focus Notes</label>
-                <input
-                  type="text"
-                  value={customNotes}
-                  onChange={e => setCustomNotes(e.target.value)}
-                  placeholder="e.g. Highlight AWS, omit old PHP"
-                  className="glass-input px-3 py-2 text-xs"
-                />
+
+            {/* Intake Method Tabs */}
+            <div className="flex flex-col gap-1.5 text-left">
+              <label className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">Job Intake Method</label>
+              <div className="grid grid-cols-3 gap-1 bg-white/5 p-1 rounded-xl border border-white/5 font-sans">
+                <button
+                  type="button"
+                  onClick={() => setIntakeMethod('text')}
+                  className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${intakeMethod === 'text'
+                    ? 'bg-indigo-600 text-white shadow'
+                    : 'text-zinc-400 hover:text-white'
+                    }`}
+                >
+                  Text Paste
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIntakeMethod('url')}
+                  className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${intakeMethod === 'url'
+                    ? 'bg-indigo-600 text-white shadow'
+                    : 'text-zinc-400 hover:text-white'
+                    }`}
+                >
+                  Job URL
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIntakeMethod('pdf')}
+                  className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${intakeMethod === 'pdf'
+                    ? 'bg-indigo-600 text-white shadow'
+                    : 'text-zinc-400 hover:text-white'
+                    }`}
+                >
+                  Job PDF
+                </button>
               </div>
             </div>
 
-            <div className="flex flex-col gap-1 mt-3">
-              <label className="text-[10px] text-zinc-400 font-semibold uppercase text-left">Overarching Theme / Directive (Optional)</label>
+            {/* Conditional Intake Content */}
+            {intakeMethod === 'url' && (
+              <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] space-y-3 text-left">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Job Posting URL</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={jobUrl}
+                      onChange={e => setJobUrl(e.target.value)}
+                      placeholder="https://example.com/jobs/123"
+                      className="glass-input px-3 py-2 text-xs flex-1"
+                      disabled={scraping}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleUrlScrape}
+                      disabled={scraping}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                    >
+                      {scraping ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          Scraping...
+                        </>
+                      ) : (
+                        'Scrape URL (5 tokens)'
+                      )}
+                    </button>
+                  </div>
+                </div>
+                {scrapeWarning && (
+                  <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>{scrapeWarning}</span>
+                  </div>
+                )}
+                {scrapeError && (
+                  <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>{scrapeError}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {intakeMethod === 'pdf' && (
+              <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] space-y-3 text-left">
+                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Upload Job Advertisement PDF</label>
+                <div className="relative group">
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) handleJobPdfUpload(file);
+                    }}
+                    className="hidden"
+                    id="job-pdf-upload"
+                    disabled={scraping}
+                  />
+                  <label
+                    htmlFor="job-pdf-upload"
+                    className="flex flex-col items-center justify-center border border-dashed border-zinc-700/50 bg-white/[0.02] hover:bg-white/[0.04] transition-all rounded-xl p-5 text-center cursor-pointer"
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={e => {
+                      e.preventDefault();
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) handleJobPdfUpload(file);
+                    }}
+                  >
+                    <FileText className="w-8 h-8 text-indigo-400 mb-2 group-hover:scale-110 transition-transform duration-300" />
+                    {scraping ? (
+                      <div className="flex items-center gap-1.5 font-sans">
+                        <div className="w-3.5 h-3.5 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin"></div>
+                        <span className="text-[11px] text-zinc-400">Parsing PDF job description...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="text-xs text-white font-medium">Select JD PDF (5 tokens)</span>
+                        <span className="text-[10px] text-zinc-500 mt-1">Drag and drop here</span>
+                      </>
+                    )}
+                  </label>
+                </div>
+                {scrapeError && (
+                  <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>{scrapeError}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-1 text-left">
+              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Job Description (Raw Text)</label>
               <textarea
-                value={themeDirective}
-                onChange={e => setThemeDirective(e.target.value)}
-                placeholder="e.g. Focus heavily on my leadership experience and crisis management in the cover letter..."
-                rows={3}
-                className="glass-input px-3 py-2 text-xs w-full resize-none"
+                value={jobDescription}
+                onChange={e => setJobDescription(e.target.value)}
+                placeholder="Paste the target job description or requirements here..."
+                rows={6}
+                className="glass-input p-3 text-xs font-mono w-full resize-none"
               />
             </div>
+
+            {/* Context Panel Toggle */}
+            <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5">
+                <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
+                Additional Details / Overrides
+              </h3>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Salary Expectation</label>
+                  <input
+                    type="text"
+                    value={salaryExpectation}
+                    onChange={e => setSalaryExpectation(e.target.value)}
+                    placeholder="e.g. €85,000 / year"
+                    className="glass-input px-3 py-2 text-xs"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Notice Period / Availability</label>
+                  <input
+                    type="text"
+                    value={noticePeriod}
+                    onChange={e => setNoticePeriod(e.target.value)}
+                    placeholder="e.g. 2 months notice"
+                    className="glass-input px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Signing Location</label>
+                  <input
+                    type="text"
+                    value={signingLocation}
+                    onChange={e => setSigningLocation(e.target.value)}
+                    placeholder="e.g. Munich"
+                    className="glass-input px-3 py-2 text-xs"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Custom Focus Notes</label>
+                  <input
+                    type="text"
+                    value={customNotes}
+                    onChange={e => setCustomNotes(e.target.value)}
+                    placeholder="e.g. Highlight AWS, omit old PHP"
+                    className="glass-input px-3 py-2 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1 mt-3">
+                <label className="text-[10px] text-zinc-400 font-semibold uppercase text-left">Overarching Theme / Directive (Optional)</label>
+                <textarea
+                  value={themeDirective}
+                  onChange={e => setThemeDirective(e.target.value)}
+                  placeholder="e.g. Focus heavily on my leadership experience and crisis management in the cover letter..."
+                  rows={3}
+                  className="glass-input px-3 py-2 text-xs w-full resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Missing Assets Prompt */}
+            {profile && (!profile.photo || !profile.signature) && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-xl text-xs space-y-1 text-left">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  Missing Profile Assets
+                </div>
+                <p className="text-zinc-400 leading-relaxed">
+                  {!profile.photo && !profile.signature ? (
+                    <>Your profile is missing a <strong>photo</strong> and a <strong>signature</strong> image. Default placeholders will be used on the documents. You can upload them in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
+                  ) : !profile.photo ? (
+                    <>Your profile is missing a <strong>photo</strong>. A placeholder silhouette will be used. You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
+                  ) : (
+                    <>Your profile is missing a <strong>signature</strong>. A demo cursive signature will be used. You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
+                  )}
+                </p>
+              </div>
+            )}
+
+            <button
+              onClick={handleTailor}
+              disabled={loading}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  Analyzing Job & Tailoring Documents...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 animate-pulse" />
+                  Tailor CV & Cover Letter (20 tokens)
+                </>
+              )}
+            </button>
           </div>
 
-          {/* Missing Assets Prompt */}
-          {profile && (!profile.photo || !profile.signature) && (
-            <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-xl text-xs space-y-1 text-left">
-              <div className="flex items-center gap-1.5 font-bold">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                Missing Profile Assets
-              </div>
-              <p className="text-zinc-400 leading-relaxed">
-                {!profile.photo && !profile.signature ? (
-                  <>Your profile is missing a <strong>photo</strong> and a <strong>signature</strong> image. Default placeholders will be used on the documents. You can upload them in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
-                ) : !profile.photo ? (
-                  <>Your profile is missing a <strong>photo</strong>. A placeholder silhouette will be used. You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
-                ) : (
-                  <>Your profile is missing a <strong>signature</strong>. A demo cursive signature will be used. You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
-                )}
-              </p>
-            </div>
-          )}
-
-          <button
-            onClick={handleTailor}
-            disabled={loading}
-            className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 disabled:opacity-50"
-          >
-            {loading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                Analyzing Job & Tailoring Documents...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4 animate-pulse" />
-                Tailor CV & Cover Letter (20 tokens)
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* Scorecard and Analysis Result */}
-        {result && (
-          <div className="pt-6 border-t border-white/5 space-y-5">
-            <div>
-              <h2 className="text-md font-bold text-white mb-2 flex items-center gap-1.5">
-                <Award className="w-4 h-4 text-emerald-400" />
-                AI Match Scorecard & Insights
-              </h2>
-              <div className="flex items-center gap-4 bg-white/[0.02] p-4 rounded-xl border border-white/5">
-                <div className="relative w-16 h-16 flex items-center justify-center rounded-full border-4 border-zinc-800">
-                  <div className="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin-slow"></div>
-                  <span className="font-extrabold text-white text-lg">{result.matchScore}%</span>
-                </div>
-                <div>
-                  <h4 className="font-bold text-white text-sm">Keyword/Skill Alignment</h4>
-                  <p className="text-xs text-zinc-400">Based on factual CV entries parsed against target requirements.</p>
+          {/* Scorecard and Analysis Result */}
+          {result && (
+            <div className="pt-6 border-t border-white/5 space-y-5">
+              <div>
+                <h2 className="text-md font-bold text-white mb-2 flex items-center gap-1.5">
+                  <Award className="w-4 h-4 text-emerald-400" />
+                  AI Match Scorecard & Insights
+                </h2>
+                <div className="flex items-center gap-4 bg-white/[0.02] p-4 rounded-xl border border-white/5">
+                  <div className="relative w-16 h-16 flex items-center justify-center rounded-full border-4 border-zinc-800">
+                    <div className="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin-slow"></div>
+                    <span className="font-extrabold text-white text-lg">{result.matchScore}%</span>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-white text-sm">Keyword/Skill Alignment</h4>
+                    <p className="text-xs text-zinc-400">Based on factual CV entries parsed against target requirements.</p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div
-                className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const skill = e.dataTransfer.getData('text/plain');
-                  handleAddSkillInteractive(skill, true);
-                }}
-              >
-                <h4 className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
-                  <Check className="w-3 h-3" /> Matching Keywords
+              <div className="grid grid-cols-2 gap-3">
+                <div
+                  className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    const skill = e.dataTransfer.getData('text/plain');
+                    handleAddSkillInteractive(skill, true);
+                  }}
+                >
+                  <h4 className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <Check className="w-3 h-3" /> Matching Keywords
+                  </h4>
+                  <div className="flex flex-wrap gap-1 min-h-[40px] border border-dashed border-emerald-500/10 rounded p-1">
+                    {result.gapAnalysis.matchingKeywords.map((k, i) => (
+                      <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300">{k}</span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
+                  <h4 className="text-[10px] text-amber-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" /> Missing / Skill Gaps
+                  </h4>
+                  <div className="flex flex-wrap gap-1 min-h-[40px]">
+                    {result.gapAnalysis.missingSkills.length > 0 ? (
+                      result.gapAnalysis.missingSkills.map((s, i) => (
+                        <span
+                          key={i}
+                          draggable={true}
+                          onDragStart={(e) => e.dataTransfer.setData('text/plain', s)}
+                          onClick={() => handleAddSkillInteractive(s, false)}
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 cursor-pointer hover:bg-amber-500/20 active:scale-95 transition-all select-none"
+                          title="Click or drag to add this skill to your profile"
+                        >
+                          {s}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-[10px] text-zinc-500">Perfect keyword alignment!</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-xl text-xs space-y-3">
+                <h4 className="font-bold text-indigo-300 border-b border-indigo-500/10 pb-1.5 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <Award className="w-4 h-4 text-indigo-400" />
+                  AI Placement Recommendation
                 </h4>
-                <div className="flex flex-wrap gap-1 min-h-[40px] border border-dashed border-emerald-500/10 rounded p-1">
-                  {result.gapAnalysis.matchingKeywords.map((k, i) => (
-                    <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300">{k}</span>
-                  ))}
+                {renderRecommendation(result.gapAnalysis.recommendations)}
+              </div>
+
+              {/* Editable Fields Box */}
+              <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] space-y-3">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">Quick Inline Editor</h3>
+                <p className="text-[10px] text-zinc-500">Edit details below. The live preview on the right will update in real-time.</p>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-zinc-400">Personal Contact Detail Header</label>
+                  <input
+                    type="text"
+                    value={result.tailoredCv.personalDetails.fullName}
+                    onChange={e => handleCvDetailsChange('fullName', e.target.value)}
+                    className="glass-input px-3 py-1.5 text-xs"
+                  />
                 </div>
-              </div>
 
-              <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
-                <h4 className="text-[10px] text-amber-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3" /> Missing / Skill Gaps
-                </h4>
-                <div className="flex flex-wrap gap-1 min-h-[40px]">
-                  {result.gapAnalysis.missingSkills.length > 0 ? (
-                    result.gapAnalysis.missingSkills.map((s, i) => (
-                      <span
-                        key={i}
-                        draggable={true}
-                        onDragStart={(e) => e.dataTransfer.setData('text/plain', s)}
-                        onClick={() => handleAddSkillInteractive(s, false)}
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 cursor-pointer hover:bg-amber-500/20 active:scale-95 transition-all select-none"
-                        title="Click or drag to add this skill to your profile"
-                      >
-                        {s}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-[10px] text-zinc-500">Perfect keyword alignment!</span>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-xl text-xs space-y-3">
-              <h4 className="font-bold text-indigo-300 border-b border-indigo-500/10 pb-1.5 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                <Award className="w-4 h-4 text-indigo-400" />
-                AI Placement Recommendation
-              </h4>
-              {renderRecommendation(result.gapAnalysis.recommendations)}
-            </div>
-
-            {/* Editable Fields Box */}
-            <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] space-y-3">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wider">Quick Inline Editor</h3>
-              <p className="text-[10px] text-zinc-500">Edit details below. The live preview on the right will update in real-time.</p>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400">Personal Contact Detail Header</label>
-                <input
-                  type="text"
-                  value={result.tailoredCv.personalDetails.fullName}
-                  onChange={e => handleCvDetailsChange('fullName', e.target.value)}
-                  className="glass-input px-3 py-1.5 text-xs"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400">CV Professional Summary</label>
-                <textarea
-                  value={result.tailoredCv.summary}
-                  onChange={e => handleCvSummaryChange(e.target.value)}
-                  rows={4}
-                  className="glass-input p-2 text-xs resize-none"
-                />
-              </div>
-
-              {previewTab === 'coverLetter' && getRenderedParagraphs(result.tailoredCoverLetter, clLength).map((para: string, pIdx: number) => (
-                <div key={pIdx} className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400">Cover Letter Paragraph {pIdx + 1}</label>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-zinc-400">CV Professional Summary</label>
                   <textarea
-                    value={para}
-                    onChange={e => handleClParagraphChange(pIdx, e.target.value)}
+                    value={result.tailoredCv.summary}
+                    onChange={e => handleCvSummaryChange(e.target.value)}
                     rows={4}
                     className="glass-input p-2 text-xs resize-none"
                   />
                 </div>
-              ))}
-            </div>
 
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={saveToApplicationsTracker}
-                disabled={isSaving}
-                className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                {isSaving ? (
-                  <>
-                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    {editingAppId ? 'Updating...' : 'Saving...'}
-                  </>
-                ) : saveSuccess ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    {editingAppId ? 'Updated in Tracker!' : 'Saved to Tracker!'}
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-3.5 h-3.5" />
-                    {editingAppId ? 'Update Tracked Application' : 'Save Application Tracker'}
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+                {previewTab === 'coverLetter' && getRenderedParagraphs(result.tailoredCoverLetter, clLength).map((para: string, pIdx: number) => (
+                  <div key={pIdx} className="flex flex-col gap-1">
+                    <label className="text-[10px] text-zinc-400">Cover Letter Paragraph {pIdx + 1}</label>
+                    <textarea
+                      value={para}
+                      onChange={e => handleClParagraphChange(pIdx, e.target.value)}
+                      rows={4}
+                      className="glass-input p-2 text-xs resize-none"
+                    />
+                  </div>
+                ))}
+              </div>
 
-      {/* Right Preview Pane: Col 7 */}
-      <div className={`lg:col-span-7 bg-[#0b081e]/30 flex flex-col overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] ${
-        activeMobileTab === 'preview' ? 'block' : 'hidden lg:block'
-      }`}>
-        {/* Toolbar */}
-        <div className="sticky top-0 z-20 no-print flex items-center justify-between px-6 py-3 bg-[#0a061b] border-b border-white/5">
-          <div className="flex items-center gap-3">
-            <div className="flex gap-1.5 font-sans">
-              <button
-                onClick={() => setPreviewTab('cv')}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${previewTab === 'cv'
-                  ? 'bg-zinc-800 text-white'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                  }`}
-              >
-                Tailored {cvLanguage === 'DE' ? 'Lebenslauf' : 'Resume'}
-              </button>
-              <button
-                onClick={() => setPreviewTab('coverLetter')}
-                className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${previewTab === 'coverLetter'
-                  ? 'bg-zinc-800 text-white'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                  }`}
-              >
-                Tailored {clLanguage === 'DE' ? 'Anschreiben' : 'Cover Letter'}
-              </button>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={saveToApplicationsTracker}
+                  disabled={isSaving}
+                  className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      {editingAppId ? 'Updating...' : 'Saving...'}
+                    </>
+                  ) : saveSuccess ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      {editingAppId ? 'Updated in Tracker!' : 'Saved to Tracker!'}
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5" />
+                      {editingAppId ? 'Update Tracked Application' : 'Save Application Tracker'}
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
+          )}
+        </div>
 
-            <div className="flex bg-zinc-900/80 backdrop-blur-md border border-white/10 rounded-lg p-0.5 font-sans">
-              <button
-                type="button"
-                onClick={() => setIsAtsMode(false)}
-                className={`px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${
-                  !isAtsMode
+        {/* Right Preview Pane: Col 7 */}
+        <div className={`lg:col-span-7 bg-[#0b081e]/30 flex flex-col overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] ${activeMobileTab === 'preview' ? 'block' : 'hidden lg:block'
+          }`}>
+          {/* Toolbar */}
+          <div className="sticky top-0 z-20 no-print flex items-center justify-between px-6 py-3 bg-[#0a061b] border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <div className="flex gap-1.5 font-sans">
+                <button
+                  onClick={() => setPreviewTab('cv')}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${previewTab === 'cv'
+                    ? 'bg-zinc-800 text-white'
+                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                    }`}
+                >
+                  Tailored {cvLanguage === 'DE' ? 'Lebenslauf' : 'Resume'}
+                </button>
+                <button
+                  onClick={() => setPreviewTab('coverLetter')}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${previewTab === 'coverLetter'
+                    ? 'bg-zinc-800 text-white'
+                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                    }`}
+                >
+                  Tailored {clLanguage === 'DE' ? 'Anschreiben' : 'Cover Letter'}
+                </button>
+              </div>
+
+              <div className="flex bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-0.5 font-sans">
+                <button
+                  type="button"
+                  onClick={() => setIsAtsMode(false)}
+                  className={`px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${!isAtsMode
                     ? 'bg-zinc-800 text-white shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                Visual Layout (Standard)
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsAtsMode(true)}
-                className={`px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${
-                  isAtsMode
+                    }`}
+                >
+                  Visual Layout (Standard)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAtsMode(true)}
+                  className={`px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${isAtsMode
                     ? 'bg-zinc-800 text-white shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                Strict ATS Layout
-              </button>
+                    }`}
+                >
+                  Strict ATS Layout
+                </button>
+              </div>
+
+              {result && (
+                <span className="text-[10px] font-semibold px-2 py-1 rounded-md bg-zinc-900 border border-white/5 flex items-center gap-1.5 font-sans">
+                  <span>Height:</span>
+                  <span className={numPages > 1 ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"}>
+                    {numPages} {numPages === 1 ? 'Page' : 'Pages'}
+                  </span>
+                  {numPages > 1 && lengthTarget === 'Strict 1-Page (concise)' && previewTab === 'cv' && (
+                    <span className="hidden md:inline text-amber-500 font-normal">
+                      (Spillover warning: try reducing bullets to fit on 1 Page)
+                    </span>
+                  )}
+                </span>
+              )}
             </div>
+
+
 
             {result && (
-              <span className="text-[10px] font-semibold px-2 py-1 rounded-md bg-zinc-900 border border-white/5 flex items-center gap-1.5 font-sans">
-                <span>Height:</span>
-                <span className={numPages > 1 ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"}>
-                  {numPages} {numPages === 1 ? 'Page' : 'Pages'}
-                </span>
-                {numPages > 1 && lengthTarget === 'Strict 1-Page (concise)' && previewTab === 'cv' && (
-                  <span className="hidden md:inline text-amber-500 font-normal">
-                    (Spillover warning: try reducing bullets to fit on 1 Page)
-                  </span>
+              <div className="relative no-print font-sans">
+                <button
+                  onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
+                  className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Export Format
+                </button>
+
+                {exportDropdownOpen && (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setExportDropdownOpen(false)}></div>
+                    <div className="absolute right-0 mt-2 w-52 bg-[#0a061b] border border-white/10 rounded-xl shadow-xl z-30 py-1.5 text-xs text-zinc-300">
+                      <button
+                        onClick={() => {
+                          setExportDropdownOpen(false);
+                          handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl');
+                        }}
+                        className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                      >
+                        Download PDF Document (.pdf)
+                      </button>
+                      <button
+                        onClick={() => {
+                          setExportDropdownOpen(false);
+                          handleExportWord();
+                        }}
+                        className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                      >
+                        Download MS Word Document (.doc)
+                      </button>
+                      <button
+                        onClick={() => {
+                          setExportDropdownOpen(false);
+                          handleExportText();
+                        }}
+                        className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                      >
+                        Download Plain Text (.txt)
+                      </button>
+                    </div>
+                  </>
                 )}
-              </span>
+              </div>
             )}
           </div>
 
-
-
-          {result && (
-            <div className="relative no-print font-sans">
-              <button
-                onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
-                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                Export Format
-              </button>
-
-              {exportDropdownOpen && (
-                <>
-                  <div className="fixed inset-0 z-20" onClick={() => setExportDropdownOpen(false)}></div>
-                  <div className="absolute right-0 mt-2 w-52 bg-[#0a061b] border border-white/10 rounded-xl shadow-xl z-30 py-1.5 text-xs text-zinc-300">
-                    <button
-                      onClick={() => {
-                        setExportDropdownOpen(false);
-                        handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl');
-                      }}
-                      className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-                    >
-                      Download PDF Document (.pdf)
-                    </button>
-                    <button
-                      onClick={() => {
-                        setExportDropdownOpen(false);
-                        handleExportWord();
-                      }}
-                      className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-                    >
-                      Download MS Word Document (.doc)
-                    </button>
-                    <button
-                      onClick={() => {
-                        setExportDropdownOpen(false);
-                        handleExportText();
-                      }}
-                      className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-                    >
-                      Download Plain Text (.txt)
-                    </button>
-                  </div>
-                </>
-              )}
+          {/* Real-time page overflow alert */}
+          {result && numPages > 1 && lengthTarget.includes('1-Page') && previewTab === 'cv' && (
+            <div className="no-print mx-6 mt-4 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs flex items-center justify-between gap-3 text-rose-300 font-sans animate-in slide-in-from-top duration-300">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0 animate-bounce" />
+                <div>
+                  <span className="font-bold">1-Page Target Limit Exceeded:</span> Currently rendering {numPages} pages. Your content has spilled over to the second page. Reduce text or spacing to fit within 1 page.
+                </div>
+              </div>
+              <span className="px-2.5 py-1 rounded bg-rose-500/25 text-rose-200 font-bold whitespace-nowrap">
+                Action Required
+              </span>
             </div>
           )}
-        </div>
 
-        {/* Real-time page overflow alert */}
-        {result && numPages > 1 && lengthTarget.includes('1-Page') && previewTab === 'cv' && (
-          <div className="no-print mx-6 mt-4 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs flex items-center justify-between gap-3 text-rose-300 font-sans animate-in slide-in-from-top duration-300">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0 animate-bounce" />
-              <div>
-                <span className="font-bold">1-Page Target Limit Exceeded:</span> Currently rendering {numPages} pages. Your content has spilled over to the second page. Reduce text or spacing to fit within 1 page.
-              </div>
-            </div>
-            <span className="px-2.5 py-1 rounded bg-rose-500/25 text-rose-200 font-bold whitespace-nowrap">
-              Action Required
-            </span>
-          </div>
-        )}
+          {/* Live A4 Sheet Render */}
+          <div className="flex-1 p-6 md:p-8 bg-[#040116] flex items-start justify-center">
+            {result ? (
+              <div className="w-full max-w-[210mm] flex flex-col items-center">
 
-        {/* Live A4 Sheet Render */}
-        <div className="flex-1 p-6 md:p-8 bg-[#040116] flex items-start justify-center">
-          {result ? (
-            <div className="w-full max-w-[210mm] flex flex-col items-center">
-
-              {/* Floating Customization Toolbar */}
-              {previewTab === 'cv' && (
-                <div className="w-full no-print mb-4 p-3 bg-white/5 border border-white/10 rounded-xl flex flex-wrap items-center justify-between gap-3 text-white font-sans text-xs">
-                  <div className="flex items-center gap-2">
-                    <Sliders className="w-4 h-4 text-indigo-400" />
-                    <span className="font-semibold text-zinc-300">Quick Gaps Preset:</span>
-                    <div className="flex gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => applyPreset('default')}
-                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
-                      >
-                        Default
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyPreset('compact')}
-                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
-                      >
-                        Compact
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyPreset('tight')}
-                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
-                      >
-                        Ultra-Tight
-                      </button>
+                {/* Floating Customization Toolbar */}
+                {previewTab === 'cv' && (
+                  <div className="w-full no-print mb-4 p-3 bg-white/5 border border-white/10 rounded-xl flex flex-wrap items-center justify-between gap-3 text-white font-sans text-xs">
+                    <div className="flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-indigo-400" />
+                      <span className="font-semibold text-zinc-300">Quick Gaps Preset:</span>
+                      <div className="flex gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => applyPreset('default')}
+                          className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                        >
+                          Default
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyPreset('compact')}
+                          className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                        >
+                          Compact
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyPreset('tight')}
+                          className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                        >
+                          Ultra-Tight
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-4 flex-wrap text-[11px]">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-zinc-400">Section:</span>
-                      <input
-                        type="range"
-                        min="4"
-                        max="36"
-                        value={sectionSpacing}
-                        onChange={e => setSectionSpacing(parseInt(e.target.value))}
-                        className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                        title="Section Spacing"
-                      />
-                      <span className="text-zinc-300 font-semibold w-8">{sectionSpacing}px</span>
+                    <div className="flex items-center gap-4 flex-wrap text-[11px]">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-zinc-400">Section:</span>
+                        <input
+                          type="range"
+                          min="4"
+                          max="36"
+                          value={sectionSpacing}
+                          onChange={e => setSectionSpacing(parseInt(e.target.value))}
+                          className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                          title="Section Spacing"
+                        />
+                        <span className="text-zinc-300 font-semibold w-8">{sectionSpacing}px</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-zinc-400">Header Gap:</span>
+                        <input
+                          type="range"
+                          min="2"
+                          max="32"
+                          value={headerSpacing}
+                          onChange={e => setHeaderSpacing(parseInt(e.target.value))}
+                          className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                          title="Header Spacing"
+                        />
+                        <span className="text-zinc-300 font-semibold w-8">{headerSpacing}px</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-zinc-400">Text Size:</span>
+                        <input
+                          type="range"
+                          min="9.5"
+                          max="13"
+                          step="0.1"
+                          value={fontSize}
+                          onChange={e => setFontSize(parseFloat(e.target.value))}
+                          className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                          title="Font Size"
+                        />
+                        <span className="text-zinc-300 font-semibold w-9">{fontSize}px</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-zinc-400">Margins:</span>
+                        <input
+                          type="range"
+                          min="10"
+                          max="40"
+                          value={pagePaddingTop}
+                          onChange={e => {
+                            const val = parseInt(e.target.value);
+                            setPagePaddingTop(val);
+                            setPagePaddingBottom(Math.max(10, Math.floor(val * 0.7)));
+                            setPagePaddingSide(Math.max(10, Math.floor(val * 0.85)));
+                          }}
+                          className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                          title="Page Margins"
+                        />
+                        <span className="text-zinc-300 font-semibold w-8">{pagePaddingTop}mm</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-zinc-400">Header Gap:</span>
-                      <input
-                        type="range"
-                        min="2"
-                        max="32"
-                        value={headerSpacing}
-                        onChange={e => setHeaderSpacing(parseInt(e.target.value))}
-                        className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                        title="Header Spacing"
-                      />
-                      <span className="text-zinc-300 font-semibold w-8">{headerSpacing}px</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-zinc-400">Text Size:</span>
-                      <input
-                        type="range"
-                        min="9.5"
-                        max="13"
-                        step="0.1"
-                        value={fontSize}
-                        onChange={e => setFontSize(parseFloat(e.target.value))}
-                        className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                        title="Font Size"
-                      />
-                      <span className="text-zinc-300 font-semibold w-9">{fontSize}px</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-zinc-400">Margins:</span>
-                      <input
-                        type="range"
-                        min="10"
-                        max="40"
-                        value={pagePaddingTop}
-                        onChange={e => {
-                          const val = parseInt(e.target.value);
-                          setPagePaddingTop(val);
-                          setPagePaddingBottom(Math.max(10, Math.floor(val * 0.7)));
-                          setPagePaddingSide(Math.max(10, Math.floor(val * 0.85)));
-                        }}
-                        className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                        title="Page Margins"
-                      />
-                      <span className="text-zinc-300 font-semibold w-8">{pagePaddingTop}mm</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div ref={previewContainerRef} className="w-full overflow-hidden shadow-2xl rounded-lg border border-white/5 flex flex-col items-center py-4">
-                {result && previewTab === 'cv' && (
-                  <div
-                    id="cv-measurement-root"
-                    className="absolute left-[-9999px] top-[-9999px] flex flex-col bg-white text-gray-800"
-                    style={{
-                      width: '794px',
-                      padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,
-                      boxSizing: 'border-box',
-                      fontFamily: '"Inter", "Calibri", "Segoe UI", system-ui, sans-serif',
-                      fontSize: `${fontSize}px`,
-                      lineHeight: 1.55,
-                    }}
-                  >
-                    {getOrderedBlocks().map(blockId => renderBlock(blockId, true))}
                   </div>
                 )}
 
-                {/* CV Preview Page */}
-                {previewTab === 'cv' && (
-                  <div
-                    ref={cvPreviewRef}
-                    id="cv-sheet"
-                    className="flex flex-col gap-6 w-full items-center no-print"
-                  >
-                    {pagesToRender.map((pageBlockIds, pageIdx) => {
-                      const a4Width = 794; // A4 width in px (210mm)
-                      const a4Height = 1123; // A4 height in px (297mm)
-                      const scale = previewWidth < a4Width ? (previewWidth - 24) / a4Width : 1;
+                <div ref={previewContainerRef} className="w-full overflow-hidden shadow-2xl rounded-lg border border-white/5 flex flex-col items-center py-4">
+                  {result && previewTab === 'cv' && (
+                    <div
+                      id="cv-measurement-root"
+                      className="absolute left-[-9999px] top-[-9999px] flex flex-col bg-white text-gray-800"
+                      style={{
+                        width: '794px',
+                        padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,
+                        boxSizing: 'border-box',
+                        fontFamily: '"Inter", "Calibri", "Segoe UI", system-ui, sans-serif',
+                        fontSize: `${fontSize}px`,
+                        lineHeight: 1.55,
+                      }}
+                    >
+                      {getOrderedBlocks().map(blockId => renderBlock(blockId, true))}
+                    </div>
+                  )}
 
-                      return (
-                        <div
-                          key={pageIdx}
-                          className="cv-page-scale-wrapper flex items-center justify-center no-print"
-                          style={{
-                            width: '100%',
-                            height: `${a4Height * scale}px`,
-                            overflow: 'hidden',
-                            flexShrink: 0
-                          }}
-                        >
+                  {/* CV Preview Page */}
+                  {previewTab === 'cv' && (
+                    <div
+                      ref={cvPreviewRef}
+                      id="cv-sheet"
+                      className="flex flex-col gap-6 w-full items-center no-print"
+                    >
+                      {pagesToRender.map((pageBlockIds, pageIdx) => {
+                        const a4Width = 794; // A4 width in px (210mm)
+                        const a4Height = 1123; // A4 height in px (297mm)
+                        const scale = previewWidth < a4Width ? (previewWidth - 24) / a4Width : 1;
+
+                        return (
                           <div
-                            className={`cv-page-box w-[794px] h-[1123px] relative flex flex-col bg-white text-gray-800 shadow-lg print:shadow-none ${lengthTarget.includes('1-Page') ? 'strict-1-page' : ''
-                              }`}
+                            key={pageIdx}
+                            className="cv-page-scale-wrapper flex items-center justify-center no-print"
                             style={{
-                              width: '794px',
-                              height: '1123px',
-                              fontFamily: '"Inter", "Calibri", "Segoe UI", system-ui, sans-serif',
-                              fontSize: `${fontSize}px`,
-                              lineHeight: 1.55,
-                              padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,
-                              boxSizing: 'border-box',
+                              width: '100%',
+                              height: `${a4Height * scale}px`,
                               overflow: 'hidden',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              justifyContent: 'flex-start',
-                              transform: `scale(${scale})`,
-                              transformOrigin: 'top center',
                               flexShrink: 0
                             }}
                           >
-                            {pageBlockIds.map(blockId => renderBlock(blockId, false))}
+                            <div
+                              className={`cv-page-box w-[794px] h-[1123px] relative flex flex-col bg-white text-gray-800 shadow-lg print:shadow-none ${lengthTarget.includes('1-Page') ? 'strict-1-page' : ''
+                                }`}
+                              style={{
+                                width: '794px',
+                                height: '1123px',
+                                fontFamily: '"Inter", "Calibri", "Segoe UI", system-ui, sans-serif',
+                                fontSize: `${fontSize}px`,
+                                lineHeight: 1.55,
+                                padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,
+                                boxSizing: 'border-box',
+                                overflow: 'hidden',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'flex-start',
+                                transform: `scale(${scale})`,
+                                transformOrigin: 'top center',
+                                flexShrink: 0
+                              }}
+                            >
+                              {pageBlockIds.map(blockId => renderBlock(blockId, false))}
 
-                            {/* Page Number Indicator */}
-                            <div className="absolute bottom-4 right-6 text-[10px] text-zinc-400 font-sans select-none no-print">
-                              Page {pageIdx + 1} of {pagesToRender.length}
+                              {/* Page Number Indicator */}
+                              <div className="absolute bottom-4 right-6 text-[10px] text-zinc-400 font-sans select-none no-print">
+                                Page {pageIdx + 1} of {pagesToRender.length}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        );
+                      })}
+                    </div>
+                  )}
 
-                {/* Cover Letter Preview Page */}
-                {previewTab === 'coverLetter' && (() => {
-                  const a4Width = 794;
-                  const a4Height = 1123;
-                  const scale = previewWidth < a4Width ? (previewWidth - 24) / a4Width : 1;
-                  return (
-                    <div
-                      className="cl-page-scale-wrapper flex items-center justify-center no-print"
-                      style={{
-                        width: '100%',
-                        height: `${a4Height * scale}px`,
-                        overflow: 'hidden',
-                        flexShrink: 0
-                      }}
-                    >
+                  {/* Cover Letter Preview Page */}
+                  {previewTab === 'coverLetter' && (() => {
+                    const a4Width = 794;
+                    const a4Height = 1123;
+                    const scale = previewWidth < a4Width ? (previewWidth - 24) / a4Width : 1;
+                    return (
                       <div
-                        ref={clPreviewRef}
-                        id="cl-sheet"
-                        className="w-[794px] min-h-[1123px] relative flex flex-col justify-between bg-white text-[#1a1a1a] mx-auto shadow-lg print:shadow-none"
+                        className="cl-page-scale-wrapper flex items-center justify-center no-print"
                         style={{
-                          width: '794px',
-                          minHeight: '1123px',
-                          fontFamily: '"Inter", "Calibri", "Segoe UI", system-ui, sans-serif',
-                          fontSize: '11.5px',
-                          lineHeight: 1.65,
-                          padding: '32mm 28mm 24mm 28mm',
-                          transform: `scale(${scale})`,
-                          transformOrigin: 'top center',
+                          width: '100%',
+                          height: `${a4Height * scale}px`,
+                          overflow: 'hidden',
                           flexShrink: 0
                         }}
                       >
-                        <div className="text-xs">
-                          {/* Sender block */}
-                          <div className={`${isAtsMode ? 'text-left' : 'text-right'} text-[11.5px] leading-[1.7]`}>
-                            <ContentEditable
-                              tagName="pre"
-                              value={result.tailoredCoverLetter.senderAddress}
-                              onChange={(val) => handleClChange('senderAddress', val, true)}
-                              onBlur={(e: any) => handleClChange('senderAddress', e.target.innerText, false)}
-                              useInnerText={true}
-                              isMeasurement={false}
-                              className={`font-sans text-[11.5px] leading-[1.7] whitespace-pre-wrap inline-block ${isAtsMode ? 'text-left w-full' : 'text-right'}`}
-                            />
-                          </div>
-
-                          {/* Recipient address + Date row */}
-                          <div className={isAtsMode ? "mt-10 flex flex-col items-start gap-y-4 text-left font-sans" : "mt-10 flex justify-between items-end text-left font-sans"}>
-                            <div>
+                        <div
+                          ref={clPreviewRef}
+                          id="cl-sheet"
+                          className="w-[794px] min-h-[1123px] relative flex flex-col justify-between bg-white text-[#1a1a1a] mx-auto shadow-lg print:shadow-none"
+                          style={{
+                            width: '794px',
+                            minHeight: '1123px',
+                            fontFamily: '"Inter", "Calibri", "Segoe UI", system-ui, sans-serif',
+                            fontSize: '11.5px',
+                            lineHeight: 1.65,
+                            padding: '32mm 28mm 24mm 28mm',
+                            transform: `scale(${scale})`,
+                            transformOrigin: 'top center',
+                            flexShrink: 0
+                          }}
+                        >
+                          <div className="text-xs">
+                            {/* Sender block */}
+                            <div className={`${isAtsMode ? 'text-left' : 'text-right'} text-[11.5px] leading-[1.7]`}>
                               <ContentEditable
                                 tagName="pre"
-                                value={result.tailoredCoverLetter.recipientAddress}
-                                onChange={(val) => handleClChange('recipientAddress', val, true)}
-                                onBlur={(e: any) => handleClChange('recipientAddress', e.target.innerText, false)}
+                                value={result.tailoredCoverLetter.senderAddress}
+                                onChange={(val) => handleClChange('senderAddress', val, true)}
+                                onBlur={(e: any) => handleClChange('senderAddress', e.target.innerText, false)}
                                 useInnerText={true}
                                 isMeasurement={false}
-                                className="font-sans text-[11.5px] leading-[1.7] whitespace-pre-wrap"
+                                className={`font-sans text-[11.5px] leading-[1.7] whitespace-pre-wrap inline-block ${isAtsMode ? 'text-left w-full' : 'text-right'}`}
                               />
                             </div>
+
+                            {/* Recipient address + Date row */}
+                            <div className={isAtsMode ? "mt-10 flex flex-col items-start gap-y-4 text-left font-sans" : "mt-10 flex justify-between items-end text-left font-sans"}>
+                              <div>
+                                <ContentEditable
+                                  tagName="pre"
+                                  value={result.tailoredCoverLetter.recipientAddress}
+                                  onChange={(val) => handleClChange('recipientAddress', val, true)}
+                                  onBlur={(e: any) => handleClChange('recipientAddress', e.target.innerText, false)}
+                                  useInnerText={true}
+                                  isMeasurement={false}
+                                  className="font-sans text-[11.5px] leading-[1.7] whitespace-pre-wrap"
+                                />
+                              </div>
+                              <ContentEditable
+                                tagName="div"
+                                value={result.tailoredCoverLetter.dateLine}
+                                onChange={(val) => handleClChange('dateLine', val, true)}
+                                onBlur={(e: any) => handleClChange('dateLine', e.target.innerText, false)}
+                                useInnerText={true}
+                                isMeasurement={false}
+                                className="text-[11.5px]"
+                              />
+                            </div>
+
+                            {/* Subject line */}
                             <ContentEditable
-                              tagName="div"
-                              value={result.tailoredCoverLetter.dateLine}
-                              onChange={(val) => handleClChange('dateLine', val, true)}
-                              onBlur={(e: any) => handleClChange('dateLine', e.target.innerText, false)}
+                              tagName="p"
+                              value={result.tailoredCoverLetter.subjectLine}
+                              onChange={(val) => handleClChange('subjectLine', val, true)}
+                              onBlur={(e: any) => handleClChange('subjectLine', e.target.innerText, false)}
                               useInnerText={true}
                               isMeasurement={false}
-                              className="text-[11.5px]"
+                              className="mt-12 font-bold text-[12px] text-left font-sans"
                             />
-                          </div>
 
-                          {/* Subject line */}
-                          <ContentEditable
-                            tagName="p"
-                            value={result.tailoredCoverLetter.subjectLine}
-                            onChange={(val) => handleClChange('subjectLine', val, true)}
-                            onBlur={(e: any) => handleClChange('subjectLine', e.target.innerText, false)}
-                            useInnerText={true}
-                            isMeasurement={false}
-                            className="mt-12 font-bold text-[12px] text-left font-sans"
-                          />
+                            {/* Salutation */}
+                            <ContentEditable
+                              tagName="p"
+                              value={result.tailoredCoverLetter.salutation}
+                              onChange={(val) => handleClChange('salutation', val, true)}
+                              onBlur={(e: any) => handleClChange('salutation', e.target.innerText, false)}
+                              useInnerText={true}
+                              isMeasurement={false}
+                              className="mt-8 text-[11.5px] text-left font-sans"
+                            />
 
-                          {/* Salutation */}
-                          <ContentEditable
-                            tagName="p"
-                            value={result.tailoredCoverLetter.salutation}
-                            onChange={(val) => handleClChange('salutation', val, true)}
-                            onBlur={(e: any) => handleClChange('salutation', e.target.innerText, false)}
-                            useInnerText={true}
-                            isMeasurement={false}
-                            className="mt-8 text-[11.5px] text-left font-sans"
-                          />
-
-                          {/* Body paragraphs */}
-                          <div className="mt-5 space-y-4 text-[11.5px] leading-[1.65] text-left font-sans">
-                            {getRenderedParagraphs(result.tailoredCoverLetter, clLength).map((p: string, i: number) => (
-                              <ContentEditable
-                                key={i}
-                                tagName="p"
-                                value={p}
-                                onChange={(val) => handleClParagraphChange(i, val, true)}
-                                onBlur={(e: any) => handleClParagraphChange(i, e.target.innerHTML, false)}
-                                isMeasurement={false}
-                              />
-                            ))}
-                          </div>
-
-                          {/* Closing */}
-                          <ContentEditable
-                            tagName="p"
-                            value={result.tailoredCoverLetter.closing}
-                            onChange={(val) => handleClChange('closing', val, true)}
-                            onBlur={(e: any) => handleClChange('closing', e.target.innerText, false)}
-                            useInnerText={true}
-                            isMeasurement={false}
-                            className="mt-8 text-[11.5px] text-left font-sans"
-                          />
-
-                          {/* Signature */}
-                          <div className="mt-3 h-[32px] flex items-end">
-                            {result.tailoredCv.personalDetails.signature ? (
-                              <img
-                                src={result.tailoredCv.personalDetails.signature}
-                                alt="Signature"
-                                className="max-h-full max-w-[120px] object-contain"
-                              />
-                            ) : (
-                              <svg
-                                width="80"
-                                height="32"
-                                viewBox="0 0 80 32"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="text-[#1a1a1a]"
-                              >
-                                <path
-                                  d="M 10 24 C 10 8, 22 2, 22 14 C 22 20, 16 26, 12 24 C 10 22, 14 18, 20 18 C 24 18, 26 22, 28 20 C 30 18, 30 20, 32 20 C 34 20, 34 22, 36 20 C 44 8, 48 2, 46 16 C 45 24, 40 28, 43 28 C 46 28, 52 14, 56 16 C 58 17, 58 20, 60 20 C 62 20, 62 18, 64 18 C 66 18, 67 22, 70 20"
-                                  stroke="currentColor"
-                                  strokeWidth="1.5"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
+                            {/* Body paragraphs */}
+                            <div className="mt-5 space-y-4 text-[11.5px] leading-[1.65] text-left font-sans">
+                              {getRenderedParagraphs(result.tailoredCoverLetter, clLength).map((p: string, i: number) => (
+                                <ContentEditable
+                                  key={i}
+                                  tagName="p"
+                                  value={p}
+                                  onChange={(val) => handleClParagraphChange(i, val, true)}
+                                  onBlur={(e: any) => handleClParagraphChange(i, e.target.innerHTML, false)}
+                                  isMeasurement={false}
                                 />
-                              </svg>
-                            )}
-                          </div>
+                              ))}
+                            </div>
 
-                          {/* Printed Name */}
-                          <ContentEditable
-                            tagName="p"
-                            value={result.tailoredCoverLetter.signatureName}
-                            onChange={(val) => handleClChange('signatureName', val, true)}
-                            onBlur={(e: any) => handleClChange('signatureName', e.target.innerText, false)}
-                            useInnerText={true}
-                            isMeasurement={false}
-                            className="mt-1.5 text-[11.5px] text-left font-sans"
-                          />
+                            {/* Closing */}
+                            <ContentEditable
+                              tagName="p"
+                              value={result.tailoredCoverLetter.closing}
+                              onChange={(val) => handleClChange('closing', val, true)}
+                              onBlur={(e: any) => handleClChange('closing', e.target.innerText, false)}
+                              useInnerText={true}
+                              isMeasurement={false}
+                              className="mt-8 text-[11.5px] text-left font-sans"
+                            />
 
-                          {/* Enclosures */}
-                          <div className="mt-8 text-[11.5px] text-left font-sans">
-                            <p>Enclosure:</p>
-                            <div className="ml-4 mt-1 space-y-0.5">
-                              <p className="flex items-start gap-3">
-                                <span className="text-[#1a1a1a]">-</span>
-                                <span>Curriculum Vitae</span>
-                              </p>
-                              <p className="flex items-start gap-3">
-                                <span className="text-[#1a1a1a]">-</span>
-                                <span>Bachelor Degree Diploma</span>
-                              </p>
-                              <p className="flex items-start gap-3">
-                                <span className="text-[#1a1a1a]">-</span>
-                                <span>Reference letter from previous employers</span>
-                              </p>
+                            {/* Signature */}
+                            <div className="mt-3 h-[32px] flex items-end">
+                              {result.tailoredCv.personalDetails.signature ? (
+                                <img
+                                  src={result.tailoredCv.personalDetails.signature}
+                                  alt="Signature"
+                                  className="max-h-full max-w-[120px] object-contain"
+                                />
+                              ) : (
+                                <svg
+                                  width="80"
+                                  height="32"
+                                  viewBox="0 0 80 32"
+                                  fill="none"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="text-[#1a1a1a]"
+                                >
+                                  <path
+                                    d="M 10 24 C 10 8, 22 2, 22 14 C 22 20, 16 26, 12 24 C 10 22, 14 18, 20 18 C 24 18, 26 22, 28 20 C 30 18, 30 20, 32 20 C 34 20, 34 22, 36 20 C 44 8, 48 2, 46 16 C 45 24, 40 28, 43 28 C 46 28, 52 14, 56 16 C 58 17, 58 20, 60 20 C 62 20, 62 18, 64 18 C 66 18, 67 22, 70 20"
+                                    stroke="currentColor"
+                                    strokeWidth="1.5"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              )}
+                            </div>
+
+                            {/* Printed Name */}
+                            <ContentEditable
+                              tagName="p"
+                              value={result.tailoredCoverLetter.signatureName}
+                              onChange={(val) => handleClChange('signatureName', val, true)}
+                              onBlur={(e: any) => handleClChange('signatureName', e.target.innerText, false)}
+                              useInnerText={true}
+                              isMeasurement={false}
+                              className="mt-1.5 text-[11.5px] text-left font-sans"
+                            />
+
+                            {/* Enclosures */}
+                            <div className="mt-8 text-[11.5px] text-left font-sans">
+                              <p>Enclosure:</p>
+                              <div className="ml-4 mt-1 space-y-0.5">
+                                <p className="flex items-start gap-3">
+                                  <span className="text-[#1a1a1a]">-</span>
+                                  <span>Curriculum Vitae</span>
+                                </p>
+                                <p className="flex items-start gap-3">
+                                  <span className="text-[#1a1a1a]">-</span>
+                                  <span>Bachelor Degree Diploma</span>
+                                </p>
+                                <p className="flex items-start gap-3">
+                                  <span className="text-[#1a1a1a]">-</span>
+                                  <span>Reference letter from previous employers</span>
+                                </p>
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        {/* Page Break Guide Lines */}
-                        {Array.from({ length: numPages - 1 }).map((_, i) => (
-                          <div
-                            key={i}
-                            className="absolute left-0 right-0 border-t-2 border-dashed border-rose-400 z-10 no-print flex items-center justify-between pointer-events-none select-none font-sans"
-                            style={{
-                              top: `${120.9 + (i + 1) * 910.9}px`,
-                              margin: 0,
-                              padding: '4px 8px'
-                            }}
-                          >
-                            <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded shadow-md font-bold">
-                              Page {i + 1} Cutoff (A4 Height)
-                            </span>
-                            <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded shadow-md font-medium opacity-80">
-                              Content below overflows to Page {i + 2}
-                            </span>
-                          </div>
-                        ))}
+                          {/* Page Break Guide Lines */}
+                          {Array.from({ length: numPages - 1 }).map((_, i) => (
+                            <div
+                              key={i}
+                              className="absolute left-0 right-0 border-t-2 border-dashed border-rose-400 z-10 no-print flex items-center justify-between pointer-events-none select-none font-sans"
+                              style={{
+                                top: `${120.9 + (i + 1) * 910.9}px`,
+                                margin: 0,
+                                padding: '4px 8px'
+                              }}
+                            >
+                              <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded shadow-md font-bold">
+                                Page {i + 1} Cutoff (A4 Height)
+                              </span>
+                              <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded shadow-md font-medium opacity-80">
+                                Content below overflows to Page {i + 2}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })()}
+                    );
+                  })()}
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center p-12 text-center text-zinc-500 border border-dashed border-white/10 rounded-2xl w-full max-w-lg">
-              <FileText className="w-12 h-12 mb-3 text-zinc-600" />
-              <h3 className="font-bold text-zinc-300 mb-1 text-md">Document Preview Engine</h3>
-              <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
-                Inputs are empty. Provide the job details on the left and trigger tailoring to render high-fidelity, culturally conforming documents here.
-              </p>
-            </div>
-          )}
+            ) : (
+              <div className="flex flex-col items-center justify-center p-12 text-center text-zinc-500 border border-dashed border-white/10 rounded-2xl w-full max-w-lg">
+                <FileText className="w-12 h-12 mb-3 text-zinc-600" />
+                <h3 className="font-bold text-zinc-300 mb-1 text-md">Document Preview Engine</h3>
+                <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
+                  Inputs are empty. Provide the job details on the left and trigger tailoring to render high-fidelity, culturally conforming documents here.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
       </div>
 

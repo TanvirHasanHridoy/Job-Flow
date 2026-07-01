@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { 
-  Plus, Calendar, MapPin, DollarSign, Clock, FileText, Trash2, Eye, ChevronRight, ChevronLeft, Award, Sparkles, LayoutGrid, CheckCircle2, TrendingUp 
+import {
+  Plus, Calendar, MapPin, DollarSign, Clock, FileText, Trash2, Eye, ChevronRight, ChevronLeft, Award, Sparkles, LayoutGrid, CheckCircle2, TrendingUp
 } from 'lucide-react';
 
 interface GeneratedDocument {
@@ -46,7 +46,7 @@ const COLUMNS = [
   { id: 'APPLIED', name: 'Applied', color: 'border-cyan-500/30 bg-cyan-500/5 text-cyan-300' },
   { id: 'INTERVIEWING', name: 'Interviewing', color: 'border-purple-500/30 bg-purple-500/5 text-purple-300' },
   { id: 'OFFER', name: 'Offer Received', color: 'border-emerald-500/30 bg-emerald-500/5 text-emerald-300' },
-  { id: 'REJECTED', name: 'Rejected', color: 'border-zinc-700 bg-zinc-900/40 text-zinc-400' }
+  { id: 'REJECTED', name: 'Rejected', color: 'border-red-400 bg-zinc-900/40 text-red-900' }
 ];
 
 export default function Dashboard() {
@@ -81,7 +81,7 @@ export default function Dashboard() {
       });
 
       if (res.ok) {
-        setApplications(prev => 
+        setApplications(prev =>
           prev.map(app => app.id === id ? { ...app, status: newStatus } : app)
         );
         // Sync open detail panel state
@@ -116,8 +116,8 @@ export default function Dashboard() {
   const totalApps = applications.length;
   const interviewApps = applications.filter(a => a.status === 'INTERVIEWING').length;
   const offerApps = applications.filter(a => a.status === 'OFFER').length;
-  const avgMatchScore = totalApps > 0 
-    ? Math.round(applications.reduce((acc, a) => acc + a.matchScore, 0) / totalApps) 
+  const avgMatchScore = totalApps > 0
+    ? Math.round(applications.reduce((acc, a) => acc + a.matchScore, 0) / totalApps)
     : 0;
 
   if (loading) {
@@ -195,8 +195,8 @@ export default function Dashboard() {
           {COLUMNS.map(col => {
             const columnApps = applications.filter(app => app.status === col.id);
             return (
-              <div 
-                key={col.id} 
+              <div
+                key={col.id}
                 className="flex-1 flex flex-col rounded-2xl border border-white/5 bg-zinc-950/20 backdrop-blur-sm p-4 w-[280px]"
               >
                 {/* Column Header */}
@@ -213,7 +213,7 @@ export default function Dashboard() {
                 <div className="flex-grow overflow-y-auto space-y-3 pr-1">
                   {columnApps.length > 0 ? (
                     columnApps.map(app => (
-                      <div 
+                      <div
                         key={app.id}
                         onClick={() => setSelectedApp(app)}
                         className="glass-panel glass-panel-hover p-4 rounded-xl cursor-pointer select-none space-y-3 relative group"
@@ -226,9 +226,8 @@ export default function Dashboard() {
                             </span>
                           </span>
 
-                          <span className={`inline-flex items-center gap-1 text-xs font-bold ${
-                            app.matchScore >= 80 ? 'text-emerald-400' : app.matchScore >= 60 ? 'text-amber-400' : 'text-zinc-400'
-                          }`}>
+                          <span className={`inline-flex items-center gap-1 text-xs font-bold ${app.matchScore >= 80 ? 'text-emerald-400' : app.matchScore >= 60 ? 'text-amber-400' : 'text-zinc-400'
+                            }`}>
                             <Award className="w-3.5 h-3.5" />
                             {app.matchScore}% Match
                           </span>
@@ -248,7 +247,7 @@ export default function Dashboard() {
                             <Calendar className="w-3 h-3" />
                             {new Date(app.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                           </span>
-                          
+
                           {/* Trash indicator on hover */}
                           <div className="flex items-center gap-1.5">
                             <button
@@ -275,7 +274,7 @@ export default function Dashboard() {
                           >
                             <ChevronLeft className="w-4 h-4" />
                           </button>
-                          
+
                           <span className="text-[9px] uppercase tracking-wider text-zinc-600 font-semibold font-sans">Move Status</span>
 
                           <button
@@ -310,7 +309,7 @@ export default function Dashboard() {
         <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm transition-all duration-300">
           {/* Close trigger boundary */}
           <div className="flex-1" onClick={() => setSelectedApp(null)}></div>
-          
+
           <div className="w-full max-w-xl bg-[#080517] border-l border-white/10 h-full overflow-y-auto p-6 md:p-8 flex flex-col justify-between shadow-2xl relative">
             <div>
               {/* Header Title info */}
@@ -327,7 +326,7 @@ export default function Dashboard() {
                   <h2 className="text-xl font-bold text-white">{selectedApp.role}</h2>
                   <p className="text-sm text-zinc-400">{selectedApp.company}</p>
                 </div>
-                
+
                 <button
                   onClick={() => setSelectedApp(null)}
                   className="px-3 py-1.5 rounded-lg border border-white/5 bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer text-xs"
@@ -344,11 +343,10 @@ export default function Dashboard() {
                     <button
                       key={col.id}
                       onClick={() => updateAppStatus(selectedApp.id, col.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
-                        selectedApp.status === col.id 
-                          ? 'bg-indigo-600 text-white font-bold' 
-                          : 'bg-white/5 text-zinc-400 hover:text-white'
-                      }`}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${selectedApp.status === col.id
+                        ? 'bg-indigo-600 text-white font-bold'
+                        : 'bg-white/5 text-zinc-400 hover:text-white'
+                        }`}
                     >
                       {col.name}
                     </button>
@@ -364,7 +362,7 @@ export default function Dashboard() {
                   </span>
                   <p className="text-zinc-200 font-medium">{selectedApp.salaryExpectation || 'Not specified'}</p>
                 </div>
-                
+
                 <div className="space-y-1">
                   <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1">
                     <Clock className="w-3 h-3" /> Notice / Availability
@@ -400,7 +398,7 @@ export default function Dashboard() {
                         ))}
                       </div>
                     </div>
-                    
+
                     <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-lg">
                       <span className="text-[10px] text-amber-400 font-bold block mb-1">Target Skill Gaps</span>
                       <div className="flex flex-wrap gap-1">
