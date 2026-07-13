@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { 
-  User, Briefcase, GraduationCap, Code2, Globe2, Plus, Trash2, Save, Sparkles, CheckCircle2, RefreshCw, FileText, FolderGit 
+  User, Briefcase, GraduationCap, Code2, Globe2, Plus, Trash2, Save, Sparkles, CheckCircle2, RefreshCw, FileText, FolderGit, Pencil 
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { classifySkillCategory, SKILL_CATEGORIES } from '@/lib/skills';
@@ -352,6 +352,11 @@ export default function ProfileVault() {
   });
   const [newProjTechs, setNewProjTechs] = useState('');
 
+  // Editing state hooks
+  const [editingExpIndex, setEditingExpIndex] = useState<number | null>(null);
+  const [editingEduIndex, setEditingEduIndex] = useState<number | null>(null);
+  const [editingProjIndex, setEditingProjIndex] = useState<number | null>(null);
+
   useEffect(() => {
     fetchProfile();
   }, []);
@@ -440,7 +445,27 @@ export default function ProfileVault() {
       ...prev,
       workExperience: [...prev.workExperience, { ...newExp }]
     }));
-    // Reset
+    cancelEditExperience();
+  };
+
+  const startEditExperience = (index: number) => {
+    const exp = profile.workExperience[index];
+    setNewExp({ ...exp });
+    setEditingExpIndex(index);
+  };
+
+  const saveExperienceEdit = () => {
+    if (editingExpIndex === null || !newExp.company || !newExp.role) return;
+    setProfile(prev => {
+      const list = [...prev.workExperience];
+      list[editingExpIndex] = { ...newExp };
+      return { ...prev, workExperience: list };
+    });
+    cancelEditExperience();
+  };
+
+  const cancelEditExperience = () => {
+    setEditingExpIndex(null);
     setNewExp({
       company: '',
       role: '',
@@ -454,6 +479,9 @@ export default function ProfileVault() {
   };
 
   const removeExperience = (index: number) => {
+    if (editingExpIndex === index) {
+      cancelEditExperience();
+    }
     setProfile(prev => ({
       ...prev,
       workExperience: prev.workExperience.filter((_, i) => i !== index)
@@ -483,6 +511,27 @@ export default function ProfileVault() {
       ...prev,
       education: [...prev.education, { ...newEdu }]
     }));
+    cancelEditEducation();
+  };
+
+  const startEditEducation = (index: number) => {
+    const edu = profile.education[index];
+    setNewEdu({ ...edu });
+    setEditingEduIndex(index);
+  };
+
+  const saveEducationEdit = () => {
+    if (editingEduIndex === null || !newEdu.institution || !newEdu.degree) return;
+    setProfile(prev => {
+      const list = [...prev.education];
+      list[editingEduIndex] = { ...newEdu };
+      return { ...prev, education: list };
+    });
+    cancelEditEducation();
+  };
+
+  const cancelEditEducation = () => {
+    setEditingEduIndex(null);
     setNewEdu({
       institution: '',
       degree: '',
@@ -494,6 +543,9 @@ export default function ProfileVault() {
   };
 
   const removeEducation = (index: number) => {
+    if (editingEduIndex === index) {
+      cancelEditEducation();
+    }
     setProfile(prev => ({
       ...prev,
       education: prev.education.filter((_, i) => i !== index)
@@ -543,6 +595,30 @@ export default function ProfileVault() {
       ...prev,
       projects: [...(prev.projects || []), { ...newProject, technologies }]
     }));
+    cancelEditProject();
+  };
+
+  const startEditProject = (index: number) => {
+    const proj = (profile.projects || [])[index];
+    if (!proj) return;
+    setNewProject({ ...proj });
+    setNewProjTechs(proj.technologies.join(', '));
+    setEditingProjIndex(index);
+  };
+
+  const saveProjectEdit = () => {
+    if (editingProjIndex === null || !newProject.name.trim()) return;
+    const technologies = newProjTechs.split(',').map(t => t.trim()).filter(Boolean);
+    setProfile(prev => {
+      const list = [...(prev.projects || [])];
+      list[editingProjIndex] = { ...newProject, technologies };
+      return { ...prev, projects: list };
+    });
+    cancelEditProject();
+  };
+
+  const cancelEditProject = () => {
+    setEditingProjIndex(null);
     setNewProject({
       name: '',
       description: '',
@@ -553,6 +629,9 @@ export default function ProfileVault() {
   };
 
   const removeProject = (index: number) => {
+    if (editingProjIndex === index) {
+      cancelEditProject();
+    }
     setProfile(prev => ({
       ...prev,
       projects: (prev.projects || []).filter((_, i) => i !== index)
@@ -1051,12 +1130,22 @@ export default function ProfileVault() {
                             </ul>
                           )}
                         </div>
-                        <button
-                          onClick={() => removeExperience(idx)}
-                          className="p-1.5 text-zinc-500 hover:text-rose-400 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => startEditExperience(idx)}
+                            className="p-1.5 text-zinc-500 hover:text-indigo-400 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                            title="Edit position"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => removeExperience(idx)}
+                            className="p-1.5 text-zinc-500 hover:text-rose-400 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                            title="Delete position"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1065,7 +1154,9 @@ export default function ProfileVault() {
 
               {/* Add Experience Form Box */}
               <div className="p-5 rounded-xl border border-white/5 bg-white/[0.01] space-y-4">
-                <h3 className="font-semibold text-white text-sm">Add New Position</h3>
+                <h3 className="font-semibold text-white text-sm">
+                  {editingExpIndex !== null ? 'Edit Position' : 'Add New Position'}
+                </h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
@@ -1184,15 +1275,36 @@ export default function ProfileVault() {
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={addExperience}
-                  disabled={!newExp.company || !newExp.role}
-                  className="w-full py-2.5 rounded-lg bg-indigo-600/10 hover:bg-indigo-600 border border-indigo-500/30 hover:border-indigo-500 text-white text-xs font-bold transition-all duration-300 flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 disabled:hover:bg-indigo-600/10 disabled:hover:border-indigo-500/30"
-                >
-                  <Plus className="w-4 h-4" />
-                  Save and Add Position to Experience List
-                </button>
+                {editingExpIndex !== null ? (
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={saveExperienceEdit}
+                      disabled={!newExp.company || !newExp.role}
+                      className="flex-1 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-750 text-white text-xs font-bold transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4" />
+                      Save Changes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelEditExperience}
+                      className="px-4 py-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-350 text-xs font-bold transition-all duration-300 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={addExperience}
+                    disabled={!newExp.company || !newExp.role}
+                    className="w-full py-2.5 rounded-lg bg-indigo-600/10 hover:bg-indigo-600 border border-indigo-500/30 hover:border-indigo-500 text-white text-xs font-bold transition-all duration-300 flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 disabled:hover:bg-indigo-600/10 disabled:hover:border-indigo-500/30"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Save and Add Position to Experience List
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -1217,12 +1329,22 @@ export default function ProfileVault() {
                           <p className="text-xs text-indigo-400 mt-0.5">{edu.institution} | {edu.location}</p>
                           <p className="text-[11px] text-zinc-400 mt-0.5">{edu.startDate} - {edu.current ? 'Present' : edu.endDate}</p>
                         </div>
-                        <button
-                          onClick={() => removeEducation(idx)}
-                          className="p-1.5 text-zinc-500 hover:text-rose-400 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => startEditEducation(idx)}
+                            className="p-1.5 text-zinc-500 hover:text-indigo-400 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                            title="Edit qualification"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => removeEducation(idx)}
+                            className="p-1.5 text-zinc-500 hover:text-rose-400 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+                            title="Delete qualification"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1231,7 +1353,9 @@ export default function ProfileVault() {
 
               {/* Add Education Box */}
               <div className="p-5 rounded-xl border border-white/5 bg-white/[0.01] space-y-4">
-                <h3 className="font-semibold text-white text-sm">Add New Qualification</h3>
+                <h3 className="font-semibold text-white text-sm">
+                  {editingEduIndex !== null ? 'Edit Qualification' : 'Add New Qualification'}
+                </h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
@@ -1304,15 +1428,36 @@ export default function ProfileVault() {
                   <label htmlFor="eduCurrent" className="text-xs text-zinc-300 select-none">Currently studying here</label>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={addEducation}
-                  disabled={!newEdu.institution || !newEdu.degree}
-                  className="w-full py-2.5 rounded-lg bg-indigo-600/10 hover:bg-indigo-600 border border-indigo-500/30 hover:border-indigo-500 text-white text-xs font-bold transition-all duration-300 flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 disabled:hover:bg-indigo-600/10 disabled:hover:border-indigo-500/30"
-                >
-                  <Plus className="w-4 h-4" />
-                  Save and Add Qualification to Education List
-                </button>
+                {editingEduIndex !== null ? (
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={saveEducationEdit}
+                      disabled={!newEdu.institution || !newEdu.degree}
+                      className="flex-1 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-750 text-white text-xs font-bold transition-all duration-300 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <Save className="w-4 h-4" />
+                      Save Changes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelEditEducation}
+                      className="px-4 py-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-350 text-xs font-bold transition-all duration-300 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={addEducation}
+                    disabled={!newEdu.institution || !newEdu.degree}
+                    className="w-full py-2.5 rounded-lg bg-indigo-600/10 hover:bg-indigo-600 border border-indigo-500/30 hover:border-indigo-500 text-white text-xs font-bold transition-all duration-300 flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50 disabled:hover:bg-indigo-600/10 disabled:hover:border-indigo-500/30"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Save and Add Qualification to Education List
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -1503,13 +1648,22 @@ export default function ProfileVault() {
                           </div>
                         )}
                       </div>
-                      <button
-                        onClick={() => removeProject(idx)}
-                        className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-500 hover:text-rose-400 transition-all border border-zinc-800 cursor-pointer"
-                        title="Remove project"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                       <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => startEditProject(idx)}
+                          className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-500 hover:text-indigo-400 transition-all border border-zinc-800 cursor-pointer"
+                          title="Edit project"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => removeProject(idx)}
+                          className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-500 hover:text-rose-400 transition-all border border-zinc-800 cursor-pointer"
+                          title="Remove project"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1518,8 +1672,17 @@ export default function ProfileVault() {
               {/* Add New Project Form */}
               <div className="p-5 border border-white/5 bg-white/[0.01] rounded-2xl space-y-4 font-sans">
                 <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-                  <Plus className="w-4 h-4 text-indigo-400" />
-                  Add Project Work
+                  {editingProjIndex !== null ? (
+                    <>
+                      <Pencil className="w-4 h-4 text-indigo-400" />
+                      Edit Project Work
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4 text-indigo-400" />
+                      Add Project Work
+                    </>
+                  )}
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1568,14 +1731,36 @@ export default function ProfileVault() {
                   />
                 </div>
 
-                <div className="flex justify-end pt-2">
-                  <button
-                    onClick={addProject}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 w-full md:w-auto cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    Add Project
-                  </button>
+                <div className="flex justify-end gap-3 pt-2">
+                  {editingProjIndex !== null ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={saveProjectEdit}
+                        disabled={!newProject.name.trim()}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 w-full md:w-auto cursor-pointer disabled:opacity-50"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        Save Changes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelEditProject}
+                        className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-350 text-xs font-bold rounded-lg cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={addProject}
+                      disabled={!newProject.name.trim()}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 w-full md:w-auto cursor-pointer disabled:opacity-50"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add Project
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

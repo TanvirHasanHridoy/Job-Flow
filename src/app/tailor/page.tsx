@@ -399,6 +399,21 @@ export default function TailorWorkspace() {
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [isAtsMode, setIsAtsMode] = useState(false);
 
+  // Custom Skill Add & Confirmation Modal States
+  const [skillModal, setSkillModal] = useState<{
+    isOpen: boolean;
+    skillName: string;
+    isGap: boolean;
+    alsoSaveToProfile: boolean;
+  }>({
+    isOpen: false,
+    skillName: '',
+    isGap: false,
+    alsoSaveToProfile: true
+  });
+  const [isAddingCustomSkill, setIsAddingCustomSkill] = useState(false);
+  const [customSkillInput, setCustomSkillInput] = useState('');
+
   // Mobile responsive layout states
   const [activeMobileTab, setActiveMobileTab] = useState<'edit' | 'preview'>('edit');
   const [previewWidth, setPreviewWidth] = useState(794);
@@ -2596,30 +2611,46 @@ export default function TailorWorkspace() {
     URL.revokeObjectURL(url);
   };
 
-  const handleAddSkillInteractive = async (skill: string, skipConfirm = false) => {
+  const handleAddSkillInteractive = (skill: string, skipConfirm = false) => {
     if (!result) return;
-    if (!skipConfirm) {
-      const confirmAdd = window.confirm(`Would you like to add "${skill}" to your Master Profile and update the match scorecard?`);
-      if (!confirmAdd) return;
+    if (skipConfirm) {
+      executeAddSkill(skill, true, true);
+    } else {
+      setSkillModal({
+        isOpen: true,
+        skillName: skill,
+        isGap: true,
+        alsoSaveToProfile: true
+      });
     }
+  };
+
+  const executeAddSkill = async (skill: string, isGap: boolean, alsoSaveToProfile: boolean) => {
+    if (!result || !skill.trim()) return;
+    const cleanSkill = skill.trim();
 
     const initialMatching = result.gapAnalysis.matchingKeywords;
     const initialMissing = result.gapAnalysis.missingSkills;
 
-    if (!initialMissing.includes(skill)) return;
+    if (initialMatching.some(k => k.toLowerCase() === cleanSkill.toLowerCase())) {
+      return;
+    }
 
-    const newMissing = initialMissing.filter(s => s !== skill);
-    const newMatching = [...initialMatching, skill];
+    const isActualMissing = initialMissing.some(s => s.toLowerCase() === cleanSkill.toLowerCase());
+    const newMissing = initialMissing.filter(s => s.toLowerCase() !== cleanSkill.toLowerCase());
+    const newMatching = [...initialMatching, cleanSkill];
 
-    // Recalculate match score in real-time
-    const initialTotal = initialMatching.length + initialMissing.length;
-    const currentMatching = newMatching.length;
+    let newScore = result.matchScore;
+    if (isActualMissing) {
+      const closedGapsRatio = (initialMissing.length - newMissing.length) / (initialMissing.length || 1);
+      newScore = Math.min(100, Math.round(result.matchScore + (closedGapsRatio * (100 - result.matchScore))));
+    }
 
-    const originalScore = result.matchScore;
-    const closedGapsRatio = (initialMissing.length - newMissing.length) / (initialMissing.length || 1);
-    const newScore = Math.min(100, Math.round(originalScore + (closedGapsRatio * (100 - originalScore))));
-
-    const updatedCvSkills = [...(result.tailoredCv.skills || []), { name: skill, level: 'Intermediate' }];
+    const currentCvSkills = result.tailoredCv.skills || [];
+    const hasCvSkill = currentCvSkills.some((s: any) => s.name?.toLowerCase() === cleanSkill.toLowerCase());
+    const updatedCvSkills = hasCvSkill 
+      ? currentCvSkills 
+      : [...currentCvSkills, { name: cleanSkill, level: 'Intermediate' }];
 
     setResult({
       ...result,
@@ -2635,35 +2666,72 @@ export default function TailorWorkspace() {
       }
     });
 
-    try {
-      const currentSkills = Array.isArray(profile.skills) ? profile.skills : JSON.parse(profile.skills || '[]');
-      const hasSkill = currentSkills.some((s: any) => {
-        const name = typeof s === 'string' ? s : s.name;
-        return name?.toLowerCase() === skill.toLowerCase();
-      });
-
-      if (!hasSkill) {
-        const updatedSkills = [...currentSkills, { name: skill, level: 'Intermediate' }];
-        const updatedProfile = {
-          ...profile,
-          skills: updatedSkills
-        };
-
-        const response = await fetch('/api/profile', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedProfile)
+    if (alsoSaveToProfile) {
+      try {
+        const currentSkills = Array.isArray(profile.skills) ? profile.skills : JSON.parse(profile.skills || '[]');
+        const hasSkill = currentSkills.some((s: any) => {
+          const name = typeof s === 'string' ? s : s.name;
+          return name?.toLowerCase() === cleanSkill.toLowerCase();
         });
 
-        if (response.ok) {
-          setProfile(updatedProfile);
-        } else {
-          console.error('Failed to sync new skill to database profile');
+        if (!hasSkill) {
+          const updatedSkills = [...currentSkills, { name: cleanSkill, level: 'Intermediate' }];
+          const updatedProfile = {
+            ...profile,
+            skills: updatedSkills
+          };
+
+          const response = await fetch('/api/profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedProfile)
+          });
+
+          if (response.ok) {
+            setProfile(updatedProfile);
+          } else {
+            console.error('Failed to sync new skill to database profile');
+          }
         }
+      } catch (err) {
+        console.error('Error syncing profile skill:', err);
       }
-    } catch (err) {
-      console.error('Error syncing profile skill:', err);
     }
+  };
+
+  const handleRemoveSkillInteractive = (skill: string) => {
+    if (!result) return;
+    const cleanSkill = skill.trim();
+
+    const initialMatching = result.gapAnalysis.matchingKeywords;
+    const initialMissing = result.gapAnalysis.missingSkills;
+
+    const newMatching = initialMatching.filter(k => k.toLowerCase() !== cleanSkill.toLowerCase());
+
+    const alreadyMissing = initialMissing.some(s => s.toLowerCase() === cleanSkill.toLowerCase());
+    const newMissing = alreadyMissing ? initialMissing : [...initialMissing, cleanSkill];
+
+    const totalKeywords = newMatching.length + newMissing.length;
+    const newScore = totalKeywords > 0 
+      ? Math.round((newMatching.length / totalKeywords) * 100)
+      : 0;
+
+    const currentCvSkills = result.tailoredCv.skills || [];
+    const updatedCvSkills = currentCvSkills.filter((s: any) => s.name?.toLowerCase() !== cleanSkill.toLowerCase());
+
+    setResult({
+      ...result,
+      matchScore: newScore,
+      gapAnalysis: {
+        ...result.gapAnalysis,
+        missingSkills: newMissing,
+        matchingKeywords: newMatching
+      },
+      tailoredCv: {
+        ...result.tailoredCv,
+        skills: updatedCvSkills
+      }
+    });
   };
 
   const saveToApplicationsTracker = async () => {
@@ -2706,6 +2774,10 @@ export default function TailorWorkspace() {
       });
 
       if (res.ok) {
+        const savedApp = await res.json();
+        if (savedApp && savedApp.id) {
+          setEditingAppId(savedApp.id);
+        }
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
       } else {
@@ -3874,10 +3946,70 @@ export default function TailorWorkspace() {
                   <h4 className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
                     <Check className="w-3 h-3" /> Matching Keywords
                   </h4>
-                  <div className="flex flex-wrap gap-1 min-h-[40px] border border-dashed border-emerald-500/10 rounded p-1">
+                  <div className="flex flex-wrap gap-1 min-h-[40px] border border-dashed border-emerald-500/10 rounded p-1 items-center">
                     {result.gapAnalysis.matchingKeywords.map((k, i) => (
-                      <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300">{k}</span>
+                      <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 flex items-center gap-1.5">
+                        {k}
+                        <button
+                          onClick={() => handleRemoveSkillInteractive(k)}
+                          className="hover:text-rose-450 hover:bg-white/10 rounded-full w-3.5 h-3.5 flex items-center justify-center transition-colors cursor-pointer text-[9px] font-bold"
+                          title={`Remove ${k} from CV`}
+                        >
+                          ×
+                        </button>
+                      </span>
                     ))}
+
+                    {isAddingCustomSkill ? (
+                      <input
+                        type="text"
+                        value={customSkillInput}
+                        onChange={(e) => setCustomSkillInput(e.target.value)}
+                        onBlur={() => {
+                          const val = customSkillInput.trim();
+                          if (val) {
+                            setSkillModal({
+                              isOpen: true,
+                              skillName: val,
+                              isGap: false,
+                              alsoSaveToProfile: true
+                            });
+                          }
+                          setIsAddingCustomSkill(false);
+                          setCustomSkillInput('');
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const val = customSkillInput.trim();
+                            if (val) {
+                              setSkillModal({
+                                isOpen: true,
+                                skillName: val,
+                                isGap: false,
+                                alsoSaveToProfile: true
+                              });
+                            }
+                            setIsAddingCustomSkill(false);
+                            setCustomSkillInput('');
+                          } else if (e.key === 'Escape') {
+                            setIsAddingCustomSkill(false);
+                            setCustomSkillInput('');
+                          }
+                        }}
+                        autoFocus
+                        placeholder="Type skill..."
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-white w-20 focus:outline-none focus:border-indigo-500"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => setIsAddingCustomSkill(true)}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/5 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 flex items-center gap-0.5 transition-colors cursor-pointer"
+                        title="Add custom skill"
+                      >
+                        <Plus className="w-2.5 h-2.5" />
+                        Add Skill
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -4495,6 +4627,71 @@ export default function TailorWorkspace() {
         </div>
 
       </div>
+
+      {/* Premium Skill Confirmation Modal Overlay */}
+      {skillModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-zinc-950 border border-white/10 rounded-2xl p-5 shadow-2xl space-y-4 font-sans text-left">
+            <div className="flex justify-between items-center pb-2.5 border-b border-white/5">
+              <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <Award className="w-4 h-4 text-indigo-400" />
+                Add Skill to Application
+              </h3>
+              <button
+                onClick={() => setSkillModal(prev => ({ ...prev, isOpen: false }))}
+                className="text-zinc-500 hover:text-white transition-colors cursor-pointer text-xs font-bold"
+              >
+                Cancel
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Skill Name</label>
+                <input
+                  type="text"
+                  value={skillModal.skillName}
+                  onChange={(e) => setSkillModal(prev => ({ ...prev, skillName: e.target.value }))}
+                  className="bg-zinc-900 border border-white/10 text-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-indigo-500"
+                  placeholder="e.g. Next.js"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 py-1">
+                <input
+                  type="checkbox"
+                  id="modalAlsoSaveToProfile"
+                  checked={skillModal.alsoSaveToProfile}
+                  onChange={(e) => setSkillModal(prev => ({ ...prev, alsoSaveToProfile: e.target.checked }))}
+                  className="accent-indigo-500 rounded cursor-pointer"
+                />
+                <label htmlFor="modalAlsoSaveToProfile" className="text-zinc-300 select-none cursor-pointer">
+                  Also save to Master Profile database
+                </label>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-white/5 flex gap-3">
+              <button
+                onClick={() => {
+                  executeAddSkill(skillModal.skillName, skillModal.isGap, skillModal.alsoSaveToProfile);
+                  setSkillModal(prev => ({ ...prev, isOpen: false }));
+                }}
+                disabled={!skillModal.skillName.trim()}
+                className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-center text-xs font-bold transition-colors cursor-pointer"
+              >
+                Add Skill
+              </button>
+              <button
+                onClick={() => setSkillModal(prev => ({ ...prev, isOpen: false }))}
+                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-center text-xs font-bold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Floating Selection Toolbar (Self-contained to prevent page re-renders) */}
       <FloatingToolbar cvPreviewRef={cvPreviewRef} />
