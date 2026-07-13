@@ -63,6 +63,185 @@ export default function Dashboard() {
   const [currentView, setCurrentView] = useState<'kanban' | 'spreadsheet' | 'calendar'>('kanban');
   const [calendarDate, setCalendarDate] = useState(new Date());
 
+  // Scheduler state variables
+  const [calendarModalApp, setCalendarModalApp] = useState<JobApplication | null>(null);
+  const [eventType, setEventType] = useState<'apply' | 'applied' | 'interview' | 'offer' | 'custom'>('apply');
+  const [eventTitle, setEventTitle] = useState('');
+  const [eventDate, setEventDate] = useState('');
+  const [eventTime, setEventTime] = useState('10:00');
+  const [eventDuration, setEventDuration] = useState('60'); // minutes
+  const [eventDescription, setEventDescription] = useState('');
+  const [eventLocation, setEventLocation] = useState('');
+
+  useEffect(() => {
+    if (calendarModalApp) {
+      let type: 'apply' | 'applied' | 'interview' | 'offer' | 'custom' = 'apply';
+      if (calendarModalApp.status === 'APPLIED') type = 'applied';
+      else if (calendarModalApp.status === 'INTERVIEWING') type = 'interview';
+      else if (calendarModalApp.status === 'OFFER') type = 'offer';
+      setEventType(type);
+
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      setEventTime('10:00');
+      setEventDuration('60');
+
+      if (type === 'applied') {
+        setEventDate(todayStr);
+      } else if (type === 'offer') {
+        const nextWeek = new Date();
+        nextWeek.setDate(nextWeek.getDate() + 7);
+        setEventDate(nextWeek.toISOString().split('T')[0]);
+      } else {
+        setEventDate(tomorrowStr);
+      }
+
+      const titleLabel = 
+        type === 'apply' ? 'Apply Deadline' :
+        type === 'applied' ? 'Applied Milestone' :
+        type === 'interview' ? 'Interview' :
+        type === 'offer' ? 'Offer decision due' : 'Task';
+      setEventTitle(`${titleLabel}: ${calendarModalApp.role} @ ${calendarModalApp.company}`);
+
+      const loc = calendarModalApp.location || '';
+      const mode = calendarModalApp.remoteOrPhysical || '';
+      setEventLocation([loc, mode].filter(Boolean).join(' - ') || 'Not specified');
+
+      let desc = '';
+      desc += `Company: ${calendarModalApp.company}\n`;
+      desc += `Role: ${calendarModalApp.role}\n`;
+      desc += `Match Score: ${calendarModalApp.matchScore}%\n`;
+      if (calendarModalApp.techStack) desc += `Tech Stack: ${calendarModalApp.techStack}\n`;
+      if (calendarModalApp.recruiterName) desc += `Recruiter: ${calendarModalApp.recruiterName} (${calendarModalApp.contactInfo || ''})\n`;
+      if (calendarModalApp.mainRequirements) desc += `Requirements:\n${calendarModalApp.mainRequirements}\n`;
+      if (calendarModalApp.customNotes) desc += `My Notes: ${calendarModalApp.customNotes}\n`;
+      desc += `\nApplication tracked in JobFlow AI.`;
+      setEventDescription(desc);
+    }
+  }, [calendarModalApp]);
+
+  const handleEventTypeChange = (newType: typeof eventType) => {
+    setEventType(newType);
+    if (!calendarModalApp) return;
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+    const titleLabel = 
+      newType === 'apply' ? 'Apply Deadline' :
+      newType === 'applied' ? 'Applied Milestone' :
+      newType === 'interview' ? 'Interview' :
+      newType === 'offer' ? 'Offer decision due' : 'Task';
+    setEventTitle(`${titleLabel}: ${calendarModalApp.role} @ ${calendarModalApp.company}`);
+
+    if (newType === 'applied') {
+      setEventDate(todayStr);
+    } else if (newType === 'offer') {
+      const nextWeek = new Date();
+      nextWeek.setDate(nextWeek.getDate() + 7);
+      setEventDate(nextWeek.toISOString().split('T')[0]);
+    } else {
+      setEventDate(tomorrowStr);
+    }
+  };
+
+  const generateGoogleCalendarUrl = () => {
+    if (!calendarModalApp) return '';
+    const base = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
+    
+    let datesParam = '';
+    const dateParts = eventDate.split('-');
+    if (dateParts.length !== 3) return '';
+
+    const isAllDay = eventType === 'apply' || eventType === 'offer';
+
+    if (isAllDay) {
+      const startDateStr = dateParts.join('');
+      const endDate = new Date(eventDate);
+      endDate.setDate(endDate.getDate() + 1);
+      const endDateStr = endDate.toISOString().split('T')[0].replace(/-/g, '');
+      datesParam = `${startDateStr}/${endDateStr}`;
+    } else {
+      const localDateTime = new Date(`${eventDate}T${eventTime}:00`);
+      if (isNaN(localDateTime.getTime())) return '';
+      
+      const startStr = localDateTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      const endDateTime = new Date(localDateTime.getTime() + parseInt(eventDuration) * 60 * 1000);
+      const endStr = endDateTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      datesParam = `${startStr}/${endStr}`;
+    }
+
+    const url = `${base}&text=${encodeURIComponent(eventTitle)}&dates=${datesParam}&details=${encodeURIComponent(eventDescription)}&location=${encodeURIComponent(eventLocation)}`;
+    return url;
+  };
+
+  const downloadIcsFile = () => {
+    if (!calendarModalApp) return;
+    const isAllDay = eventType === 'apply' || eventType === 'offer';
+
+    let dtStart = '';
+    let dtEnd = '';
+
+    const dateParts = eventDate.split('-');
+    if (dateParts.length !== 3) return;
+
+    if (isAllDay) {
+      const startDateStr = dateParts.join('');
+      const endDate = new Date(eventDate);
+      endDate.setDate(endDate.getDate() + 1);
+      const endDateStr = endDate.toISOString().split('T')[0].replace(/-/g, '');
+      dtStart = `VALUE=DATE:${startDateStr}`;
+      dtEnd = `VALUE=DATE:${endDateStr}`;
+    } else {
+      const localDateTime = new Date(`${eventDate}T${eventTime}:00`);
+      if (isNaN(localDateTime.getTime())) return;
+      
+      const startStr = localDateTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      const endDateTime = new Date(localDateTime.getTime() + parseInt(eventDuration) * 60 * 1000);
+      const endStr = endDateTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      dtStart = startStr;
+      dtEnd = endStr;
+    }
+
+    const escapedDesc = eventDescription
+      .replace(/\\/g, '\\\\')
+      .replace(/,/g, '\\,')
+      .replace(/;/g, '\\;')
+      .replace(/\n/g, '\\n');
+
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//JobFlow AI//Calendar Event//EN',
+      'CALSCALE:GREGORIAN',
+      'BEGIN:VEVENT',
+      `SUMMARY:${eventTitle}`,
+      isAllDay ? `DTSTART;${dtStart}` : `DTSTART:${dtStart}`,
+      isAllDay ? `DTEND;${dtEnd}` : `DTEND:${dtEnd}`,
+      `LOCATION:${eventLocation}`,
+      `DESCRIPTION:${escapedDesc}`,
+      'STATUS:CONFIRMED',
+      'SEQUENCE:0',
+      'END:VEVENT',
+      'END:VCALENDAR'
+    ].join('\r\n');
+
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${eventTitle.replace(/[^a-zA-Z0-9]/g, '_')}.ics`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   useEffect(() => {
     fetchApplications();
   }, []);
@@ -846,6 +1025,138 @@ export default function Dashboard() {
                 <FileText className="w-3.5 h-3.5" />
                 Open in Tailoring Workspace
               </Link>
+              <button
+                onClick={() => setCalendarModalApp(selectedApp)}
+                className="py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-center text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                Add to Calendar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Calendar Event Scheduler Modal Overlay */}
+      {calendarModalApp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-zinc-950 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 font-sans text-left">
+            <div className="flex justify-between items-center pb-3 border-b border-white/5">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                📅 Add application Event to Calendar
+              </h3>
+              <button
+                onClick={() => setCalendarModalApp(null)}
+                className="text-zinc-500 hover:text-white transition-colors cursor-pointer text-xs uppercase font-bold"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Event Type</label>
+                <select
+                  value={eventType}
+                  onChange={(e) => handleEventTypeChange(e.target.value as any)}
+                  className="bg-zinc-900 border border-white/10 text-white rounded-lg px-3 py-2 text-xs font-semibold focus:outline-none focus:border-indigo-500 cursor-pointer"
+                >
+                  <option value="apply" className="bg-zinc-950">Apply Deadline (All Day)</option>
+                  <option value="applied" className="bg-zinc-950">Applied Date & Time</option>
+                  <option value="interview" className="bg-zinc-950">Interview Schedule</option>
+                  <option value="offer" className="bg-zinc-950">Offer Decision Deadline (All Day)</option>
+                  <option value="custom" className="bg-zinc-950">Custom Reminder</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Event Title</label>
+                <input
+                  type="text"
+                  value={eventTitle}
+                  onChange={(e) => setEventTitle(e.target.value)}
+                  className="bg-zinc-900 border border-white/10 text-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Date</label>
+                  <input
+                    type="date"
+                    value={eventDate}
+                    onChange={(e) => setEventDate(e.target.value)}
+                    className="bg-zinc-900 border border-white/10 text-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  />
+                </div>
+
+                {eventType !== 'apply' && eventType !== 'offer' && (
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Start Time</label>
+                    <input
+                      type="time"
+                      value={eventTime}
+                      onChange={(e) => setEventTime(e.target.value)}
+                      className="bg-zinc-900 border border-white/10 text-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {eventType !== 'apply' && eventType !== 'offer' && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Duration (Minutes)</label>
+                  <select
+                    value={eventDuration}
+                    onChange={(e) => setEventDuration(e.target.value)}
+                    className="bg-zinc-900 border border-white/10 text-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    <option value="15" className="bg-zinc-950">15 minutes</option>
+                    <option value="30" className="bg-zinc-950">30 minutes</option>
+                    <option value="45" className="bg-zinc-950">45 minutes</option>
+                    <option value="60" className="bg-zinc-950">1 hour</option>
+                    <option value="90" className="bg-zinc-950">1.5 hours</option>
+                    <option value="120" className="bg-zinc-950">2 hours</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Location / Venue</label>
+                <input
+                  type="text"
+                  value={eventLocation}
+                  onChange={(e) => setEventLocation(e.target.value)}
+                  className="bg-zinc-900 border border-white/10 text-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Event Description</label>
+                <textarea
+                  value={eventDescription}
+                  onChange={(e) => setEventDescription(e.target.value)}
+                  rows={4}
+                  className="bg-zinc-900 border border-white/10 text-white rounded-lg p-3 text-xs focus:outline-none focus:border-indigo-500 resize-none font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-white/5 flex flex-col sm:flex-row gap-3">
+              <a
+                href={generateGoogleCalendarUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-center text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                Add to Google Calendar
+              </a>
+              <button
+                onClick={downloadIcsFile}
+                className="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-center text-xs font-bold border border-white/5 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                Download (.ics) file
+              </button>
             </div>
           </div>
         </div>
