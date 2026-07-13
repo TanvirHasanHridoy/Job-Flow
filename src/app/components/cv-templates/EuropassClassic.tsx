@@ -271,8 +271,8 @@ export default function EuropassClassic() {
         </tbody>
       </table>
 
-      {/* ───── Additional Skills ───── */}
-      <SectionHeading>Additional Skills</SectionHeading>
+      {/* ───── Skills ───── */}
+      <SectionHeading>Skills</SectionHeading>
 
       {/* Languages sub-section */}
       <p className="font-semibold text-gray-800 text-[12px] mt-3 mb-1">Languages</p>

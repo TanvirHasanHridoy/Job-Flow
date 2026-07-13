@@ -1370,7 +1370,7 @@ export default function TailorWorkspace() {
       return (
         <div key={blockId} data-block-id={blockId} className="w-full text-left font-sans">
           {(() => {
-            const title = cvLanguage === 'DE' ? 'Fähigkeiten' : 'Additional Skills';
+            const title = cvLanguage === 'DE' ? 'Fähigkeiten' : 'Skills';
             const idx = title.indexOf(' ');
             const first = idx === -1 ? title : title.slice(0, idx);
             const rest = idx === -1 ? '' : title.slice(idx + 1);

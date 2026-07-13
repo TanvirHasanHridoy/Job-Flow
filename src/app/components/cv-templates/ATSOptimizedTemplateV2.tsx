@@ -47,7 +47,7 @@ export function AtsCvDocument({ cv, options }: { cv: any; options: any }) {
   const sectionSpacingPt = pxToPt(options.sectionSpacing || 24);
   const headerSpacingPt = pxToPt(options.headerSpacing || 12);
   const signatureSpacingPt = pxToPt(options.signatureSpacing || 40);
-  
+
   const paddingTop = mmToPt(options.paddingTop || 28);
   const paddingSide = mmToPt(options.paddingSide || 24);
   const paddingBottom = mmToPt(options.paddingBottom || 20);
@@ -350,7 +350,7 @@ export function AtsCvDocument({ cv, options }: { cv: any; options: any }) {
         {cv.skills && cv.skills.length > 0 && (
           <View>
             <View style={cvStyles.sectionTitleContainer}>
-              <Text style={cvStyles.sectionTitleText}>ADDITIONAL SKILLS</Text>
+              <Text style={cvStyles.sectionTitleText}>SKILLS</Text>
             </View>
             <View style={{ flexDirection: 'column' }}>
               {cv.skills.map((skill: any, idx: number) => (

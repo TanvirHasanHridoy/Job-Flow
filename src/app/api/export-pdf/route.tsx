@@ -44,7 +44,7 @@ function CvDocument({ cv, options }: { cv: any; options: any }) {
   const fontSize = options.fontSize || 11;
   const bulletSpacing = options.bulletSpacing || 6;
   const sectionSpacing = options.sectionSpacing || 16;
-  
+
   const paddingTop = mmToPt(options.paddingTop || 28);
   const paddingSide = mmToPt(options.paddingSide || 24);
   const paddingBottom = mmToPt(options.paddingBottom || 20);
@@ -342,7 +342,7 @@ function CvDocument({ cv, options }: { cv: any; options: any }) {
         {cv.skills && cv.skills.length > 0 && (
           <View>
             <View style={cvStyles.sectionTitleContainer}>
-              <Text style={cvStyles.sectionTitleText}>ADDITIONAL SKILLS</Text>
+              <Text style={cvStyles.sectionTitleText}>SKILLS</Text>
             </View>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
               {cv.skills.map((skill: any, idx: number) => (
