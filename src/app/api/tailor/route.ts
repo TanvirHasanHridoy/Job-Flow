@@ -39,7 +39,8 @@ export async function POST(req: Request) {
       profile,
       matchStrategy = 'TACTICAL_PIVOT',
       applicationId = null,
-      roleName = 'Professional'
+      roleName = 'Professional',
+      selectedProjects = []
     } = await req.json();
 
     if (!jobDescription || !profile) {
@@ -56,6 +57,11 @@ export async function POST(req: Request) {
     const parsedEdu = typeof profile.education === 'string' ? JSON.parse(profile.education) : profile.education;
     const parsedSkills = typeof profile.skills === 'string' ? JSON.parse(profile.skills) : profile.skills;
     const parsedLanguages = typeof profile.languages === 'string' ? JSON.parse(profile.languages) : profile.languages;
+    const parsedProjects = typeof profile.projects === 'string' ? JSON.parse(profile.projects) : (profile.projects || []);
+
+    const filteredProjects = parsedProjects.filter((proj: any) => 
+      selectedProjects.includes(proj.name)
+    );
 
     const formattedProfile = {
       fullName: profile.fullName,
@@ -71,7 +77,8 @@ export async function POST(req: Request) {
       workExperience: parsedWorkExp,
       education: parsedEdu,
       skills: parsedSkills,
-      languages: parsedLanguages
+      languages: parsedLanguages,
+      projects: filteredProjects
     };
 
     // Construct custom prompt context
@@ -176,15 +183,16 @@ ${lengthDirective}
    `}
    
    ADDITIONAL CV WRITING GUIDELINES:
-   - **Internal Promotions:** If a candidate has been promoted or changed departments/roles within the same company, treat each role as a completely separate job/experience entry. This demonstrates growth, distinct responsibilities, and loyalty.
-   - **Internships:** When listing an internship, explicitly append " (Internship)" (or " (Praktikum)" in German) right next to the job title.
-   - **Relevancy Cut-offs:** ${lengthTarget.includes('1-Page') ? 'Filter and list only the last three companies' : 'Filter and list only the last four companies'} in the tailored work experience. Mention the total cumulative years of experience in the professional summary instead.
-   - **Show, Don't Tell Soft Skills:** Do NOT list soft skills standalone. Integrate them naturally within the professional summary or the work history bullet points (e.g., "Strong communication skills developed through customer-facing roles...").
-   - **Strict Rules for Hobbies:** Exclude generic hobbies like "reading," "traveling," or "music". Only include hobbies if they are directly relevant to the target job or demonstrate valuable workplace traits like leadership or teamwork.
-   - **Software Developer Bullet Progression:** Transform weak bullet points into high-impact, metrics-driven, and result-oriented outcomes following a 4-part formula: (1) start with a strong action verb, (2) provide a concrete metric or result, (3) specify the technical implementation detail (how it was done, including tech stack/tools), and (4) explain the business context/value.
-   - **No Literal Labels or Prefixes:** In all generated bullets (including "star", "punchy", and "standard" categories), you MUST write the bullet points directly as cohesive sentences. Never include literal labels or prefixes such as "STAR Method:", "Situation:", "Task:", "Action:", "Result:", "Context:", or "Value:". The formula must be baked into the sentence naturally (e.g., "Developed a scalable CRM API that handled 50,000 monthly active users using React and WebSockets, improving user engagement by 15%").
-   - **References:** Do NOT include the phrase "References available upon request". Keep it completely out.
-   - **Gender Pronouns:** Gender pronouns are optional. Do not include them by default. If requested or explicitly provided in custom notes, place them directly under the signature/signing line as "Pronouns: [pronouns]".
+    - **Internal Promotions:** If a candidate has been promoted or changed departments/roles within the same company, treat each role as a completely separate job/experience entry. This demonstrates growth, distinct responsibilities, and loyalty.
+    - **Internships:** When listing an internship, explicitly append " (Internship)" (or " (Praktikum)" in German) right next to the job title.
+    - **Relevancy Cut-offs:** ${lengthTarget.includes('1-Page') ? 'Filter and list only the last three companies' : 'Filter and list only the last four companies'} in the tailored work experience. Mention the total cumulative years of experience in the professional summary instead.
+    - **Show, Don't Tell Soft Skills:** Do NOT list soft skills standalone. Integrate them naturally within the professional summary or the work history bullet points (e.g., "Strong communication skills developed through customer-facing roles...").
+    - **Strict Rules for Hobbies:** Exclude generic hobbies like "reading," "traveling," or "music". Only include hobbies if they are directly relevant to the target job or demonstrate valuable workplace traits like leadership or teamwork.
+    - **Software Developer Bullet Progression:** Transform weak bullet points into high-impact, metrics-driven, and result-oriented outcomes following a 4-part formula: (1) start with a strong action verb, (2) provide a concrete metric or result, (3) specify the technical implementation detail (how it was done, including tech stack/tools), and (4) explain the business context/value.
+    - **No Literal Labels or Prefixes:** In all generated bullets (including "star", "punchy", and "standard" categories), you MUST write the bullet points directly as cohesive sentences. Never include literal labels or prefixes such as "STAR Method:", "Situation:", "Task:", "Action:", "Result:", "Context:", or "Value:". The formula must be baked into the sentence naturally (e.g., "Developed a scalable CRM API that handled 50,000 monthly active users using React and WebSockets, improving user engagement by 15%").
+    - **References:** Do NOT include the phrase "References available upon request". Keep it completely out.
+    - **Gender Pronouns:** Gender pronouns are optional. Do not include them by default. If requested or explicitly provided in custom notes, place them directly under the signature/signing line as "Pronouns: [pronouns]".
+    - **Projects:** If any projects are provided in the user profile, you must tailor their descriptions and listed technologies to highlight accomplishments, skills, and architectures that directly align with and showcase competence for the requirements in the target Job Description, written entirely in ${cvLanguage === 'DE' ? 'German' : 'English'}.
 
 4. COVER LETTER FORMATTING RULES (Targeting ${clLanguage}):
    ${clLanguage === 'DE' ? `
@@ -242,6 +250,13 @@ You must respond with a raw JSON object containing these exact keys:
         "category": "<category of skill, strictly one of: Frontend, Backend, Database, Tools>"
       }
     ],
+    "projects": [
+      {
+        "name": "<exact original project name from the profile projects list to map back>",
+        "description": "<tailored description of the project achievements, outcomes, and responsibilities, adapted to match the target job description requirements, in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
+        "technologies": [<array of strings representing tailored/relevant technologies used, matching the user's profile and aligned with the job description>]
+      }
+    ],
     "signingLine": "<string for signature, e.g. 'München, 17. Juni 2026' or empty if EN>"
   },
   "tailoredCoverLetter": {
@@ -256,6 +271,15 @@ You must respond with a raw JSON object containing these exact keys:
     },
     "closing": "<string, e.g., 'Mit freundlichen Grüßen,' or 'Sincerely,'>",
     "signatureName": "<string>"
+  },
+  "jobMetadata": {
+    "techStack": "<comma-separated list of required technical tools, languages, and methodologies extracted from the Job Description>",
+    "mainRequirements": "<bullet point list or short summary of top 3-4 core requirements/qualifications for the role, in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
+    "recruiterName": "<name of recruiter/contact person if found, otherwise 'Not specified'>",
+    "contactInfo": "<email or phone of recruiter/employer if found, otherwise 'Not specified'>",
+    "jobType": "<strictly one of: Full-time, Part-time, Contract, Internship, Freelance, or 'Not specified'>",
+    "location": "<city / location of job, otherwise 'Not specified'>",
+    "remoteOrPhysical": "<strictly one of: Remote, Hybrid, Onsite, or 'Not specified'>"
   }
 }`;
 
@@ -447,13 +471,29 @@ ${contextStr}`
       return { name, level, category };
     });
 
+    const mergedProjects = tailoredResult.tailoredCv?.projects
+      ? tailoredResult.tailoredCv.projects.map((tailoredProj: any) => {
+          const originalProj = filteredProjects.find((p: any) => 
+            p.name.toLowerCase() === tailoredProj.name.toLowerCase()
+          ) || {};
+          
+          return {
+            name: originalProj.name || tailoredProj.name,
+            description: tailoredProj.description || originalProj.description || '',
+            technologies: tailoredProj.technologies || originalProj.technologies || [],
+            url: originalProj.url || ''
+          };
+        })
+      : [];
+
     tailoredResult.tailoredCv = {
       ...tailoredResult.tailoredCv,
       personalDetails,
       workExperience: mergedWorkExperience,
       education: mergedEducation,
       skills: mergedSkills,
-      languages: parsedLanguages
+      languages: parsedLanguages,
+      projects: mergedProjects
     };
 
     // Log query diagnostic data into database

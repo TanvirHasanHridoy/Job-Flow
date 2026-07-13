@@ -57,6 +57,13 @@ export async function PATCH(
     if (body.customNotes !== undefined) data.customNotes = body.customNotes;
     if (body.matchScore !== undefined) data.matchScore = body.matchScore;
     if (body.gapAnalysis !== undefined) data.gapAnalysis = JSON.stringify(body.gapAnalysis);
+    if (body.techStack !== undefined) data.techStack = body.techStack;
+    if (body.mainRequirements !== undefined) data.mainRequirements = body.mainRequirements;
+    if (body.recruiterName !== undefined) data.recruiterName = body.recruiterName;
+    if (body.contactInfo !== undefined) data.contactInfo = body.contactInfo;
+    if (body.jobType !== undefined) data.jobType = body.jobType;
+    if (body.location !== undefined) data.location = body.location;
+    if (body.remoteOrPhysical !== undefined) data.remoteOrPhysical = body.remoteOrPhysical;
 
     // Run within a transaction
     const updatedApplication = await prisma.$transaction(async (tx) => {

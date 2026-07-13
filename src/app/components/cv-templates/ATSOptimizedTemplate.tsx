@@ -284,6 +284,36 @@ export function AtsCvDocument({ cv, options }: { cv: any; options: any }) {
           </View>
         )}
 
+        {/* Projects */}
+        {cv.projects && cv.projects.length > 0 && (
+          <View>
+            <View style={cvStyles.sectionTitleContainer}>
+              <Text style={cvStyles.sectionTitleText}>
+                {options.cvLanguage === 'DE' ? 'PROJEKTE' : 'PROJECTS'}
+              </Text>
+            </View>
+            {cv.projects.map((proj: any, idx: number) => {
+              const techStr = Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies;
+              return (
+                <View key={idx} style={{ ...cvStyles.entryBlock, marginBottom: 8 }}>
+                  <Text style={cvStyles.roleName}>
+                    {proj.name}
+                    {proj.url ? ` (${proj.url})` : ''}
+                  </Text>
+                  {techStr ? (
+                    <Text style={{ ...cvStyles.companyName, fontSize: 9, color: '#6B7280' }}>
+                      Technologies: {techStr}
+                    </Text>
+                  ) : null}
+                  <Text style={{ ...cvStyles.bulletText, marginTop: 4, fontSize: 10, lineHeight: 1.3 }}>
+                    {proj.description ? proj.description.replace(/<[^>]*>/g, '') : ''}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {/* Skills */}
         {cv.skills && cv.skills.length > 0 && (
           <View>

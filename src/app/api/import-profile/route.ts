@@ -130,6 +130,14 @@ Return a JSON object conforming to this template:
   ],
   "languages": [
     { "language": "<string>", "level": "<string, e.g. Native, C1, B2>" }
+  ],
+  "projects": [
+    {
+      "name": "<string>",
+      "description": "<string>",
+      "technologies": ["<string>"],
+      "url": "<string or empty>"
+    }
   ]
 }`;
 

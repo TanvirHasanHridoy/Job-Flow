@@ -32,6 +32,7 @@ model UserProfile {
   education      String   @default("[]")
   skills         String   @default("[]")
   languages      String   @default("[]")
+  projects       String   @default("[]")
   
   updatedAt      DateTime @updatedAt
 
@@ -48,6 +49,13 @@ model JobApplication {
   noticePeriod       String?
   signingLocation    String?
   customNotes        String?
+  techStack          String?                    @default("")
+  mainRequirements   String?                    @default("")
+  recruiterName      String?                    @default("")
+  contactInfo        String?                    @default("")
+  jobType            String?                    @default("")
+  location           String?                    @default("")
+  remoteOrPhysical   String?                    @default("")
   rawJobDescription  String
   matchScore         Int                        @default(0)
   gapAnalysis        String                     @default("{}") // JSON string: { missingSkills: [], keywordAnalysis: [] }
