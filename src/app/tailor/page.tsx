@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
   Sparkles, FileText, Download, Briefcase, Award, CheckCircle2, AlertTriangle, Languages, Save, Check,
-  List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Palette, Highlighter, RotateCcw, Sliders, Coins, Plus
+  List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Palette, Highlighter, RotateCcw, Sliders, Coins, Plus, FolderGit
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { groupSkillsByCategory } from '@/lib/skills';
@@ -62,6 +62,7 @@ interface TailoredCv {
   education: Education[];
   skills: TailoredSkill[];
   languages: Language[];
+  projects?: any[];
   signingLine?: string;
 }
 
@@ -88,6 +89,15 @@ interface TailorResponse {
   };
   tailoredCv: TailoredCv;
   tailoredCoverLetter: TailoredCoverLetter;
+  jobMetadata?: {
+    techStack: string;
+    mainRequirements: string;
+    recruiterName: string;
+    contactInfo: string;
+    jobType: string;
+    location: string;
+    remoteOrPhysical: string;
+  };
 }
 
 const getActiveBulletStyleKey = (style: string): 'star' | 'punchy' | 'standard' => {
@@ -360,6 +370,8 @@ const ContentEditable = ({
 export default function TailorWorkspace() {
   const [profile, setProfile] = useState<any>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+  const [sectionOrder, setSectionOrder] = useState<string[]>(['summary', 'work', 'education', 'projects', 'skills', 'languages']);
   const { tokens, setIsTokenModalOpen, fetchTokens } = useTokens();
   const { showAlert } = useAlertModal();
 
@@ -606,33 +618,57 @@ export default function TailorWorkspace() {
       orderedBlocks.push('personal-header');
       orderedBlocks.push('contact-grid');
     }
-    if (result.tailoredCv.summary) {
-      orderedBlocks.push('summary');
-    }
-    if (result.tailoredCv.workExperience && result.tailoredCv.workExperience.length > 0) {
-      orderedBlocks.push('work-history-header');
-      result.tailoredCv.workExperience.forEach((_, idx) => {
-        orderedBlocks.push(`work-exp-${idx}`);
-      });
-    }
-    if (result.tailoredCv.education && result.tailoredCv.education.length > 0) {
-      orderedBlocks.push('education-header');
-      result.tailoredCv.education.forEach((_, idx) => {
-        orderedBlocks.push(`edu-${idx}`);
-      });
-    }
-    if (result.tailoredCv.skills && result.tailoredCv.skills.length > 0) {
-      orderedBlocks.push('skills');
-    }
-    if (result.tailoredCv.languages && result.tailoredCv.languages.length > 0) {
-      orderedBlocks.push('languages');
-    }
+
+    sectionOrder.forEach((section) => {
+      if (section === 'summary' && result.tailoredCv.summary) {
+        orderedBlocks.push('summary');
+      }
+      else if (section === 'work' && result.tailoredCv.workExperience && result.tailoredCv.workExperience.length > 0) {
+        orderedBlocks.push('work-history-header');
+        result.tailoredCv.workExperience.forEach((_, idx) => {
+          orderedBlocks.push(`work-exp-${idx}`);
+        });
+      }
+      else if (section === 'education' && result.tailoredCv.education && result.tailoredCv.education.length > 0) {
+        orderedBlocks.push('education-header');
+        result.tailoredCv.education.forEach((_, idx) => {
+          orderedBlocks.push(`edu-${idx}`);
+        });
+      }
+      else if (section === 'projects' && result.tailoredCv.projects && result.tailoredCv.projects.length > 0) {
+        orderedBlocks.push('projects-header');
+        result.tailoredCv.projects.forEach((_, idx) => {
+          orderedBlocks.push(`project-${idx}`);
+        });
+      }
+      else if (section === 'skills' && result.tailoredCv.skills && result.tailoredCv.skills.length > 0) {
+        orderedBlocks.push('skills');
+      }
+      else if (section === 'languages' && result.tailoredCv.languages && result.tailoredCv.languages.length > 0) {
+        orderedBlocks.push('languages');
+      }
+    });
+
     orderedBlocks.push('signature');
     return orderedBlocks;
   };
 
+  const getFirstSectionWithData = () => {
+    if (!result) return '';
+    for (const section of sectionOrder) {
+      if (section === 'summary' && result.tailoredCv.summary) return 'summary';
+      if (section === 'work' && result.tailoredCv.workExperience && result.tailoredCv.workExperience.length > 0) return 'work-history-header';
+      if (section === 'education' && result.tailoredCv.education && result.tailoredCv.education.length > 0) return 'education-header';
+      if (section === 'projects' && result.tailoredCv.projects && result.tailoredCv.projects.length > 0) return 'projects-header';
+      if (section === 'skills' && result.tailoredCv.skills && result.tailoredCv.skills.length > 0) return 'skills';
+      if (section === 'languages' && result.tailoredCv.languages && result.tailoredCv.languages.length > 0) return 'languages';
+    }
+    return '';
+  };
+
   const renderBlock = (blockId: string, isMeasurement: boolean) => {
     if (!result) return null;
+    const isFirstSection = getFirstSectionWithData() === blockId;
 
     if (blockId === 'personal-header') {
       if (isAtsMode) {
@@ -892,7 +928,7 @@ export default function TailorWorkspace() {
               <div
                 className="text-left animate-none"
                 style={{
-                  marginTop: `${sectionSpacing * 0.4}px`,
+                  marginTop: `${isFirstSection ? 0 : sectionSpacing * 0.4}px`,
                   marginBottom: `${sectionSpacing * 0.3}px`
                 }}
               >
@@ -927,7 +963,7 @@ export default function TailorWorkspace() {
           data-block-id={blockId}
           className="text-left w-full"
           style={{
-            marginTop: `${sectionSpacing * 0.4}px`,
+            marginTop: `${isFirstSection ? 0 : sectionSpacing * 0.4}px`,
             marginBottom: `${sectionSpacing * 0.2}px`
           }}
         >
@@ -1189,7 +1225,7 @@ export default function TailorWorkspace() {
           data-block-id={blockId}
           className="text-left w-full"
           style={{
-            marginTop: `${sectionSpacing * 0.4}px`,
+            marginTop: `${isFirstSection ? 0 : sectionSpacing * 0.4}px`,
             marginBottom: `${sectionSpacing * 0.2}px`
           }}
         >
@@ -1366,6 +1402,168 @@ export default function TailorWorkspace() {
       );
     }
 
+    if (blockId === 'projects-header') {
+      return (
+        <div
+          key={blockId}
+          data-block-id={blockId}
+          className="text-left w-full"
+          style={{
+            marginTop: `${sectionSpacing * 0.4}px`,
+            marginBottom: `${sectionSpacing * 0.2}px`
+          }}
+        >
+          {(() => {
+            const title = cvLanguage === 'DE' ? 'Projekte' : 'Projects';
+            const idx = title.indexOf(' ');
+            const first = idx === -1 ? title : title.slice(0, idx);
+            const rest = idx === -1 ? '' : title.slice(idx + 1);
+            return (
+              <>
+                <h2 className="text-[15px] font-bold uppercase font-sans">
+                  <span className="text-gray-800">{first}</span>
+                  {rest && <span className="text-[#2980B9]">&nbsp;{rest}</span>}
+                </h2>
+                <div className="border-b border-[#CBD5E1] mt-1" />
+              </>
+            );
+          })()}
+        </div>
+      );
+    }
+
+    if (blockId.startsWith('project-')) {
+      const idx = parseInt(blockId.substring(8));
+      const proj = result.tailoredCv.projects?.[idx];
+      if (!proj) return null;
+      if (isAtsMode) {
+        return (
+          <div
+            key={blockId}
+            data-block-id={blockId}
+            className="w-full text-left font-sans flex flex-col"
+            style={{ marginBottom: `${bulletSpacing * 1.5}px` }}
+          >
+            <p
+              className="font-semibold text-[#2980B9] flex items-center gap-1.5 flex-wrap animate-none"
+              style={{ fontSize: `${fontSize + 0.5}px` }}
+            >
+              <ContentEditable
+                tagName="span"
+                value={proj.name}
+                onChange={(val) => handleProjectChange(idx, 'name', val, true)}
+                onBlur={(e: any) => handleProjectChange(idx, 'name', e.target.innerText, false)}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="focus:outline-none font-bold"
+              />
+              {proj.url && (
+                <a href={proj.url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-400 hover:underline no-print font-normal">
+                  ({proj.url})
+                </a>
+              )}
+            </p>
+            {proj.technologies && proj.technologies.length > 0 && (
+              <p className="text-[10px] text-gray-500 font-semibold mb-1">
+                Technologies:{' '}
+                <ContentEditable
+                  tagName="span"
+                  value={Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies}
+                  onChange={(val) => handleProjectChange(idx, 'technologies', val, true)}
+                  onBlur={(e: any) => handleProjectChange(idx, 'technologies', e.target.innerText, false)}
+                  useInnerText={true}
+                  isMeasurement={isMeasurement}
+                  className="focus:outline-none"
+                />
+              </p>
+            )}
+            <ContentEditable
+              tagName="p"
+              value={proj.description}
+              onChange={(val) => handleProjectChange(idx, 'description', val, true)}
+              onBlur={(e: any) => handleProjectChange(idx, 'description', e.target.innerHTML, false)}
+              isMeasurement={isMeasurement}
+              className="text-gray-700 text-left font-sans focus:outline-none"
+              style={{
+                fontSize: `${fontSize}px`,
+                lineHeight: 1.55
+              }}
+            />
+          </div>
+        );
+      }
+
+      return (
+        <div key={blockId} data-block-id={blockId} className="w-full text-left font-sans" style={{ marginBottom: `${bulletSpacing}px` }}>
+          <table className="w-full border-collapse">
+            <tbody>
+              <tr>
+                <td
+                  className="align-top pr-6 text-gray-800 w-[28%] font-bold"
+                  style={{
+                    paddingTop: `${bulletSpacing * 0.25}px`,
+                    paddingBottom: `${bulletSpacing * 0.25}px`,
+                    fontSize: `${fontSize}px`
+                  }}
+                >
+                  <ContentEditable
+                    tagName="span"
+                    value={proj.name}
+                    onChange={(val) => handleProjectChange(idx, 'name', val, true)}
+                    onBlur={(e: any) => handleProjectChange(idx, 'name', e.target.innerText, false)}
+                    useInnerText={true}
+                    isMeasurement={isMeasurement}
+                    className="focus:outline-none"
+                  />
+                </td>
+                <td
+                  className="align-top text-gray-700 leading-[1.55]"
+                  style={{
+                    paddingTop: `${bulletSpacing * 0.25}px`,
+                    paddingBottom: `${bulletSpacing * 0.25}px`
+                  }}
+                >
+                  <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                    {proj.technologies && proj.technologies.length > 0 && (
+                      <span className="text-[10px] text-gray-500 font-semibold">
+                        Technologies:{' '}
+                        <ContentEditable
+                          tagName="span"
+                          value={Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies}
+                          onChange={(val) => handleProjectChange(idx, 'technologies', val, true)}
+                          onBlur={(e: any) => handleProjectChange(idx, 'technologies', e.target.innerText, false)}
+                          useInnerText={true}
+                          isMeasurement={isMeasurement}
+                          className="focus:outline-none"
+                        />
+                      </span>
+                    )}
+                    {proj.url && (
+                      <a href={proj.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#2980B9] hover:underline no-print font-normal">
+                        ({proj.url})
+                      </a>
+                    )}
+                  </div>
+                  <ContentEditable
+                    tagName="p"
+                    value={proj.description}
+                    onChange={(val) => handleProjectChange(idx, 'description', val, true)}
+                    onBlur={(e: any) => handleProjectChange(idx, 'description', e.target.innerHTML, false)}
+                    isMeasurement={isMeasurement}
+                    className="text-gray-700 text-left font-sans focus:outline-none"
+                    style={{
+                      fontSize: `${fontSize}px`,
+                      lineHeight: 1.55
+                    }}
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+
     if (blockId === 'skills') {
       return (
         <div key={blockId} data-block-id={blockId} className="w-full text-left font-sans">
@@ -1378,7 +1576,7 @@ export default function TailorWorkspace() {
               <div
                 className="text-left"
                 style={{
-                  marginTop: `${sectionSpacing * 0.4}px`,
+                  marginTop: `${isFirstSection ? 0 : sectionSpacing * 0.4}px`,
                   marginBottom: `${sectionSpacing * 0.3}px`
                 }}
               >
@@ -1453,7 +1651,7 @@ export default function TailorWorkspace() {
           key={blockId}
           data-block-id={blockId}
           className="text-left w-full font-sans"
-          style={{ marginTop: `${sectionSpacing * 0.5}px` }}
+          style={{ marginTop: `${isFirstSection ? 0 : sectionSpacing * 0.5}px` }}
         >
           <p
             className="font-semibold text-gray-800 mb-1"
@@ -1687,7 +1885,7 @@ export default function TailorWorkspace() {
         }
       };
     }
-  }, [result, fontSize, sectionSpacing, pagePaddingTop, pagePaddingBottom, pagePaddingSide, bulletSpacing, signatureSpacing, photoHeight, headerSpacing, bulletStyle, lengthTarget, previewTab, showSignatureImage]);
+  }, [result, fontSize, sectionSpacing, pagePaddingTop, pagePaddingBottom, pagePaddingSide, bulletSpacing, signatureSpacing, photoHeight, headerSpacing, bulletStyle, lengthTarget, previewTab, showSignatureImage, sectionOrder]);
 
 
   const fetchProfile = async () => {
@@ -1698,6 +1896,10 @@ export default function TailorWorkspace() {
         // If the profile is completely empty (no fullName), mark as not set
         if (data.fullName) {
           setProfile(data);
+          // By default, select all projects if available
+          if (data.projects && data.projects.length > 0) {
+            setSelectedProjects(data.projects.map((p: any) => p.name));
+          }
           // Set default signing location based on profile address
           if (data.address && !signingLocation) {
             const parts = data.address.split(',');
@@ -1733,12 +1935,30 @@ export default function TailorWorkspace() {
         const clDoc = app.documents.find((d: any) => d.type === 'COVER_LETTER');
 
         if (cvDoc && clDoc) {
+          const parsedCv = JSON.parse(cvDoc.content);
           setResult({
             matchScore: app.matchScore,
             gapAnalysis: app.gapAnalysis,
-            tailoredCv: JSON.parse(cvDoc.content),
-            tailoredCoverLetter: JSON.parse(clDoc.content)
+            tailoredCv: parsedCv,
+            tailoredCoverLetter: JSON.parse(clDoc.content),
+            jobMetadata: {
+              techStack: app.techStack || '',
+              mainRequirements: app.mainRequirements || '',
+              recruiterName: app.recruiterName || '',
+              contactInfo: app.contactInfo || '',
+              jobType: app.jobType || '',
+              location: app.location || '',
+              remoteOrPhysical: app.remoteOrPhysical || ''
+            }
           });
+          if (parsedCv.sectionOrder) {
+            setSectionOrder(parsedCv.sectionOrder);
+          } else {
+            setSectionOrder(['summary', 'work', 'education', 'projects', 'skills', 'languages']);
+          }
+          if (parsedCv.projects && parsedCv.projects.length > 0) {
+            setSelectedProjects(parsedCv.projects.map((p: any) => p.name));
+          }
         }
       }
     } catch (err) {
@@ -1898,7 +2118,8 @@ export default function TailorWorkspace() {
           profile,
           matchStrategy,
           applicationId: editingAppId,
-          roleName
+          roleName,
+          selectedProjects
         })
       });
 
@@ -1942,7 +2163,7 @@ export default function TailorWorkspace() {
 
     const cleanCompany = (companyName || 'Company').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
     const cleanPosition = (roleName || 'Position').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-    const docLabel = type === 'cv' ? 'CV' : 'Cover Letter';
+    const docLabel = type === 'cv' ? 'CV' : 'CL';
     const fileName = `${cleanCompany}_${cleanPosition}_${docLabel}`;
 
     if (isCv) {
@@ -2245,7 +2466,7 @@ export default function TailorWorkspace() {
 
     const cleanCompany = (companyName || 'Company').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
     const cleanPosition = (roleName || 'Position').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-    const docLabel = type === 'cv' ? 'CV' : 'Cover Letter';
+    const docLabel = type === 'cv' ? 'CV' : 'CL';
     const fileName = `${cleanCompany}_${cleanPosition}_${docLabel}.doc`;
 
     const a = document.createElement('a');
@@ -2284,45 +2505,61 @@ export default function TailorWorkspace() {
         if (cv.personalDetails.nationality) textContent += `Staatsangehörigkeit: ${cv.personalDetails.nationality}\n\n`;
       }
 
-      if (cv.summary) {
-        textContent += `PROFESSIONAL SUMMARY\n`;
-        textContent += `--------------------------------------------------\n`;
-        textContent += `${cv.summary}\n\n`;
-      }
-
-      textContent += `WORK EXPERIENCE\n`;
-      textContent += `--------------------------------------------------\n`;
-      cv.workExperience.forEach((exp, idx) => {
-        textContent += `${exp.role} | ${exp.company} - ${exp.location}\n`;
-        textContent += `Period: ${exp.period}\n`;
-        getRenderedBullets(exp, bulletStyle, lengthTarget, idx === 0).forEach((bullet: string) => {
-          const cleanBullet = bullet.replace(/<[^>]*>/g, '');
-          textContent += `- ${cleanBullet}\n`;
-        });
-        textContent += `\n`;
+      sectionOrder.forEach((section) => {
+        if (section === 'summary' && cv.summary) {
+          textContent += `PROFESSIONAL SUMMARY\n`;
+          textContent += `--------------------------------------------------\n`;
+          textContent += `${cv.summary}\n\n`;
+        }
+        else if (section === 'work' && cv.workExperience && cv.workExperience.length > 0) {
+          textContent += `WORK EXPERIENCE\n`;
+          textContent += `--------------------------------------------------\n`;
+          cv.workExperience.forEach((exp: any, idx: number) => {
+            textContent += `${exp.role} | ${exp.company} - ${exp.location}\n`;
+            textContent += `Period: ${exp.period}\n`;
+            getRenderedBullets(exp, bulletStyle, lengthTarget, idx === 0).forEach((bullet: string) => {
+              const cleanBullet = bullet.replace(/<[^>]*>/g, '');
+              textContent += `- ${cleanBullet}\n`;
+            });
+            textContent += `\n`;
+          });
+        }
+        else if (section === 'education' && cv.education && cv.education.length > 0) {
+          textContent += `EDUCATION\n`;
+          textContent += `--------------------------------------------------\n`;
+          cv.education.forEach((edu: any) => {
+            textContent += `${edu.degree} | ${edu.institution} - ${edu.location}\n`;
+            textContent += `Period: ${edu.period}\n\n`;
+          });
+        }
+        else if (section === 'projects' && cv.projects && cv.projects.length > 0) {
+          textContent += `PROJECTS\n`;
+          textContent += `--------------------------------------------------\n`;
+          cv.projects.forEach((proj: any) => {
+            textContent += `${proj.name} ${proj.url ? `(${proj.url})` : ''}\n`;
+            if (proj.technologies && proj.technologies.length > 0) {
+              const techStr = Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies;
+              textContent += `Technologies: ${techStr}\n`;
+            }
+            const cleanDesc = proj.description.replace(/<[^>]*>/g, '');
+            textContent += `${cleanDesc}\n\n`;
+          });
+        }
+        else if (section === 'skills' && cv.skills && cv.skills.length > 0) {
+          textContent += `SKILLS\n`;
+          textContent += `--------------------------------------------------\n`;
+          const skillNames = cv.skills.map((s: any) => typeof s === 'string' ? s : s.name);
+          textContent += `${skillNames.join(', ')}\n\n`;
+        }
+        else if (section === 'languages' && cv.languages && cv.languages.length > 0) {
+          textContent += `LANGUAGES\n`;
+          textContent += `--------------------------------------------------\n`;
+          cv.languages.forEach((lang: any) => {
+            textContent += `${lang.language}: ${lang.level}\n`;
+          });
+          textContent += `\n`;
+        }
       });
-
-      textContent += `EDUCATION\n`;
-      textContent += `--------------------------------------------------\n`;
-      cv.education.forEach((edu) => {
-        textContent += `${edu.degree} | ${edu.institution} - ${edu.location}\n`;
-        textContent += `Period: ${edu.period}\n\n`;
-      });
-
-      textContent += `SKILLS\n`;
-      textContent += `--------------------------------------------------\n`;
-      const skillNames = cv.skills.map((s: any) => typeof s === 'string' ? s : s.name);
-      textContent += `${skillNames.join(', ')}\n\n`;
-
-      textContent += `LANGUAGES\n`;
-      textContent += `--------------------------------------------------\n`;
-      cv.languages.forEach((lang) => {
-        textContent += `${lang.language}: ${lang.level}\n`;
-      });
-
-      if (cv.signingLine) {
-        textContent += `\n\n${cv.signingLine}\n`;
-      }
     } else {
       const cl = result.tailoredCoverLetter;
       textContent += `SENDER:\n${cl.senderAddress}\n\n`;
@@ -2347,7 +2584,7 @@ export default function TailorWorkspace() {
 
     const cleanCompany = (companyName || 'Company').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
     const cleanPosition = (roleName || 'Position').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-    const docLabel = type === 'cv' ? 'CV' : 'Cover Letter';
+    const docLabel = type === 'cv' ? 'CV' : 'CL';
     const fileName = `${cleanCompany}_${cleanPosition}_${docLabel}.txt`;
 
     const a = document.createElement('a');
@@ -2445,8 +2682,15 @@ export default function TailorWorkspace() {
       matchScore: result.matchScore,
       gapAnalysis: result.gapAnalysis,
       targetLanguage: cvLanguage,
+      techStack: result.jobMetadata?.techStack || '',
+      mainRequirements: result.jobMetadata?.mainRequirements || '',
+      recruiterName: result.jobMetadata?.recruiterName || '',
+      contactInfo: result.jobMetadata?.contactInfo || '',
+      jobType: result.jobMetadata?.jobType || '',
+      location: result.jobMetadata?.location || '',
+      remoteOrPhysical: result.jobMetadata?.remoteOrPhysical || '',
       documents: [
-        { type: 'CV', content: JSON.stringify(result.tailoredCv) },
+        { type: 'CV', content: JSON.stringify({ ...result.tailoredCv, sectionOrder }) },
         { type: 'COVER_LETTER', content: JSON.stringify(result.tailoredCoverLetter) }
       ]
     };
@@ -2695,6 +2939,34 @@ export default function TailorWorkspace() {
       tailoredCv: {
         ...result.tailoredCv,
         signingLine: value
+      }
+    };
+    if (isRealtime) {
+      updateResultRealtime(updated);
+    } else {
+      setResult(updated);
+    }
+  };
+
+  const handleProjectChange = (idx: number, key: 'name' | 'description' | 'technologies', value: any, isRealtime = false) => {
+    if (!result) return;
+    const newProjects = [...(result.tailoredCv.projects || [])];
+    
+    let processedValue = value;
+    if (key === 'technologies' && typeof value === 'string') {
+      processedValue = value.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    
+    newProjects[idx] = {
+      ...newProjects[idx],
+      [key]: processedValue
+    };
+    
+    const updated = {
+      ...result,
+      tailoredCv: {
+        ...result.tailoredCv,
+        projects: newProjects
       }
     };
     if (isRealtime) {
@@ -2993,6 +3265,109 @@ export default function TailorWorkspace() {
                 </div>
               </div>
             </div>
+
+            {/* Selected Projects */}
+            {profile && profile.projects && profile.projects.length > 0 && (
+              <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5 justify-between">
+                  <span className="flex items-center gap-1.5 font-sans">
+                    <FolderGit className="w-3.5 h-3.5 text-indigo-400" />
+                    Include Project Works
+                  </span>
+                  <span className="text-[9px] text-zinc-500 font-normal font-sans">Optional</span>
+                </h3>
+
+                {lengthTarget.includes('1-Page') && (
+                  <div className="p-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-[10px] text-amber-300 leading-relaxed font-sans">
+                    ⚠️ <strong>Strict 1-Page Constraint:</strong> Adding projects may exceed the single-page height. Consider selecting at most 1 project, or changing length target to <strong>Standard 2-Page</strong>.
+                  </div>
+                )}
+
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1 font-sans">
+                  {profile.projects.map((proj: any, idx: number) => {
+                    const isChecked = selectedProjects.includes(proj.name);
+                    return (
+                      <label key={idx} className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-white/5 cursor-pointer transition-all border border-transparent hover:border-white/5">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setSelectedProjects(prev => [...prev, proj.name]);
+                            } else {
+                              setSelectedProjects(prev => prev.filter(name => name !== proj.name));
+                            }
+                          }}
+                          className="mt-0.5 w-3.5 h-3.5 text-indigo-600 bg-zinc-950 border-zinc-800 rounded focus:ring-indigo-500 focus:ring-2 accent-indigo-500 cursor-pointer"
+                        />
+                        <div className="text-left">
+                          <span className="text-xs font-semibold text-zinc-200 block">{proj.name}</span>
+                          <span className="text-[10px] text-zinc-400 line-clamp-1">{proj.description}</span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Section Order Panel */}
+            {result && (
+              <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3 font-sans">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5 justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5 text-indigo-400" />
+                    CV Section Order
+                  </span>
+                </h3>
+                <div className="space-y-1.5">
+                  {sectionOrder.map((section, idx) => {
+                    let label = 'Summary';
+                    if (section === 'work') label = 'Work History';
+                    else if (section === 'education') label = 'Education';
+                    else if (section === 'projects') label = 'Project Works';
+                    else if (section === 'skills') label = 'Skills';
+                    else if (section === 'languages') label = 'Languages';
+
+                    return (
+                      <div key={section} className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] border border-white/5 text-xs text-zinc-300">
+                        <span>{label}</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            disabled={idx === 0}
+                            onClick={() => {
+                              const newOrder = [...sectionOrder];
+                              const temp = newOrder[idx - 1];
+                              newOrder[idx - 1] = newOrder[idx];
+                              newOrder[idx] = temp;
+                              setSectionOrder(newOrder);
+                            }}
+                            className="p-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:text-zinc-500 transition-colors cursor-pointer"
+                            title="Move Up"
+                          >
+                            ▲
+                          </button>
+                          <button
+                            disabled={idx === sectionOrder.length - 1}
+                            onClick={() => {
+                              const newOrder = [...sectionOrder];
+                              const temp = newOrder[idx + 1];
+                              newOrder[idx + 1] = newOrder[idx];
+                              newOrder[idx] = temp;
+                              setSectionOrder(newOrder);
+                            }}
+                            className="p-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:text-zinc-500 transition-colors cursor-pointer"
+                            title="Move Down"
+                          >
+                            ▼
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Visual Spacing Fine-Tuning Sidebar Panel */}
             {result && previewTab === 'cv' && (

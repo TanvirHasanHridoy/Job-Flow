@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { 
-  User, Briefcase, GraduationCap, Code2, Globe2, Plus, Trash2, Save, Sparkles, CheckCircle2, RefreshCw, FileText 
+  User, Briefcase, GraduationCap, Code2, Globe2, Plus, Trash2, Save, Sparkles, CheckCircle2, RefreshCw, FileText, FolderGit 
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { classifySkillCategory, SKILL_CATEGORIES } from '@/lib/skills';
@@ -39,6 +39,13 @@ interface Language {
   level: string;
 }
 
+interface Project {
+  name: string;
+  description: string;
+  technologies: string[];
+  url?: string;
+}
+
 interface UserProfile {
   fullName: string;
   email: string;
@@ -56,6 +63,7 @@ interface UserProfile {
   education: Education[];
   skills: Skill[];
   languages: Language[];
+  projects?: Project[];
 }
 
 const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'Native', 'Muttersprache'];
@@ -78,10 +86,11 @@ export default function ProfileVault() {
     workExperience: [],
     education: [],
     skills: [],
-    languages: []
+    languages: [],
+    projects: []
   });
 
-  const [activeTab, setActiveTab] = useState<'personal' | 'experience' | 'education' | 'skills'>('personal');
+  const [activeTab, setActiveTab] = useState<'personal' | 'experience' | 'education' | 'skills' | 'projects'>('personal');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -334,6 +343,15 @@ export default function ProfileVault() {
   // Languages temp states
   const [newLang, setNewLang] = useState<Language>({ language: '', level: 'B2' });
 
+  // Projects temp states
+  const [newProject, setNewProject] = useState<Project>({
+    name: '',
+    description: '',
+    technologies: [],
+    url: ''
+  });
+  const [newProjTechs, setNewProjTechs] = useState('');
+
   useEffect(() => {
     fetchProfile();
   }, []);
@@ -514,6 +532,30 @@ export default function ProfileVault() {
     setProfile(prev => ({
       ...prev,
       languages: prev.languages.filter((_, i) => i !== index)
+    }));
+  };
+
+  // Project Operations
+  const addProject = () => {
+    if (!newProject.name.trim()) return;
+    const technologies = newProjTechs.split(',').map(t => t.trim()).filter(Boolean);
+    setProfile(prev => ({
+      ...prev,
+      projects: [...(prev.projects || []), { ...newProject, technologies }]
+    }));
+    setNewProject({
+      name: '',
+      description: '',
+      technologies: [],
+      url: ''
+    });
+    setNewProjTechs('');
+  };
+
+  const removeProject = (index: number) => {
+    setProfile(prev => ({
+      ...prev,
+      projects: (prev.projects || []).filter((_, i) => i !== index)
     }));
   };
 
@@ -742,6 +784,18 @@ export default function ProfileVault() {
           >
             <Code2 className="w-4 h-4" />
             <span>Skills & Languages</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('projects')}
+            className={`w-full text-left px-4 py-3.5 rounded-xl flex items-center gap-3 transition-all duration-300 border ${
+              activeTab === 'projects'
+                ? 'bg-indigo-600/15 border-indigo-500/30 text-white font-semibold shadow-inner'
+                : 'border-transparent text-zinc-400 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <FolderGit className="w-4 h-4" />
+            <span>Project Works</span>
           </button>
         </div>
 
@@ -1410,6 +1464,117 @@ export default function ProfileVault() {
                   >
                     <Plus className="w-3.5 h-3.5" />
                     Add
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: Projects */}
+          {activeTab === 'projects' && (
+            <div className="space-y-8">
+              <h2 className="text-xl font-bold text-white pb-3 border-b border-white/5 flex items-center gap-2 font-sans">
+                <FolderGit className="w-5 h-5 text-indigo-400" />
+                Project Works
+              </h2>
+
+              {/* List of Existing Projects */}
+              {profile.projects && profile.projects.length > 0 && (
+                <div className="space-y-4">
+                  {profile.projects.map((proj, idx) => (
+                    <div key={idx} className="p-4 rounded-xl border border-white/5 bg-white/[0.02] flex items-start justify-between gap-4 font-sans">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h4 className="font-bold text-white text-sm">{proj.name}</h4>
+                          {proj.url && (
+                            <a href={proj.url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-400 hover:underline">
+                              Link
+                            </a>
+                          )}
+                        </div>
+                        <p className="text-xs text-zinc-300 leading-relaxed">{proj.description}</p>
+                        {proj.technologies && proj.technologies.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {proj.technologies.map((t, tIdx) => (
+                              <span key={tIdx} className="px-2 py-0.5 rounded bg-zinc-800 text-[10px] text-zinc-400 border border-zinc-700/50">
+                                {t}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => removeProject(idx)}
+                        className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-500 hover:text-rose-400 transition-all border border-zinc-800 cursor-pointer"
+                        title="Remove project"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add New Project Form */}
+              <div className="p-5 border border-white/5 bg-white/[0.01] rounded-2xl space-y-4 font-sans">
+                <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                  <Plus className="w-4 h-4 text-indigo-400" />
+                  Add Project Work
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Project Name</label>
+                    <input
+                      type="text"
+                      value={newProject.name}
+                      onChange={e => setNewProject(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="e.g. JobFlow AI"
+                      className="glass-input px-3.5 py-2 w-full text-xs text-white"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Project URL / Github Link (Optional)</label>
+                    <input
+                      type="url"
+                      value={newProject.url || ''}
+                      onChange={e => setNewProject(prev => ({ ...prev, url: e.target.value }))}
+                      placeholder="e.g. https://github.com/username/project"
+                      className="glass-input px-3.5 py-2 w-full text-xs text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Technologies (Comma separated)</label>
+                  <input
+                    type="text"
+                    value={newProjTechs}
+                    onChange={e => setNewProjTechs(e.target.value)}
+                    placeholder="e.g. Next.js, TypeScript, Tailwind CSS, PostgreSQL"
+                    className="glass-input px-3.5 py-2 w-full text-xs text-white"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Project Description</label>
+                  <textarea
+                    value={newProject.description}
+                    onChange={e => setNewProject(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Describe the project achievements, outcomes, responsibilities, or technical accomplishments..."
+                    rows={3}
+                    className="glass-input p-3 w-full text-xs text-white font-sans resize-none"
+                  />
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    onClick={addProject}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 w-full md:w-auto cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add Project
                   </button>
                 </div>
               </div>

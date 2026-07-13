@@ -324,6 +324,44 @@ export function CvDocument({ cv, options }: { cv: any; options: any }) {
           </View>
         )}
 
+        {/* Projects */}
+        {cv.projects && cv.projects.length > 0 && (
+          <View>
+            <View style={cvStyles.sectionTitleContainer}>
+              <Text style={cvStyles.sectionTitleText}>
+                {options.cvLanguage === 'DE' ? 'PROJEKTE' : 'PROJECTS'}
+              </Text>
+            </View>
+            {cv.projects.map((proj: any, idx: number) => {
+              const techStr = Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies;
+              return (
+                <View key={idx} style={cvStyles.tableRow}>
+                  <Text style={{ ...cvStyles.dateCell, fontFamily: 'Inter', fontWeight: 700, color: '#111827' }}>
+                    {proj.name}
+                  </Text>
+                  <View style={cvStyles.contentCell}>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 2 }}>
+                      {techStr ? (
+                        <Text style={{ fontSize: 9, color: '#4B5563', fontFamily: 'Inter', fontWeight: 700 }}>
+                          Technologies: {techStr}
+                        </Text>
+                      ) : null}
+                      {proj.url ? (
+                        <Text style={{ fontSize: 9, color: '#2563EB', marginLeft: 6 }}>
+                          ({proj.url})
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text style={{ ...cvStyles.bulletText, marginTop: 4 }}>
+                      {proj.description ? proj.description.replace(/<[^>]*>/g, '') : ''}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {/* Skills */}
         {cv.skills && cv.skills.length > 0 && (
           <View>

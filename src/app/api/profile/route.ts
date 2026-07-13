@@ -30,7 +30,8 @@ export async function GET() {
         workExperience: [],
         education: [],
         skills: [],
-        languages: []
+        languages: [],
+        projects: []
       });
     }
 
@@ -40,6 +41,7 @@ export async function GET() {
       education: JSON.parse(profile.education),
       skills: JSON.parse(profile.skills),
       languages: JSON.parse(profile.languages),
+      projects: JSON.parse(profile.projects || '[]'),
     });
   } catch (error: any) {
     console.error('Error fetching profile:', error);
@@ -72,7 +74,8 @@ export async function POST(req: Request) {
       workExperience = [],
       education = [],
       skills = [],
-      languages = []
+      languages = [],
+      projects = []
     } = body;
 
     const data = {
@@ -91,7 +94,8 @@ export async function POST(req: Request) {
       workExperience: JSON.stringify(workExperience),
       education: JSON.stringify(education),
       skills: JSON.stringify(skills),
-      languages: JSON.stringify(languages)
+      languages: JSON.stringify(languages),
+      projects: JSON.stringify(projects)
     };
 
     // Upsert: create if not exists, update if exists
@@ -110,6 +114,7 @@ export async function POST(req: Request) {
       education: JSON.parse(savedProfile.education),
       skills: JSON.parse(savedProfile.skills),
       languages: JSON.parse(savedProfile.languages),
+      projects: JSON.parse(savedProfile.projects || '[]'),
     });
   } catch (error: any) {
     console.error('Error saving profile:', error);
