@@ -76,7 +76,7 @@ export default function AppHeader() {
 
       {/* Mobile Dropdown Navigation Drawer */}
       {menuOpen && (
-        <div className="absolute top-full left-0 right-0 bg-[#0a061b]/95 backdrop-blur-md border-b border-white/5 p-5 flex flex-col gap-3.5 md:hidden z-40 animate-in slide-in-from-top duration-200 shadow-2xl">
+        <div className="absolute top-full left-0 right-0 bg-[var(--surface-2)]/95 backdrop-blur-md border-b border-white/5 p-5 flex flex-col gap-3.5 md:hidden z-40 animate-in slide-in-from-top duration-200 shadow-2xl">
           <Link 
             href="/dashboard"
             onClick={() => setMenuOpen(false)}

@@ -1,68 +1,191 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════
+   SHARED COLORS — Same in both dark and light mode
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  /* Brand / Accent */
+  --color-primary: #6366f1;
+  --color-primary-hover: #4f46e5;
+  --color-primary-deep: #3730a3;
+  --color-primary-light: #818cf8;
+  --color-primary-pale: #a5b4fc;
+  --color-secondary: #a855f7;
+  --color-secondary-dark: #7c3aed;
+  --color-accent: #06b6d4;
+  --color-accent-dark: #0891b2;
+
+  /* Semantic / Status */
+  --color-success: #059669;
+  --color-error: #e11d48;
+  --color-warning: #d97706;
+
+  /* Print */
+  --print-bg: #ffffff;
+  --print-text: #000000;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DARK MODE (default)
+   ═══════════════════════════════════════════════════════════════ */
 :root {
   --background: #030014;
   --foreground: #f4f4f5;
-  --primary-glow: radial-gradient(rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0));
-  --secondary-glow: radial-gradient(rgba(168, 85, 247, 0.15), rgba(168, 85, 247, 0));
-  
-  --card-bg: rgba(15, 12, 30, 0.55);
-  --card-border: rgba(255, 255, 255, 0.08);
-  --card-shadow: rgba(0, 0, 0, 0.37);
-  --card-hover-bg: rgba(20, 16, 40, 0.7);
-  --card-hover-border: rgba(99, 102, 241, 0.3);
-  --card-hover-shadow: rgba(99, 102, 241, 0.15);
-  
+
+  /* Surfaces */
+  --surface-1: #0b081e;
+  --surface-2: #0a061b;
+  --surface-3: #080517;
+  --surface-4: #040116;
+  --surface-5: #0f0c1e;
+  --surface-checkerboard-base: #0d0d0d;
+  --surface-checkerboard-square: #181818;
+
+  /* Text */
+  --text-on-surface: #ffffff;
+
+  /* Glass */
+  --glass-bg: rgba(15, 12, 30, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: rgba(0, 0, 0, 0.37);
+  --glass-hover-bg: rgba(20, 16, 40, 0.7);
+  --glass-hover-border: rgba(99, 102, 241, 0.3);
+  --glass-hover-shadow: rgba(99, 102, 241, 0.15);
+
+  /* Inputs */
   --input-bg: rgba(255, 255, 255, 0.03);
   --input-border: rgba(255, 255, 255, 0.08);
   --input-text: #ffffff;
   --input-focus-bg: rgba(255, 255, 255, 0.07);
-  
+  --input-focus-border: rgba(99, 102, 241, 0.5);
+  --input-focus-ring: rgba(99, 102, 241, 0.2);
+
+  /* Scrollbar */
   --scroll-track: rgba(3, 0, 20, 0.5);
-  
+  --scroll-thumb: rgba(99, 102, 241, 0.3);
+  --scroll-thumb-hover: rgba(99, 102, 241, 0.5);
+
+  /* Gradient Text */
   --gradient-text-from: #ffffff;
   --gradient-text-via: #e4e4e7;
   --gradient-text-to: #a5b4fc;
+
+  /* Background Glows */
+  --primary-glow-color: rgba(99, 102, 241, 0.15);
+  --secondary-glow-color: rgba(168, 85, 247, 0.15);
+
+  /* Card (derived from glass, kept for @theme compatibility) */
+  --card-bg: var(--glass-bg);
+  --card-border: var(--glass-border);
+  --card-shadow: var(--glass-shadow);
+  --card-hover-bg: var(--glass-hover-bg);
+  --card-hover-border: var(--glass-hover-border);
+  --card-hover-shadow: var(--glass-hover-shadow);
 }
 
-/* Light Theme CSS Variables */
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT MODE
+   ═══════════════════════════════════════════════════════════════ */
 .light {
   --background: #f9fafb;
   --foreground: #111827;
-  --primary-glow: radial-gradient(rgba(99, 102, 241, 0.06), rgba(99, 102, 241, 0));
-  --secondary-glow: radial-gradient(rgba(168, 85, 247, 0.06), rgba(168, 85, 247, 0));
-  
-  --card-bg: rgba(255, 255, 255, 0.75);
-  --card-border: rgba(0, 0, 0, 0.06);
-  --card-shadow: rgba(0, 0, 0, 0.05);
-  --card-hover-bg: rgba(255, 255, 255, 0.95);
-  --card-hover-border: rgba(99, 102, 241, 0.25);
-  --card-hover-shadow: rgba(99, 102, 241, 0.08);
-  
+
+  /* Surfaces */
+  --surface-1: #ffffff;
+  --surface-2: #f3f4f6;
+  --surface-3: #e5e7eb;
+  --surface-4: #d1d5db;
+
+  /* Text */
+  --text-on-surface: #111827;
+  --text-secondary: #1f2937;
+  --text-tertiary: #374151;
+  --text-muted: #4b5563;
+  --text-subtle: #6b7280;
+
+  /* Glass */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --glass-shadow: rgba(0, 0, 0, 0.05);
+  --glass-hover-bg: rgba(255, 255, 255, 0.85);
+  --glass-hover-border: rgba(99, 102, 241, 0.2);
+  --glass-hover-shadow: rgba(99, 102, 241, 0.08);
+
+  /* Inputs */
   --input-bg: rgba(0, 0, 0, 0.02);
   --input-border: rgba(0, 0, 0, 0.08);
   --input-text: #111827;
   --input-focus-bg: rgba(0, 0, 0, 0.04);
-  
+  --input-focus-border: rgba(99, 102, 241, 0.4);
+
+  /* Scrollbar */
   --scroll-track: rgba(243, 244, 246, 0.5);
-  
+
+  /* Gradient Text */
   --gradient-text-from: #111827;
   --gradient-text-via: #374151;
   --gradient-text-to: #4f46e5;
+
+  /* Background Glows */
+  --primary-glow-color: rgba(99, 102, 241, 0.06);
+  --secondary-glow-color: rgba(168, 85, 247, 0.06);
+
+  /* Card */
+  --card-bg: var(--glass-bg);
+  --card-border: var(--glass-border);
+  --card-shadow: var(--glass-shadow);
+  --card-hover-bg: var(--glass-hover-bg);
+  --card-hover-border: var(--glass-hover-border);
+  --card-hover-shadow: var(--glass-hover-shadow);
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   TAILWIND @theme REGISTRATION
+   ═══════════════════════════════════════════════════════════════ */
 @theme {
-  --color-primary: #6366f1; /* Indigo */
-  --color-primary-hover: #4f46e5;
-  --color-secondary: #a855f7; /* Purple */
-  --color-accent: #06b6d4; /* Cyan */
+  --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
+  --color-secondary: var(--color-secondary);
+  --color-accent: var(--color-accent);
   --color-dark-bg: var(--background);
   --color-card-bg: var(--card-bg);
   --color-card-border: var(--card-border);
+
+  /* Tailwind Core Color Overrides linked to CSS custom properties */
+  --color-indigo-400: var(--color-primary-light);
+  --color-indigo-500: var(--color-primary);
+  --color-indigo-600: var(--color-primary-hover);
+  --color-indigo-700: var(--color-primary-deep);
   
+  --color-purple-400: var(--color-secondary);
+  --color-purple-500: var(--color-secondary);
+  --color-purple-600: var(--color-secondary-dark);
+  
+  --color-cyan-400: var(--color-accent);
+  --color-cyan-500: var(--color-accent);
+  --color-cyan-600: var(--color-accent-dark);
+  
+  --color-emerald-400: var(--color-success);
+  --color-emerald-500: var(--color-success);
+  
+  --color-rose-400: var(--color-error);
+  --color-rose-500: var(--color-error);
+  
+  --color-amber-400: var(--color-warning);
+  --color-amber-500: var(--color-warning);
+
+  /* Mappings for standard background/surface shades */
+  --color-zinc-950: var(--surface-4);
+  --color-zinc-900: var(--surface-3);
+  --color-zinc-800: var(--surface-2);
+  --color-zinc-700: var(--surface-1);
+
   --font-sans: 'Outfit', 'Inter', sans-serif;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   BODY STYLES
+   ═══════════════════════════════════════════════════════════════ */
 body {
   background-color: var(--background);
   color: var(--foreground);
@@ -81,7 +204,7 @@ body::before {
   width: 600px;
   height: 600px;
   border-radius: 50%;
-  background: var(--primary-glow);
+  background: radial-gradient(var(--primary-glow-color), transparent);
   filter: blur(80px);
   z-index: -1;
   pointer-events: none;
@@ -95,19 +218,21 @@ body::after {
   width: 500px;
   height: 500px;
   border-radius: 50%;
-  background: var(--secondary-glow);
+  background: radial-gradient(var(--secondary-glow-color), transparent);
   filter: blur(80px);
   z-index: -1;
   pointer-events: none;
 }
 
-/* Glassmorphism utility */
+/* ═══════════════════════════════════════════════════════════════
+   GLASSMORPHISM UTILITIES
+   ═══════════════════════════════════════════════════════════════ */
 .glass-panel {
-  background: rgba(15, 12, 30, 0.55);
+  background: var(--glass-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 8px 32px 0 var(--glass-shadow);
 }
 
 .glass-panel-hover {
@@ -115,47 +240,51 @@ body::after {
 }
 
 .glass-panel-hover:hover {
-  background: rgba(20, 16, 40, 0.7);
-  border-color: rgba(99, 102, 241, 0.3);
-  box-shadow: 0 12px 40px 0 rgba(99, 102, 241, 0.15);
+  background: var(--glass-hover-bg);
+  border-color: var(--glass-hover-border);
+  box-shadow: 0 12px 40px 0 var(--glass-hover-shadow);
   transform: translateY(-2px);
 }
 
 .glass-input {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
   border-radius: 8px;
-  color: #ffffff;
+  color: var(--input-text);
   transition: all 0.2s ease;
 }
 
 .glass-input:focus {
-  background: rgba(255, 255, 255, 0.07);
-  border-color: rgba(99, 102, 241, 0.5);
-  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  background: var(--input-focus-bg);
+  border-color: var(--input-focus-border);
+  box-shadow: 0 0 0 2px var(--input-focus-ring);
   outline: none;
 }
 
-/* Custom Scrollbar */
+/* ═══════════════════════════════════════════════════════════════
+   CUSTOM SCROLLBAR
+   ═══════════════════════════════════════════════════════════════ */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(3, 0, 20, 0.5);
+  background: var(--scroll-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.3);
+  background: var(--scroll-thumb);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.5);
+  background: var(--scroll-thumb-hover);
 }
 
-/* Animations */
+/* ═══════════════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════════════ */
 @keyframes pulse-glow {
   0%, 100% {
     opacity: 0.5;
@@ -171,11 +300,13 @@ body::after {
   animation: pulse-glow 4s infinite ease-in-out;
 }
 
-/* PDF Print styles to handle perfect layout & paging */
+/* ═══════════════════════════════════════════════════════════════
+   PDF PRINT STYLES
+   ═══════════════════════════════════════════════════════════════ */
 @media print {
   body {
-    background: #ffffff !important;
-    color: #000000 !important;
+    background: var(--print-bg) !important;
+    color: var(--print-text) !important;
   }
   
   .no-print {
@@ -188,8 +319,8 @@ body::after {
     margin: 0 auto;
     padding: 20mm;
     box-shadow: none !important;
-    background: #ffffff !important;
-    color: #000000 !important;
+    background: var(--print-bg) !important;
+    color: var(--print-text) !important;
     font-size: 10pt;
     line-height: 1.5;
     page-break-after: always;
@@ -206,39 +337,44 @@ body::after {
   }
 }
 
-/* Light theme color and layout utility overrides */
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT THEME OVERRIDES
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Headings & text */
 .light h1, .light h2, .light h3, .light h4, .light h5, .light h6 {
-  color: #111827 !important;
+  color: var(--foreground) !important;
 }
 
 .light p {
-  color: #374151 !important;
+  color: var(--text-tertiary) !important;
 }
 
 .light .text-zinc-400 {
-  color: #4b5563 !important;
+  color: var(--text-muted) !important;
 }
 
 .light .text-zinc-300 {
-  color: #374151 !important;
+  color: var(--text-tertiary) !important;
 }
 
 .light .text-zinc-500 {
-  color: #6b7280 !important;
+  color: var(--text-subtle) !important;
 }
 
 .light .text-zinc-600 {
-  color: #4b5563 !important;
+  color: var(--text-muted) !important;
 }
 
 .light .text-zinc-200 {
-  color: #1f2937 !important;
+  color: var(--text-secondary) !important;
 }
 
 .light .text-zinc-100 {
-  color: #111827 !important;
+  color: var(--foreground) !important;
 }
 
+/* Borders */
 .light .border-white\/5 {
   border-color: rgba(0, 0, 0, 0.08) !important;
 }
@@ -251,6 +387,7 @@ body::after {
   border-color: rgba(0, 0, 0, 0.16) !important;
 }
 
+/* Backgrounds */
 .light .bg-white\/5 {
   background-color: rgba(0, 0, 0, 0.04) !important;
 }
@@ -280,69 +417,90 @@ body::after {
 }
 
 .light .bg-zinc-950 {
-  background-color: #ffffff !important;
+  background-color: var(--surface-1) !important;
 }
 
 .light .bg-\[\#0b081e\]\/30 {
   background-color: rgba(0, 0, 0, 0.02) !important;
 }
 
+.light .bg-\[var\(--surface-4\)\] {
+  background-color: var(--surface-2) !important;
+}
+
+.light .bg-\[var\(--surface-2\)\] {
+  background-color: var(--surface-1) !important;
+}
+
+.light .bg-\[var\(--surface-3\)\] {
+  background-color: var(--surface-1) !important;
+}
+
+.light .bg-\[var\(--surface-1\)\] {
+  background-color: var(--surface-1) !important;
+}
+
+.light .bg-\[var\(--background\)\] {
+  background-color: var(--background) !important;
+}
+
+/* Legacy class overrides for any remaining old references */
 .light .bg-\[\#040116\] {
-  background-color: #f3f4f6 !important;
+  background-color: var(--surface-2) !important;
 }
 
 .light .bg-\[\#0a061b\] {
-  background-color: #ffffff !important;
+  background-color: var(--surface-1) !important;
 }
 
 .light .bg-\[\#080517\] {
-  background-color: #ffffff !important;
+  background-color: var(--surface-1) !important;
 }
 
 .light .bg-\[\#0b081e\] {
-  background-color: #f9fafb !important;
+  background-color: var(--background) !important;
 }
 
 .light .bg-zinc-800 {
-  background-color: #e5e7eb !important;
-  color: #1f2937 !important;
-  border-color: #d1d5db !important;
+  background-color: var(--surface-3) !important;
+  color: var(--text-secondary) !important;
+  border-color: var(--surface-4) !important;
 }
 
 .light .bg-zinc-800:hover {
-  background-color: #d1d5db !important;
+  background-color: var(--surface-4) !important;
 }
 
 .light .text-zinc-700 {
-  color: #374151 !important;
+  color: var(--text-tertiary) !important;
 }
 
 .light .text-zinc-800 {
-  color: #1f2937 !important;
+  color: var(--text-secondary) !important;
 }
 
 /* Glass Panels & Inputs */
 .light .glass-panel {
-  background: rgba(255, 255, 255, 0.7) !important;
-  border-color: rgba(0, 0, 0, 0.06) !important;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05) !important;
+  background: var(--glass-bg) !important;
+  border-color: var(--glass-border) !important;
+  box-shadow: 0 8px 32px 0 var(--glass-shadow) !important;
 }
 
 .light .glass-panel-hover:hover {
-  background: rgba(255, 255, 255, 0.85) !important;
-  border-color: rgba(99, 102, 241, 0.2) !important;
-  box-shadow: 0 12px 40px 0 rgba(99, 102, 241, 0.08) !important;
+  background: var(--glass-hover-bg) !important;
+  border-color: var(--glass-hover-border) !important;
+  box-shadow: 0 12px 40px 0 var(--glass-hover-shadow) !important;
 }
 
 .light .glass-input {
-  background: rgba(0, 0, 0, 0.02) !important;
-  border-color: rgba(0, 0, 0, 0.08) !important;
-  color: #111827 !important;
+  background: var(--input-bg) !important;
+  border-color: var(--input-border) !important;
+  color: var(--foreground) !important;
 }
 
 .light .glass-input:focus {
-  background: rgba(0, 0, 0, 0.04) !important;
-  border-color: rgba(99, 102, 241, 0.4) !important;
+  background: var(--input-focus-bg) !important;
+  border-color: var(--input-focus-border) !important;
 }
 
 /* Gradient Text Dynamic Scaling Overrides */
@@ -352,36 +510,37 @@ body::after {
 }
 
 /* WCAG AA Compliant Accent Colors on Light Mode */
-.light .text-indigo-400 { color: #4f46e5 !important; }
-.light .text-purple-400 { color: #7c3aed !important; }
-.light .text-cyan-400 { color: #0891b2 !important; }
-.light .text-emerald-400 { color: #059669 !important; }
-.light .text-rose-400 { color: #e11d48 !important; }
-.light .text-amber-400 { color: #d97706 !important; }
+.light .text-indigo-400 { color: var(--color-primary-hover) !important; }
+.light .text-purple-400 { color: var(--color-secondary-dark) !important; }
+.light .text-cyan-400 { color: var(--color-accent-dark) !important; }
+.light .text-emerald-400 { color: var(--color-success) !important; }
+.light .text-rose-400 { color: var(--color-error) !important; }
+.light .text-amber-400 { color: var(--color-warning) !important; }
 
 /* Status Column & Badge Borders in Light Mode */
 .light .border-indigo-500\/30 { border-color: rgba(79, 70, 229, 0.25) !important; }
 .light .border-indigo-500\/20 { border-color: rgba(79, 70, 229, 0.15) !important; }
 .light .bg-indigo-500\/5 { background-color: rgba(79, 70, 229, 0.05) !important; }
-.light .text-indigo-300 { color: #4f46e5 !important; }
+.light .text-indigo-300 { color: var(--color-primary-hover) !important; }
 
 .light .border-cyan-500\/30 { border-color: rgba(8, 145, 178, 0.25) !important; }
 .light .border-cyan-500\/20 { border-color: rgba(8, 145, 178, 0.15) !important; }
 .light .bg-cyan-500\/5 { background-color: rgba(8, 145, 178, 0.05) !important; }
-.light .text-cyan-300 { color: #0891b2 !important; }
+.light .text-cyan-300 { color: var(--color-accent-dark) !important; }
 
 .light .border-purple-500\/30 { border-color: rgba(124, 58, 237, 0.25) !important; }
 .light .border-purple-500\/20 { border-color: rgba(124, 58, 237, 0.15) !important; }
 .light .bg-purple-500\/5 { background-color: rgba(124, 58, 237, 0.05) !important; }
-.light .text-purple-300 { color: #7c3aed !important; }
+.light .text-purple-300 { color: var(--color-secondary-dark) !important; }
 
 .light .border-emerald-500\/30 { border-color: rgba(5, 150, 105, 0.25) !important; }
 .light .border-emerald-500\/20 { border-color: rgba(5, 150, 105, 0.15) !important; }
 .light .bg-emerald-500\/5 { background-color: rgba(5, 150, 105, 0.05) !important; }
-.light .text-emerald-300 { color: #059669 !important; }
+.light .text-emerald-300 { color: var(--color-success) !important; }
 
 /* Dropdown Drawer and Profile Menus in Light Mode */
-.light .bg-\[\#0a061b\]\/95 {
+.light .bg-\[\#0a061b\]\/95,
+.light .bg-\[var\(--surface-2\)\]\/95 {
   background-color: rgba(255, 255, 255, 0.95) !important;
   border-color: rgba(0, 0, 0, 0.08) !important;
 }
@@ -393,11 +552,11 @@ body::after {
 }
 
 .light .bg-zinc-900\/95 * {
-  color: #111827 !important;
+  color: var(--foreground) !important;
 }
 
 .light .bg-zinc-900\/95 .text-zinc-400 {
-  color: #4b5563 !important;
+  color: var(--text-muted) !important;
 }
 
 .light .bg-zinc-900\/95 button:hover {
@@ -409,17 +568,17 @@ select.glass-input {
   color-scheme: dark;
 }
 
-/* Default to dark text on light background for options to prevent white-on-white text in browsers rendering light native dropdowns */
+/* Default to dark text on light background for options */
 select.glass-input option {
-  background-color: #ffffff !important;
-  color: #111827 !important;
+  background-color: var(--print-bg) !important;
+  color: var(--foreground) !important;
 }
 
 /* If the user's browser/OS uses a dark theme, use white text on dark background */
 @media (prefers-color-scheme: dark) {
   select.glass-input option {
-    background-color: #0f0c1e !important;
-    color: #ffffff !important;
+    background-color: var(--surface-5) !important;
+    color: var(--text-on-surface) !important;
   }
 }
 
@@ -431,11 +590,11 @@ select.glass-input option {
 }
 
 .light select.glass-input option {
-  background-color: #ffffff !important;
-  color: #111827 !important;
+  background-color: var(--surface-1) !important;
+  color: var(--foreground) !important;
 }
 
-/* Inactive button/link hover states on light background to avoid white-out */
+/* Inactive button/link hover states on light background */
 .light .hover\:text-white:hover {
   color: var(--foreground) !important;
 }
@@ -445,7 +604,7 @@ select.glass-input option {
 }
 
 .light .hover\:text-indigo-300:hover {
-  color: #3730a3 !important; /* Darker indigo for WCAG AA compliance on light background */
+  color: var(--color-primary-deep) !important;
 }
 
 /* Interactive elements background and border hover highlights */
@@ -457,9 +616,9 @@ select.glass-input option {
   border-color: rgba(0, 0, 0, 0.12) !important;
 }
 
-/* Active states using bg-zinc-800 shouldn't retain text-white on light bg */
+/* Active states */
 .light .bg-zinc-800.text-white {
-  color: #111827 !important;
+  color: var(--foreground) !important;
 }
 
 /* Enhanced separator borders for columns */
@@ -471,11 +630,18 @@ select.glass-input option {
   border-color: rgba(0, 0, 0, 0.16) !important;
 }
 
-/* Compact styling for strict 1-page CV limit */
+/* Ring color overrides for timeline nodes */
+.light .ring-\[var\(--surface-3\)\] {
+  --tw-ring-color: var(--surface-1) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   CV COMPACT STYLING (strict 1-page limit)
+   ═══════════════════════════════════════════════════════════════ */
 .strict-1-page {
   padding: 15mm 15mm 12mm 15mm !important;
   font-size: 10.2px !important;
-  justify-content: flex-start !important; /* Remove justify-between behavior and pack elements tightly */
+  justify-content: flex-start !important;
 }
 
 .strict-1-page p,
@@ -486,15 +652,15 @@ select.glass-input option {
 }
 
 .strict-1-page .mt-7 {
-  margin-top: 0.45rem !important; /* ~7px */
+  margin-top: 0.45rem !important;
 }
 
 .strict-1-page .mb-2 {
-  margin-bottom: 0.15rem !important; /* Shrunk space below section headers */
+  margin-bottom: 0.15rem !important;
 }
 
 .strict-1-page .mt-10 {
-  margin-top: 0.5rem !important; /* ~8px */
+  margin-top: 0.5rem !important;
 }
 
 .strict-1-page .mt-12 {
@@ -506,7 +672,7 @@ select.glass-input option {
 }
 
 .strict-1-page .mt-4 {
-  margin-top: 0.4rem !important; /* languages section top margin */
+  margin-top: 0.4rem !important;
 }
 
 .strict-1-page .mt-3 {
@@ -549,4 +715,3 @@ select.glass-input option {
 .strict-1-page .h-\[105px\] {
   height: 88px !important;
 }
-

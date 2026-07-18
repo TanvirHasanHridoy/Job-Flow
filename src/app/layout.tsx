@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Outfit, Inter } from "next/font/google";
 import AppHeader from "./components/AppHeader";
+import ThemeSync from "./components/ThemeSync";
 import { TokenProvider } from "@/context/TokenContext";
 import { AlertModalProvider } from "@/context/AlertModalContext";
 import "./globals.css";
@@ -47,6 +48,7 @@ export default function RootLayout({
       <body className="font-sans antialiased text-[var(--foreground)] min-h-screen flex flex-col bg-[var(--background)]">
         <TokenProvider>
           <AlertModalProvider>
+            <ThemeSync />
             <AppHeader />
 
             {/* Content Shell */}

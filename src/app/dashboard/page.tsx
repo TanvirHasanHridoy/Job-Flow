@@ -785,7 +785,7 @@ export default function Dashboard() {
           {/* Close trigger boundary */}
           <div className="flex-1" onClick={() => setSelectedApp(null)}></div>
 
-          <div className="w-full max-w-xl bg-[#080517] border-l border-white/10 h-full overflow-y-auto p-6 md:p-8 flex flex-col justify-between shadow-2xl relative">
+          <div className="w-full max-w-xl bg-[var(--surface-3)] border-l border-white/10 h-full overflow-y-auto p-6 md:p-8 flex flex-col justify-between shadow-2xl relative">
             <div>
               {/* Header Title info */}
               <div className="flex justify-between items-start mb-6">
@@ -976,7 +976,7 @@ export default function Dashboard() {
                 <div className="relative border-l border-zinc-700/60 ml-2.5 pl-5 space-y-4 font-sans">
                   {/* Current Status Node */}
                   <div className="relative">
-                    <span className="absolute -left-[26px] top-1 flex h-3 w-3 items-center justify-center rounded-full bg-emerald-400 ring-4 ring-[#080517]">
+                    <span className="absolute -left-[26px] top-1 flex h-3 w-3 items-center justify-center rounded-full bg-emerald-400 ring-4 ring-[var(--surface-3)]">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-950 animate-ping"></span>
                     </span>
                     <div className="flex justify-between items-baseline pl-1">
@@ -989,7 +989,7 @@ export default function Dashboard() {
                   {selectedApp.statusHistory && selectedApp.statusHistory.length > 0 ? (
                     selectedApp.statusHistory.map((hist: any) => (
                       <div key={hist.id} className="relative">
-                        <span className="absolute -left-[24px] top-1.5 flex h-1.5 w-1.5 items-center justify-center rounded-full bg-zinc-600 ring-4 ring-[#080517]"></span>
+                        <span className="absolute -left-[24px] top-1.5 flex h-1.5 w-1.5 items-center justify-center rounded-full bg-zinc-600 ring-4 ring-[var(--surface-3)]"></span>
                         <div className="flex justify-between items-baseline pl-1">
                           <span className="text-zinc-300">
                             Moved from <span className="font-semibold text-zinc-400">{hist.fromStatus}</span> to <span className="font-semibold text-white">{hist.toStatus}</span>
@@ -1004,7 +1004,7 @@ export default function Dashboard() {
 
                   {/* Creation Node */}
                   <div className="relative">
-                    <span className="absolute -left-[24px] top-1.5 flex h-1.5 w-1.5 items-center justify-center rounded-full bg-indigo-500 ring-4 ring-[#080517]"></span>
+                    <span className="absolute -left-[24px] top-1.5 flex h-1.5 w-1.5 items-center justify-center rounded-full bg-indigo-500 ring-4 ring-[var(--surface-3)]"></span>
                     <div className="flex justify-between items-baseline pl-1">
                       <span className="text-zinc-300 font-semibold">Application Tracked</span>
                       <span className="text-[10px] text-zinc-500">

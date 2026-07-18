@@ -3142,7 +3142,7 @@ export default function TailorWorkspace() {
   return (
     <div className="flex-grow flex flex-col min-h-[calc(100vh-73px)] w-full overflow-x-hidden">
       {/* Mobile Switch Tab Bar */}
-      <div className="lg:hidden sticky top-0 z-30 flex bg-[#030014]/90 backdrop-blur-md border-b border-white/5 p-2 gap-2 w-full shrink-0">
+      <div className="lg:hidden sticky top-0 z-30 flex bg-[var(--background)]/90 backdrop-blur-md border-b border-white/5 p-2 gap-2 w-full shrink-0">
         <button
           onClick={() => setActiveMobileTab('edit')}
           className={`flex-grow flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeMobileTab === 'edit'
@@ -4121,10 +4121,10 @@ export default function TailorWorkspace() {
         </div>
 
         {/* Right Preview Pane: Col 7 */}
-        <div className={`lg:col-span-7 bg-[#0b081e]/30 flex flex-col overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] ${activeMobileTab === 'preview' ? 'block' : 'hidden lg:block'
+        <div className={`lg:col-span-7 bg-[var(--surface-1)]/30 flex flex-col overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] ${activeMobileTab === 'preview' ? 'block' : 'hidden lg:block'
           }`}>
           {/* Toolbar */}
-          <div className="sticky top-0 z-20 no-print flex items-center justify-between px-6 py-3 bg-[#0a061b] border-b border-white/5">
+          <div className="sticky top-0 z-20 no-print flex items-center justify-between px-6 py-3 bg-[var(--surface-2)] border-b border-white/5">
             <div className="flex items-center gap-3">
               <div className="flex gap-1.5 font-sans">
                 <button
@@ -4200,7 +4200,7 @@ export default function TailorWorkspace() {
                 {exportDropdownOpen && (
                   <>
                     <div className="fixed inset-0 z-20" onClick={() => setExportDropdownOpen(false)}></div>
-                    <div className="absolute right-0 mt-2 w-52 bg-[#0a061b] border border-white/10 rounded-xl shadow-xl z-30 py-1.5 text-xs text-zinc-300">
+                    <div className="absolute right-0 mt-2 w-52 bg-[var(--surface-2)] border border-white/10 rounded-xl shadow-xl z-30 py-1.5 text-xs text-zinc-300">
                       <button
                         onClick={() => {
                           setExportDropdownOpen(false);
@@ -4251,7 +4251,7 @@ export default function TailorWorkspace() {
           )}
 
           {/* Live A4 Sheet Render */}
-          <div className="flex-1 p-6 md:p-8 bg-[#040116] flex items-start justify-center">
+          <div className="flex-1 p-6 md:p-8 bg-[var(--surface-4)] flex items-start justify-center">
             {result ? (
               <div className="w-full max-w-[210mm] flex flex-col items-center">
 
