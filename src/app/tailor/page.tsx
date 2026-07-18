@@ -78,6 +78,7 @@ interface TailoredCoverLetter {
   };
   closing: string;
   signatureName: string;
+  enclosure?: string;
 }
 
 interface TailorResponse {
@@ -2588,6 +2589,13 @@ export default function TailorWorkspace() {
       });
       textContent += `${cl.closing}\n\n`;
       textContent += `${cl.signatureName}\n`;
+      
+      const enclosureContent = cl.enclosure !== undefined
+        ? cl.enclosure
+        : "- Curriculum Vitae\n- Bachelor Degree Diploma\n- Reference letter from previous employers";
+      if (enclosureContent) {
+        textContent += `\nEnclosure:\n${enclosureContent}\n`;
+      }
     }
 
     // Strip out remaining HTML tags that could be in text from editing
@@ -4572,20 +4580,19 @@ export default function TailorWorkspace() {
                             {/* Enclosures */}
                             <div className="mt-8 text-[11.5px] text-left font-sans">
                               <p>Enclosure:</p>
-                              <div className="ml-4 mt-1 space-y-0.5">
-                                <p className="flex items-start gap-3">
-                                  <span className="text-[#1a1a1a]">-</span>
-                                  <span>Curriculum Vitae</span>
-                                </p>
-                                <p className="flex items-start gap-3">
-                                  <span className="text-[#1a1a1a]">-</span>
-                                  <span>Bachelor Degree Diploma</span>
-                                </p>
-                                <p className="flex items-start gap-3">
-                                  <span className="text-[#1a1a1a]">-</span>
-                                  <span>Reference letter from previous employers</span>
-                                </p>
-                              </div>
+                              <ContentEditable
+                                tagName="div"
+                                value={
+                                  result.tailoredCoverLetter.enclosure !== undefined
+                                    ? result.tailoredCoverLetter.enclosure
+                                    : "- Curriculum Vitae\n- Bachelor Degree Diploma\n- Reference letter from previous employers"
+                                }
+                                onChange={(val) => handleClChange('enclosure', val, true)}
+                                onBlur={(e: any) => handleClChange('enclosure', e.target.innerText, false)}
+                                useInnerText={true}
+                                isMeasurement={false}
+                                className="ml-4 mt-1 whitespace-pre-wrap outline-none font-sans text-[11.5px] leading-[1.7] text-left"
+                              />
                             </div>
                           </div>
 
