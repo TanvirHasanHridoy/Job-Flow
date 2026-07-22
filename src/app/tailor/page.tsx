@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Sparkles, FileText, Download, Briefcase, Award, CheckCircle2, AlertTriangle, Languages, Save, Check,
   List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Palette, Highlighter, RotateCcw, Sliders, Coins, Plus, FolderGit,
-  ChevronUp, ChevronDown, Eye, EyeOff, Wand2, RefreshCw, Target, X
+  ChevronUp, ChevronDown, Eye, EyeOff, Wand2, RefreshCw, Target, X, GitCompare
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { groupSkillsByCategory } from '@/lib/skills';
@@ -305,6 +305,49 @@ interface ContentEditableProps {
   [key: string]: any;
 }
 
+const getCaretOffset = (element: HTMLElement): number => {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return 0;
+  const range = selection.getRangeAt(0);
+  const preCaretRange = range.cloneRange();
+  preCaretRange.selectNodeContents(element);
+  preCaretRange.setEnd(range.endContainer, range.endOffset);
+  return preCaretRange.toString().length;
+};
+
+const setCaretOffset = (element: HTMLElement, offset: number) => {
+  const selection = window.getSelection();
+  if (!selection) return;
+  const range = document.createRange();
+  let currentOffset = 0;
+  let found = false;
+
+  const traverseNodes = (node: Node) => {
+    if (found) return;
+    if (node.nodeType === Node.TEXT_NODE) {
+      const textLength = node.textContent?.length || 0;
+      if (currentOffset + textLength >= offset) {
+        range.setStart(node, offset - currentOffset);
+        range.collapse(true);
+        found = true;
+      } else {
+        currentOffset += textLength;
+      }
+    } else {
+      for (let i = 0; i < node.childNodes.length; i++) {
+        traverseNodes(node.childNodes[i]);
+        if (found) break;
+      }
+    }
+  };
+
+  traverseNodes(element);
+  if (found) {
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+};
+
 const ContentEditable = ({
   tagName: Tag,
   value,
@@ -318,6 +361,7 @@ const ContentEditable = ({
   ...props
 }: ContentEditableProps) => {
   const ref = useRef<HTMLElement>(null);
+  const isFocusedRef = useRef(false);
   const expectedValueRef = useRef(value);
 
   // Initialize content on mount
@@ -333,22 +377,31 @@ const ContentEditable = ({
     }
   }, []);
 
-  // Handle external updates & ATS highlight toggle
+  // Handle external updates & ATS highlight toggle safely without destroying caret position
   useEffect(() => {
-    if (ref.current) {
-      if (highlightHtml && highlightHtml !== value) {
-        ref.current.innerHTML = highlightHtml;
-        expectedValueRef.current = value;
-      } else if (value !== expectedValueRef.current || !highlightHtml) {
-        expectedValueRef.current = value;
-        if (useInnerText) {
-          ref.current.innerText = value;
-        } else {
-          ref.current.innerHTML = value;
-        }
+    if (!ref.current) return;
+
+    // Do NOT force innerHTML overwrite while user is actively typing inside this field!
+    if (isFocusedRef.current || document.activeElement === ref.current) {
+      return;
+    }
+
+    if (highlightHtml && highlightHtml !== value) {
+      ref.current.innerHTML = highlightHtml;
+      expectedValueRef.current = value;
+    } else if (value !== expectedValueRef.current || !highlightHtml) {
+      expectedValueRef.current = value;
+      if (useInnerText) {
+        ref.current.innerText = value;
+      } else {
+        ref.current.innerHTML = value;
       }
     }
   }, [value, highlightHtml, useInnerText]);
+
+  const handleFocus = () => {
+    isFocusedRef.current = true;
+  };
 
   const handleInput = (e: React.FormEvent<HTMLElement>) => {
     const domVal = useInnerText ? e.currentTarget.innerText : e.currentTarget.innerHTML;
@@ -357,8 +410,15 @@ const ContentEditable = ({
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLElement>) => {
+    isFocusedRef.current = false;
     const domVal = useInnerText ? e.currentTarget.innerText : e.currentTarget.innerHTML;
     expectedValueRef.current = domVal;
+
+    // Re-apply ATS keyword highlights when focus leaves
+    if (ref.current && highlightHtml && highlightHtml !== value) {
+      ref.current.innerHTML = highlightHtml;
+    }
+
     if (onBlur) {
       onBlur(e);
     }
@@ -369,6 +429,7 @@ const ContentEditable = ({
       ref={ref as any}
       contentEditable={!isMeasurement}
       suppressContentEditableWarning={true}
+      onFocus={handleFocus}
       onInput={handleInput}
       onBlur={handleBlur}
       className={className}
@@ -383,6 +444,7 @@ export default function TailorWorkspace() {
   const [profileLoading, setProfileLoading] = useState(true);
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [sectionOrder, setSectionOrder] = useState<string[]>(['summary', 'work', 'education', 'projects', 'skills', 'languages']);
+  const [isAdjustSpacingOpen, setIsAdjustSpacingOpen] = useState<boolean>(false);
   const { tokens, setIsTokenModalOpen, fetchTokens } = useTokens();
   const { showAlert } = useAlertModal();
 
@@ -445,6 +507,101 @@ export default function TailorWorkspace() {
     variations: null
   });
   const [isPolishingBullet, setIsPolishingBullet] = useState<boolean>(false);
+
+  // Cover Letter Paragraph Polish Modal State
+  const [clPolishModal, setClPolishModal] = useState<{
+    isOpen: boolean;
+    paraIndex: number;
+    originalPara: string;
+    variations: { persuasive: string; formal: string; concise: string } | null;
+  }>({
+    isOpen: false,
+    paraIndex: -1,
+    originalPara: '',
+    variations: null
+  });
+  const [clCustomPrompt, setClCustomPrompt] = useState<string>('');
+  const [isPolishingClPara, setIsPolishingClPara] = useState<boolean>(false);
+
+  // Compare Original vs Tailored Modal State
+  const [isCompareModalOpen, setIsCompareModalOpen] = useState<boolean>(false);
+
+  const handleInjectMissingSkill = (skillName: string) => {
+    if (!result) return;
+    setResult((prev: any) => {
+      if (!prev) return prev;
+      const currentSkills = prev.tailoredCv.skills || [];
+      const exists = currentSkills.some((s: any) => s.name.toLowerCase() === skillName.toLowerCase());
+      const updatedSkills = exists
+        ? currentSkills
+        : [...currentSkills, { name: skillName, level: 'Intermediate', category: 'General' }];
+
+      const gap = prev.gapAnalysis || {};
+      const updatedMissing = (gap.missingSkills || []).filter((s: string) => s.toLowerCase() !== skillName.toLowerCase());
+      const updatedExacts = Array.from(new Set([...(gap.exactMatches || gap.matchingKeywords || []), skillName]));
+
+      return {
+        ...prev,
+        gapAnalysis: {
+          ...gap,
+          missingSkills: updatedMissing,
+          exactMatches: updatedExacts,
+          matchingKeywords: updatedExacts
+        },
+        tailoredCv: {
+          ...prev.tailoredCv,
+          skills: updatedSkills
+        }
+      };
+    });
+
+    showAlert({ title: 'Keyword Injected', message: `Skill '${skillName}' injected into CV Skills & marked as matched!`, type: 'success' });
+  };
+
+  const handleFetchClParagraphVariations = async (paraIndex: number, originalPara: string) => {
+    setClPolishModal({
+      isOpen: true,
+      paraIndex,
+      originalPara,
+      variations: null
+    });
+    setIsPolishingClPara(true);
+    try {
+      const res = await fetch('/api/tailor/section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sectionKey: 'coverLetter',
+          mode: 'cl-paragraph',
+          targetLanguage: clLanguage,
+          jobDescription,
+          profile,
+          currentContent: { paragraph: originalPara },
+          customInstruction: clCustomPrompt,
+          tone
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.data?.variations) {
+        setClPolishModal(prev => ({ ...prev, variations: data.data.variations }));
+        fetchTokens();
+      } else {
+        showAlert({ title: 'Paragraph Polish', message: data.error || 'Failed to polish paragraph', type: 'error' });
+      }
+    } catch (err) {
+      showAlert({ title: 'Paragraph Polish', message: 'Error generating paragraph variations.', type: 'error' });
+    } finally {
+      setIsPolishingClPara(false);
+    }
+  };
+
+  const handleApplyClParagraphVariation = (newParaText: string) => {
+    const { paraIndex } = clPolishModal;
+    if (paraIndex < 0 || !result) return;
+    handleClParagraphChange(paraIndex, newParaText);
+    showAlert({ title: 'Paragraph Polish', message: 'Cover Letter paragraph updated successfully!', type: 'success' });
+    setClPolishModal({ isOpen: false, paraIndex: -1, originalPara: '', variations: null });
+  };
 
   const getAtsMatchStats = () => {
     if (!result?.gapAnalysis) return null;
@@ -4563,156 +4720,204 @@ export default function TailorWorkspace() {
             {result ? (
               <div className="w-full max-w-[210mm] flex flex-col items-center">
 
-                {/* Floating Customization Toolbar */}
+                {/* Clean Restructured Customization Toolbar */}
                 {previewTab === 'cv' && (
-                  <div className="w-full no-print mb-4 p-3 bg-white/5 border border-white/10 rounded-xl flex flex-wrap items-center justify-between gap-3 text-white font-sans text-xs">
-                    <div className="flex items-center gap-2">
-                      <Sliders className="w-4 h-4 text-indigo-400" />
-                      <span className="font-semibold text-zinc-300">Quick Gaps Preset:</span>
-                      <div className="flex gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => applyPreset('default')}
-                          className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
-                        >
-                          Default
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => applyPreset('compact')}
-                          className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
-                        >
-                          Compact
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => applyPreset('tight')}
-                          className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
-                        >
-                          Ultra-Tight
-                        </button>
+                  <div className="w-full no-print mb-4 p-3 bg-zinc-900/90 border border-zinc-700/80 rounded-xl flex flex-wrap items-center justify-between gap-3 text-white font-sans text-xs shadow-lg backdrop-blur-md relative z-20">
+                    {/* Left Group: Layout & Spacing Presets */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <Sliders className="w-4 h-4 text-indigo-400" />
+                        <span className="font-semibold text-zinc-300">Spacing:</span>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => applyPreset('default')}
+                            className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                          >
+                            Default
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyPreset('compact')}
+                            className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                          >
+                            Compact
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => applyPreset('tight')}
+                            className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                          >
+                            Ultra-Tight
+                          </button>
+                        </div>
                       </div>
 
-                      {/* One-Click Section Layout Presets */}
-                      <div className="flex items-center gap-1 font-sans">
-                        <span className="font-semibold text-zinc-400 text-[10px]">Layout Preset:</span>
-                        <button
-                          type="button"
-                          onClick={() => setSectionOrder(['summary', 'work', 'projects', 'education', 'skills', 'languages'])}
-                          className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium text-zinc-300 transition-colors cursor-pointer"
-                          title="Experience-First Section Order"
-                        >
-                          Work-First
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSectionOrder(['summary', 'skills', 'projects', 'work', 'education', 'languages'])}
-                          className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium text-zinc-300 transition-colors cursor-pointer"
-                          title="Tech & Skills First Section Order"
-                        >
-                          Tech-First
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSectionOrder(['summary', 'education', 'work', 'projects', 'skills', 'languages'])}
-                          className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium text-zinc-300 transition-colors cursor-pointer"
-                          title="Academic / Education First Section Order"
-                        >
-                          Academic-First
-                        </button>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setIsAtsHighlightEnabled((prev) => !prev)}
-                          className={`flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-semibold transition-all cursor-pointer border ${
-                            isAtsHighlightEnabled
-                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
-                              : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
-                          }`}
-                          title="Highlight ATS Job Description keywords in preview text"
-                        >
-                          <Target className="w-3 h-3 text-emerald-400" />
-                          <span>ATS Highlights {isAtsHighlightEnabled ? '(ON)' : '(OFF)'}</span>
-                        </button>
-
-                        {(() => {
-                          const stats = getAtsMatchStats();
-                          if (!stats) return null;
-                          const colorClass = stats.percentage >= 75
-                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                            : stats.percentage >= 50
-                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
-                            : 'bg-rose-500/10 border-rose-500/30 text-rose-300';
-                          return (
-                            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold ${colorClass}`} title={`${stats.matched} matched out of ${stats.total} total extracted job keywords`}>
-                              <span>ATS Match: {stats.matched}/{stats.total} ({stats.percentage}%)</span>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 flex-wrap text-[11px]">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-zinc-400">Section:</span>
-                        <input
-                          type="range"
-                          min="4"
-                          max="36"
-                          value={sectionSpacing}
-                          onChange={e => setSectionSpacing(parseInt(e.target.value))}
-                          className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                          title="Section Spacing"
-                        />
-                        <span className="text-zinc-300 font-semibold w-8">{sectionSpacing}px</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-zinc-400">Header Gap:</span>
-                        <input
-                          type="range"
-                          min="2"
-                          max="32"
-                          value={headerSpacing}
-                          onChange={e => setHeaderSpacing(parseInt(e.target.value))}
-                          className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                          title="Header Spacing"
-                        />
-                        <span className="text-zinc-300 font-semibold w-8">{headerSpacing}px</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-zinc-400">Text Size:</span>
-                        <input
-                          type="range"
-                          min="9.5"
-                          max="13"
-                          step="0.1"
-                          value={fontSize}
-                          onChange={e => setFontSize(parseFloat(e.target.value))}
-                          className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                          title="Font Size"
-                        />
-                        <span className="text-zinc-300 font-semibold w-9">{fontSize}px</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-zinc-400">Margins:</span>
-                        <input
-                          type="range"
-                          min="10"
-                          max="40"
-                          value={pagePaddingTop}
-                          onChange={e => {
-                            const val = parseInt(e.target.value);
-                            setPagePaddingTop(val);
-                            setPagePaddingBottom(Math.max(10, Math.floor(val * 0.7)));
-                            setPagePaddingSide(Math.max(10, Math.floor(val * 0.85)));
+                      {/* Section Layout Order Dropdown */}
+                      <div className="flex items-center gap-1.5 border-l border-zinc-700/60 pl-3">
+                        <span className="font-semibold text-zinc-400 text-[10px]">Layout Order:</span>
+                        <select
+                          value={
+                            sectionOrder[1] === 'work' ? 'work' : sectionOrder[1] === 'skills' ? 'skills' : 'education'
+                          }
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'work') setSectionOrder(['summary', 'work', 'projects', 'education', 'skills', 'languages']);
+                            else if (val === 'skills') setSectionOrder(['summary', 'skills', 'projects', 'work', 'education', 'languages']);
+                            else if (val === 'education') setSectionOrder(['summary', 'education', 'work', 'projects', 'skills', 'languages']);
                           }}
-                          className="w-16 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                          title="Page Margins"
-                        />
-                        <span className="text-zinc-300 font-semibold w-8">{pagePaddingTop}mm</span>
+                          className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                        >
+                          <option value="work">Work-First</option>
+                          <option value="skills">Tech & Skills First</option>
+                          <option value="education">Academic-First</option>
+                        </select>
                       </div>
                     </div>
+
+                    {/* Right Group: ATS Intelligence + Comparer + Fine-Tune Popover Button */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setIsCompareModalOpen(true)}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer shadow-sm"
+                        title="Compare Master Profile text side-by-side with Tailored Document"
+                      >
+                        <GitCompare className="w-3 h-3 text-indigo-400" />
+                        <span>⚖️ Compare</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setIsAtsHighlightEnabled((prev) => !prev)}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${
+                          isAtsHighlightEnabled
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
+                            : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
+                        }`}
+                        title="Highlight ATS Job Description keywords in preview text"
+                      >
+                        <Target className="w-3 h-3 text-emerald-400" />
+                        <span>ATS Highlights {isAtsHighlightEnabled ? '(ON)' : '(OFF)'}</span>
+                      </button>
+
+                      {(() => {
+                        const stats = getAtsMatchStats();
+                        if (!stats) return null;
+                        const colorClass = stats.percentage >= 75
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                          : stats.percentage >= 50
+                          ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                          : 'bg-rose-500/10 border-rose-500/30 text-rose-300';
+                        return (
+                          <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold ${colorClass}`} title={`${stats.matched} matched out of ${stats.total} total extracted job keywords`}>
+                            <span>ATS Match: {stats.matched}/{stats.total} ({stats.percentage}%)</span>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Fine-Tune Spacing Popover Toggle */}
+                      <button
+                        type="button"
+                        onClick={() => setIsAdjustSpacingOpen((prev) => !prev)}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${
+                          isAdjustSpacingOpen
+                            ? 'bg-indigo-600 text-white border-indigo-500 shadow-md'
+                            : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
+                        }`}
+                        title="Fine-tune exact pixel spacing and margins"
+                      >
+                        <Sliders className="w-3 h-3 text-indigo-400" />
+                        <span>⚙️ Fine-Tune Spacing</span>
+                      </button>
+                    </div>
+
+                    {/* Non-modal Floating Popover for Fine-Tune Spacing Sliders */}
+                    {isAdjustSpacingOpen && (
+                      <div className="absolute right-0 top-14 z-40 bg-zinc-900/95 border border-zinc-700/90 rounded-xl p-4 shadow-2xl backdrop-blur-md text-xs text-white w-80 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                        <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                          <span className="font-bold text-indigo-300 text-[11px] uppercase tracking-wider flex items-center gap-1">
+                            <Sliders className="w-3.5 h-3.5 text-indigo-400" />
+                            Fine-Tune Page Spacing (Live)
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setIsAdjustSpacingOpen(false)}
+                            className="text-zinc-400 hover:text-white p-0.5 rounded hover:bg-zinc-800 cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-2.5 text-[11px]">
+                          <div className="flex items-center justify-between">
+                            <span className="text-zinc-400">Section Spacing:</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="range"
+                                min="4"
+                                max="36"
+                                value={sectionSpacing}
+                                onChange={e => setSectionSpacing(parseInt(e.target.value))}
+                                className="w-24 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                              />
+                              <span className="text-zinc-200 font-semibold w-8 text-right">{sectionSpacing}px</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-zinc-400">Header Gap:</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="range"
+                                min="2"
+                                max="32"
+                                value={headerSpacing}
+                                onChange={e => setHeaderSpacing(parseInt(e.target.value))}
+                                className="w-24 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                              />
+                              <span className="text-zinc-200 font-semibold w-8 text-right">{headerSpacing}px</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-zinc-400">Font Size:</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="range"
+                                min="9.5"
+                                max="13"
+                                step="0.1"
+                                value={fontSize}
+                                onChange={e => setFontSize(parseFloat(e.target.value))}
+                                className="w-24 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                              />
+                              <span className="text-zinc-200 font-semibold w-8 text-right">{fontSize}px</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-zinc-400">Page Margins:</span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="range"
+                                min="10"
+                                max="40"
+                                value={pagePaddingTop}
+                                onChange={e => {
+                                  const val = parseInt(e.target.value);
+                                  setPagePaddingTop(val);
+                                  setPagePaddingBottom(Math.max(10, Math.floor(val * 0.7)));
+                                  setPagePaddingSide(Math.max(10, Math.floor(val * 0.85)));
+                                }}
+                                className="w-24 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                              />
+                              <span className="text-zinc-200 font-semibold w-8 text-right">{pagePaddingTop}mm</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -4935,15 +5140,28 @@ export default function TailorWorkspace() {
                             {/* Body paragraphs */}
                             <div className="mt-5 space-y-4 text-[11.5px] leading-[1.65] text-left font-sans">
                               {getRenderedParagraphs(result.tailoredCoverLetter, clLength).map((p: string, i: number) => (
-                                <ContentEditable
-                                  key={i}
-                                  tagName="p"
-                                  value={p}
-                                  onChange={(val) => handleClParagraphChange(i, val, true)}
-                                  onBlur={(e: any) => handleClParagraphChange(i, e.target.innerHTML, false)}
-                                  isMeasurement={false}
-                                  highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(p) : undefined}
-                                />
+                                <div key={i} className="group relative">
+                                  <ContentEditable
+                                    tagName="p"
+                                    value={p}
+                                    onChange={(val) => handleClParagraphChange(i, val, true)}
+                                    onBlur={(e: any) => handleClParagraphChange(i, e.target.innerHTML, false)}
+                                    isMeasurement={false}
+                                    highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(p) : undefined}
+                                    className="focus:outline-none"
+                                  />
+                                  <div className="no-print opacity-0 group-hover:opacity-100 absolute -right-2 top-0 flex items-center gap-1 shrink-0 transition-opacity">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleFetchClParagraphVariations(i, p)}
+                                      className="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 cursor-pointer px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-all border border-indigo-200 shadow-sm"
+                                      title="Polish paragraph with AI (2 Tokens)"
+                                    >
+                                      <Wand2 className="w-3 h-3 text-indigo-500" />
+                                      <span>Polish</span>
+                                    </button>
+                                  </div>
+                                </div>
                               ))}
                             </div>
 
@@ -5322,6 +5540,214 @@ export default function TailorWorkspace() {
                 </div>
               </div>
             ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Cover Letter Paragraph Polish Modal */}
+      {clPolishModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
+          <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl space-y-4 font-sans text-left overflow-hidden">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                  <Wand2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wide">
+                    Polish Cover Letter Paragraph
+                  </h3>
+                  <p className="text-[11px] text-zinc-400">
+                    Generate 3 tailored tone variations (2 Tokens)
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setClPolishModal({ isOpen: false, paraIndex: -1, originalPara: '', variations: null })}
+                className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-white/5 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto pr-1 space-y-4 flex-1">
+              <div className="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800 space-y-1">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Original Paragraph:</span>
+                <p className="text-xs text-zinc-300 italic leading-relaxed">{clPolishModal.originalPara}</p>
+              </div>
+
+              {/* Optional Custom User Directive Prompt Box */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-zinc-300 block">Optional Writing Prompt Directive:</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={clCustomPrompt}
+                    onChange={(e) => setClCustomPrompt(e.target.value)}
+                    placeholder="e.g. Focus on WebSockets, low-latency, and senior leadership experience..."
+                    className="flex-1 bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    disabled={isPolishingClPara}
+                    onClick={() => handleFetchClParagraphVariations(clPolishModal.paraIndex, clPolishModal.originalPara)}
+                    className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isPolishingClPara ? 'animate-spin' : ''}`} />
+                    <span>Re-Polish</span>
+                  </button>
+                </div>
+              </div>
+
+              {isPolishingClPara ? (
+                <div className="p-8 flex flex-col items-center justify-center space-y-3">
+                  <RefreshCw className="w-6 h-6 text-indigo-400 animate-spin" />
+                  <p className="text-xs text-zinc-400">Generating 3 executive tone variations...</p>
+                </div>
+              ) : clPolishModal.variations ? (
+                <div className="space-y-3">
+                  {/* Persuasive Variation */}
+                  <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
+                        Persuasive & High Impact
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyClParagraphVariation(clPolishModal.variations!.persuasive)}
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                      >
+                        Apply This
+                      </button>
+                    </div>
+                    <p className="text-xs text-zinc-200 leading-relaxed">{clPolishModal.variations.persuasive}</p>
+                  </div>
+
+                  {/* Formal Corporate Variation */}
+                  <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+                        Formal Corporate (DIN 5008)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyClParagraphVariation(clPolishModal.variations!.formal)}
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                      >
+                        Apply This
+                      </button>
+                    </div>
+                    <p className="text-xs text-zinc-200 leading-relaxed">{clPolishModal.variations.formal}</p>
+                  </div>
+
+                  {/* Short & Concise Variation */}
+                  <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
+                        Short & Concise (Direct)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyClParagraphVariation(clPolishModal.variations!.concise)}
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                      >
+                        Apply This
+                      </button>
+                    </div>
+                    <p className="text-xs text-zinc-200 leading-relaxed">{clPolishModal.variations.concise}</p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Compare Original vs Tailored Modal */}
+      {isCompareModalOpen && result && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 no-print">
+          <div className="bg-zinc-950 border border-white/10 rounded-2xl max-w-5xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden font-sans">
+            <div className="p-4 border-b border-white/10 flex items-center justify-between bg-zinc-900/50">
+              <div className="flex items-center gap-2">
+                <GitCompare className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                  Document Version Comparer: Master Profile vs. AI Tailored Output
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsCompareModalOpen(false)}
+                className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 flex-1 overflow-y-auto divide-x divide-white/10 text-xs">
+              {/* Left: Original Master Profile */}
+              <div className="p-6 space-y-4 bg-zinc-900/30">
+                <div className="sticky top-0 bg-zinc-950/90 backdrop-blur-sm p-2 rounded-lg border border-zinc-800 font-bold text-zinc-400 uppercase tracking-wider text-[11px] mb-3">
+                  📋 Original Master Profile
+                </div>
+                <div>
+                  <h4 className="font-bold text-white mb-1">Full Name: {profile?.fullName || 'Not provided'}</h4>
+                  <p className="text-zinc-400">Target Occupation: {profile?.targetOccupation || 'Not specified'}</p>
+                </div>
+                <div>
+                  <h4 className="font-bold text-zinc-300 mb-1 uppercase tracking-wider text-[10px]">Master Summary</h4>
+                  <p className="text-zinc-400 bg-zinc-900 p-3 rounded-lg border border-white/5 whitespace-pre-wrap">
+                    {profile?.summary || 'No master summary provided.'}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-bold text-zinc-300 mb-1 uppercase tracking-wider text-[10px]">Master Experience</h4>
+                  <div className="space-y-2">
+                    {profile?.workExperience?.map((w: any, idx: number) => (
+                      <div key={idx} className="p-2.5 rounded-lg bg-zinc-900 border border-white/5 text-zinc-400">
+                        <span className="font-semibold text-zinc-200 block">{w.role} at {w.company}</span>
+                        <span className="text-[10px] text-zinc-500 block mb-1">{w.period}</span>
+                        <p className="line-clamp-3">{w.description}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: AI Tailored Output */}
+              <div className="p-6 space-y-4 bg-zinc-950">
+                <div className="sticky top-0 bg-indigo-950/90 backdrop-blur-sm p-2 rounded-lg border border-indigo-800/50 font-bold text-indigo-300 uppercase tracking-wider text-[11px] mb-3 flex items-center justify-between">
+                  <span>✨ AI Tailored Document Output</span>
+                  <span className="text-emerald-400 text-[10px]">Match Score: {result.matchScore}%</span>
+                </div>
+                <div>
+                  <h4 className="font-bold text-white mb-1">Full Name: {result.tailoredCv.personalDetails.fullName}</h4>
+                  <p className="text-indigo-300 font-semibold">{roleName || 'Tailored Position'}</p>
+                </div>
+                <div>
+                  <h4 className="font-bold text-indigo-300 mb-1 uppercase tracking-wider text-[10px]">Tailored Summary</h4>
+                  <p className="text-zinc-200 bg-indigo-500/5 p-3 rounded-lg border border-indigo-500/20 whitespace-pre-wrap">
+                    {result.tailoredCv.summary}
+                  </p>
+                </div>
+                <div>
+                  <h4 className="font-bold text-indigo-300 mb-1 uppercase tracking-wider text-[10px]">Tailored Work Experience</h4>
+                  <div className="space-y-2">
+                    {result.tailoredCv.workExperience?.map((w: any, idx: number) => (
+                      <div key={idx} className="p-2.5 rounded-lg bg-indigo-500/5 border border-indigo-500/20 text-zinc-300">
+                        <span className="font-semibold text-white block">{w.role} at {w.company}</span>
+                        <span className="text-[10px] text-indigo-400 block mb-1">{w.period}</span>
+                        <ul className="list-disc pl-4 space-y-1 text-zinc-300 text-[11px]">
+                          {getRenderedBullets(w, bulletStyle, lengthTarget, idx === 0).map((b: string, bIdx: number) => (
+                            <li key={bIdx}>{b}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

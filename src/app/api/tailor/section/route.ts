@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     }
 
     // Deduct tokens
-    const tokenAmount = mode === 'bullet' ? TOKEN_PRICING.POLISH_BULLET : TOKEN_PRICING.REGENERATE_SECTION;
+    const tokenAmount = mode === 'bullet' || mode === 'cl-paragraph' ? TOKEN_PRICING.POLISH_BULLET : TOKEN_PRICING.REGENERATE_SECTION;
     const deduction = await deductTokens(userId, tokenAmount);
     if (!deduction.success) {
       return NextResponse.json(
@@ -67,6 +67,27 @@ Respond strictly with a raw JSON object matching this schema:
     "star": "<string>",
     "punchy": "<string>",
     "ats": "<string>"
+  }
+}`;
+    } else if (mode === 'cl-paragraph') {
+      systemPrompt = `You are an expert executive cover letter writer. Polish and re-write a single cover letter paragraph into 3 distinct tone variations tailored to the Target Job Description.
+
+TARGET LANGUAGE: Write entirely in ${targetLanguage === 'DE' ? 'German' : 'English'}.
+CURRENT TODAY'S DATE: ${currentDateStr}
+
+CRITICAL CONSTRAINTS:
+1. Rely ONLY on factual background. Do NOT invent fake previous roles or metrics.
+2. Formulate 3 distinct tone variations:
+   - "persuasive": Powerful, confident & achievement-focused.
+   - "formal": Classic corporate formal tone (conforming to DIN 5008 norms).
+   - "concise": Direct, punchy, under 60 words.
+
+Respond strictly with a raw JSON object matching this schema:
+{
+  "variations": {
+    "persuasive": "<string>",
+    "formal": "<string>",
+    "concise": "<string>"
   }
 }`;
     } else {
