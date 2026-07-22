@@ -5,7 +5,7 @@ import { Sparkles, Shield, Globe2, Zap, ChevronRight, FileText, Target, BarChart
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[var(--background)] text-zinc-100 overflow-hidden">
+    <div className="min-h-screen bg-[var(--layout-backdrop-bg)] text-zinc-100 overflow-hidden">
       {/* Animated background */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full bg-indigo-600/10 blur-[140px] animate-pulse" />

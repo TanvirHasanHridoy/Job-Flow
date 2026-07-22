@@ -37,7 +37,7 @@ export default function AppHeader() {
           <Link 
             href="/dashboard" 
             className={`text-sm font-medium transition-colors duration-200 ${
-              pathname === '/dashboard' ? 'text-[var(--foreground)] font-semibold' : 'text-zinc-400 hover:text-[var(--foreground)]'
+              pathname === '/dashboard' ? 'text-[var(--layout-backdrop-fg)] font-semibold' : 'text-zinc-400 hover:text-[var(--layout-backdrop-fg)]'
             }`}
           >
             Dashboard
@@ -45,7 +45,7 @@ export default function AppHeader() {
           <Link 
             href="/profile" 
             className={`text-sm font-medium transition-colors duration-200 ${
-              pathname === '/profile' ? 'text-[var(--foreground)] font-semibold' : 'text-zinc-400 hover:text-[var(--foreground)]'
+              pathname === '/profile' ? 'text-[var(--layout-backdrop-fg)] font-semibold' : 'text-zinc-400 hover:text-[var(--layout-backdrop-fg)]'
             }`}
           >
             Master Profile Vault
@@ -67,7 +67,7 @@ export default function AppHeader() {
         {/* Mobile Hamburger Toggle Button */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="md:hidden p-1.5 rounded-lg border border-white/10 text-zinc-400 hover:text-[var(--foreground)] hover:bg-white/5 transition-all cursor-pointer"
+          className="md:hidden p-1.5 rounded-lg border border-white/10 text-zinc-400 hover:text-[var(--layout-backdrop-fg)] hover:bg-white/5 transition-all cursor-pointer"
           title="Toggle Navigation"
         >
           {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -76,12 +76,12 @@ export default function AppHeader() {
 
       {/* Mobile Dropdown Navigation Drawer */}
       {menuOpen && (
-        <div className="absolute top-full left-0 right-0 bg-[var(--surface-2)]/95 backdrop-blur-md border-b border-white/5 p-5 flex flex-col gap-3.5 md:hidden z-40 animate-in slide-in-from-top duration-200 shadow-2xl">
+        <div className="absolute top-full left-0 right-0 bg-[var(--layout-surface-panel-bg)]/95 backdrop-blur-md border-b border-white/5 p-5 flex flex-col gap-3.5 md:hidden z-40 animate-in slide-in-from-top duration-200 shadow-2xl">
           <Link 
             href="/dashboard"
             onClick={() => setMenuOpen(false)}
             className={`text-sm font-medium p-2.5 rounded-xl hover:bg-white/5 transition-colors ${
-              pathname === '/dashboard' ? 'text-[var(--foreground)] font-semibold bg-white/5' : 'text-zinc-400'
+              pathname === '/dashboard' ? 'text-[var(--layout-backdrop-fg)] font-semibold bg-white/5' : 'text-zinc-400'
             }`}
           >
             Dashboard
@@ -90,7 +90,7 @@ export default function AppHeader() {
             href="/profile"
             onClick={() => setMenuOpen(false)}
             className={`text-sm font-medium p-2.5 rounded-xl hover:bg-white/5 transition-colors ${
-              pathname === '/profile' ? 'text-[var(--foreground)] font-semibold bg-white/5' : 'text-zinc-400'
+              pathname === '/profile' ? 'text-[var(--layout-backdrop-fg)] font-semibold bg-white/5' : 'text-zinc-400'
             }`}
           >
             Master Profile Vault

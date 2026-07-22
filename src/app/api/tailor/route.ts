@@ -81,8 +81,14 @@ export async function POST(req: Request) {
       projects: filteredProjects
     };
 
+    const today = new Date();
+    const formattedCurrentDateEN = today.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+    const formattedCurrentDateDE = today.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+    const currentDateStr = cvLanguage === 'DE' || clLanguage === 'DE' ? formattedCurrentDateDE : formattedCurrentDateEN;
+
     // Construct custom prompt context
     const contextAdditions = [];
+    contextAdditions.push(`CURRENT TODAY'S DATE: ${currentDateStr}`);
     if (salaryExpectation) contextAdditions.push(`Salary Expectations: ${salaryExpectation}`);
     if (noticePeriod) contextAdditions.push(`Notice Period / Availability: ${noticePeriod}`);
     if (signingLocation) contextAdditions.push(`Signing Location / City: ${signingLocation}`);

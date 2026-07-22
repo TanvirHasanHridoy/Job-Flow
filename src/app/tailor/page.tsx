@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
   Sparkles, FileText, Download, Briefcase, Award, CheckCircle2, AlertTriangle, Languages, Save, Check,
-  List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Palette, Highlighter, RotateCcw, Sliders, Coins, Plus, FolderGit
+  List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Palette, Highlighter, RotateCcw, Sliders, Coins, Plus, FolderGit,
+  ChevronUp, ChevronDown, Eye, EyeOff, Wand2, RefreshCw, Target, X
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { groupSkillsByCategory } from '@/lib/skills';
@@ -87,6 +88,8 @@ interface TailorResponse {
     missingSkills: string[];
     matchingKeywords: string[];
     recommendations: string;
+    exactMatches?: string[];
+    adjacentMatches?: string[];
   };
   tailoredCv: TailoredCv;
   tailoredCoverLetter: TailoredCoverLetter;
@@ -298,6 +301,7 @@ interface ContentEditableProps {
   style?: React.CSSProperties;
   isMeasurement?: boolean;
   useInnerText?: boolean;
+  highlightHtml?: string;
   [key: string]: any;
 }
 
@@ -310,6 +314,7 @@ const ContentEditable = ({
   style,
   isMeasurement,
   useInnerText = false,
+  highlightHtml,
   ...props
 }: ContentEditableProps) => {
   const ref = useRef<HTMLElement>(null);
@@ -318,7 +323,9 @@ const ContentEditable = ({
   // Initialize content on mount
   useEffect(() => {
     if (ref.current) {
-      if (useInnerText) {
+      if (highlightHtml && highlightHtml !== value) {
+        ref.current.innerHTML = highlightHtml;
+      } else if (useInnerText) {
         ref.current.innerText = value;
       } else {
         ref.current.innerHTML = value;
@@ -326,11 +333,14 @@ const ContentEditable = ({
     }
   }, []);
 
-  // Handle external updates (Undo/Redo, initial tailoring template loads, etc.)
+  // Handle external updates & ATS highlight toggle
   useEffect(() => {
-    if (value !== expectedValueRef.current) {
-      expectedValueRef.current = value;
-      if (ref.current) {
+    if (ref.current) {
+      if (highlightHtml && highlightHtml !== value) {
+        ref.current.innerHTML = highlightHtml;
+        expectedValueRef.current = value;
+      } else if (value !== expectedValueRef.current || !highlightHtml) {
+        expectedValueRef.current = value;
         if (useInnerText) {
           ref.current.innerText = value;
         } else {
@@ -338,7 +348,7 @@ const ContentEditable = ({
         }
       }
     }
-  }, [value, useInnerText]);
+  }, [value, highlightHtml, useInnerText]);
 
   const handleInput = (e: React.FormEvent<HTMLElement>) => {
     const domVal = useInnerText ? e.currentTarget.innerText : e.currentTarget.innerHTML;
@@ -399,6 +409,277 @@ export default function TailorWorkspace() {
   const [styleTemplate, setStyleTemplate] = useState<'CLASSIC_CORPORATE' | 'MODERN_MINIMALIST' | 'TECH_CREATIVE'>('CLASSIC_CORPORATE');
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [isAtsMode, setIsAtsMode] = useState(false);
+
+  // On-Preview Section & Enhancements States
+  const [hiddenSections, setHiddenSections] = useState<string[]>([]);
+  const [isAtsHighlightEnabled, setIsAtsHighlightEnabled] = useState<boolean>(false);
+
+  // Section AI Regeneration Modal State
+  const [regenModal, setRegenModal] = useState<{
+    isOpen: boolean;
+    sectionKey: string;
+    sectionTitle: string;
+    currentContent: any;
+  }>({
+    isOpen: false,
+    sectionKey: '',
+    sectionTitle: '',
+    currentContent: null
+  });
+  const [selectedPresetChip, setSelectedPresetChip] = useState<string | null>(null);
+  const [customRegenInstruction, setCustomRegenInstruction] = useState<string>('');
+  const [isRegeneratingSection, setIsRegeneratingSection] = useState<boolean>(false);
+
+  // Bullet Polish Modal State
+  const [bulletPolishModal, setBulletPolishModal] = useState<{
+    isOpen: boolean;
+    expIndex: number;
+    bulletIndex: number;
+    originalBullet: string;
+    variations: { star: string; punchy: string; ats: string } | null;
+  }>({
+    isOpen: false,
+    expIndex: -1,
+    bulletIndex: -1,
+    originalBullet: '',
+    variations: null
+  });
+  const [isPolishingBullet, setIsPolishingBullet] = useState<boolean>(false);
+
+  const getAtsMatchStats = () => {
+    if (!result?.gapAnalysis) return null;
+    const gap = result.gapAnalysis;
+    const exacts = (gap.exactMatches?.length ?? gap.matchingKeywords?.length) || 0;
+    const adjacents = gap.adjacentMatches?.length || 0;
+    const missing = gap.missingSkills?.length || 0;
+    const total = exacts + adjacents + missing;
+    if (total === 0) return null;
+    const matched = exacts + adjacents;
+    const percentage = Math.round((matched / total) * 100);
+    return { exacts, adjacents, missing, total, matched, percentage };
+  };
+
+  const getHighlightedHtml = (text: string) => {
+    if (!isAtsHighlightEnabled || !result?.gapAnalysis || !text) return text;
+
+    const exacts = result.gapAnalysis.exactMatches || result.gapAnalysis.matchingKeywords || [];
+    const adjacents = result.gapAnalysis.adjacentMatches || [];
+    const keywords = Array.from(new Set([...exacts, ...adjacents])).filter(k => k && k.length >= 2);
+
+    if (keywords.length === 0) return text;
+
+    const escaped = keywords
+      .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .sort((a, b) => b.length - a.length);
+
+    const regex = new RegExp(`\\b(${escaped.join('|')})\\b`, 'gi');
+
+    return text.replace(regex, (matched) => {
+      const lower = matched.toLowerCase();
+      const isExact = exacts.some(e => e.toLowerCase() === lower);
+      if (isExact) {
+        return `<mark style="background-color: rgba(16, 185, 129, 0.28); color: #064e3b; font-weight: 700; padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.5);">${matched}</mark>`;
+      }
+      return `<mark style="background-color: rgba(99, 102, 241, 0.28); color: #1e1b4b; font-weight: 700; padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(99, 102, 241, 0.5);">${matched}</mark>`;
+    });
+  };
+
+  const handleMoveSection = (sectionKey: string, direction: 'up' | 'down') => {
+    const idx = sectionOrder.indexOf(sectionKey);
+    if (idx === -1) return;
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= sectionOrder.length) return;
+
+    const newOrder = [...sectionOrder];
+    const temp = newOrder[idx];
+    newOrder[idx] = newOrder[targetIdx];
+    newOrder[targetIdx] = temp;
+    setSectionOrder(newOrder);
+  };
+
+  const handleToggleHideSection = (sectionKey: string) => {
+    setHiddenSections((prev) =>
+      prev.includes(sectionKey) ? prev.filter((s) => s !== sectionKey) : [...prev, sectionKey]
+    );
+  };
+
+  const handleOpenRegenModal = (sectionKey: string, sectionTitle: string, currentContent: any) => {
+    setRegenModal({
+      isOpen: true,
+      sectionKey,
+      sectionTitle,
+      currentContent
+    });
+    setSelectedPresetChip(null);
+    setCustomRegenInstruction('');
+  };
+
+  const handleExecuteSectionRegen = async () => {
+    if (!regenModal.sectionKey || !result) return;
+    setIsRegeneratingSection(true);
+    try {
+      const instruction = [selectedPresetChip, customRegenInstruction].filter(Boolean).join('. ');
+      const res = await fetch('/api/tailor/section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sectionKey: regenModal.sectionKey,
+          mode: 'section',
+          targetLanguage: previewTab === 'coverLetter' ? clLanguage : cvLanguage,
+          jobDescription,
+          profile,
+          currentContent: regenModal.currentContent,
+          userInstruction: instruction,
+          tone,
+          bulletStyle,
+          signingLocation
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        showAlert({ title: 'Section Regeneration', message: data.error || 'Failed to regenerate section', type: 'error' });
+        return;
+      }
+
+      if (data.data) {
+        setResult((prev: any) => {
+          if (!prev) return prev;
+          const newResult = { ...prev };
+          if (regenModal.sectionKey === 'summary' && data.data.summary) {
+            newResult.tailoredCv = { ...newResult.tailoredCv, summary: data.data.summary };
+          } else if (regenModal.sectionKey === 'work' && data.data.workExperience) {
+            newResult.tailoredCv = { ...newResult.tailoredCv, workExperience: data.data.workExperience };
+          } else if (regenModal.sectionKey === 'projects' && data.data.projects) {
+            newResult.tailoredCv = { ...newResult.tailoredCv, projects: data.data.projects };
+          } else if (regenModal.sectionKey === 'skills' && data.data.skills) {
+            newResult.tailoredCv = { ...newResult.tailoredCv, skills: data.data.skills };
+          } else if (regenModal.sectionKey === 'education' && data.data.education) {
+            newResult.tailoredCv = { ...newResult.tailoredCv, education: data.data.education };
+          } else if (regenModal.sectionKey === 'coverLetter' && data.data.tailoredCoverLetter) {
+            newResult.tailoredCoverLetter = data.data.tailoredCoverLetter;
+          }
+          return newResult;
+        });
+        fetchTokens();
+        showAlert({ title: 'Section Regeneration', message: `Section '${regenModal.sectionTitle}' regenerated successfully!`, type: 'success' });
+        setRegenModal({ isOpen: false, sectionKey: '', sectionTitle: '', currentContent: null });
+      }
+    } catch (err) {
+      showAlert({ title: 'Section Regeneration', message: 'Error occurred while regenerating section.', type: 'error' });
+    } finally {
+      setIsRegeneratingSection(false);
+    }
+  };
+
+  const handleFetchBulletVariations = async (expIndex: number, bulletIndex: number, originalBullet: string) => {
+    setBulletPolishModal({
+      isOpen: true,
+      expIndex,
+      bulletIndex,
+      originalBullet,
+      variations: null
+    });
+    setIsPolishingBullet(true);
+    try {
+      const res = await fetch('/api/tailor/section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sectionKey: 'bullet',
+          mode: 'bullet',
+          targetLanguage: cvLanguage,
+          jobDescription,
+          profile,
+          currentContent: { bullet: originalBullet },
+          tone,
+          bulletStyle
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.data?.variations) {
+        setBulletPolishModal((prev) => ({ ...prev, variations: data.data.variations }));
+        fetchTokens();
+      } else {
+        showAlert({ title: 'Bullet Polish', message: data.error || 'Failed to polish bullet point', type: 'error' });
+      }
+    } catch (err) {
+      showAlert({ title: 'Bullet Polish', message: 'Error generating bullet variations.', type: 'error' });
+    } finally {
+      setIsPolishingBullet(false);
+    }
+  };
+
+  const handleApplyBulletVariation = (newBulletText: string) => {
+    const { expIndex, bulletIndex } = bulletPolishModal;
+    if (expIndex < 0 || bulletIndex < 0 || !result) return;
+
+    setResult((prev: any) => {
+      if (!prev) return prev;
+      const newWork = [...prev.tailoredCv.workExperience];
+      const exp = { ...newWork[expIndex] };
+      const styleKey = bulletStyle === 'STAR Method' ? 'star' : bulletStyle === 'Short & Punchy' ? 'punchy' : 'standard';
+
+      if (Array.isArray(exp.bullets)) {
+        const updatedBullets = [...exp.bullets];
+        updatedBullets[bulletIndex] = newBulletText;
+        exp.bullets = updatedBullets;
+      } else if (exp.bullets && typeof exp.bullets === 'object') {
+        const currentList = exp.bullets[styleKey] || exp.bullets.standard || [];
+        const updatedList = [...currentList];
+        updatedList[bulletIndex] = newBulletText;
+        exp.bullets = { ...exp.bullets, [styleKey]: updatedList };
+      }
+      newWork[expIndex] = exp;
+      return { ...prev, tailoredCv: { ...prev.tailoredCv, workExperience: newWork } };
+    });
+
+    showAlert({ title: 'Bullet Polish', message: 'Bullet point updated successfully!', type: 'success' });
+    setBulletPolishModal({ isOpen: false, expIndex: -1, bulletIndex: -1, originalBullet: '', variations: null });
+  };
+
+  const handleAddWorkExperienceBullet = (expIndex: number) => {
+    setResult((prev: any) => {
+      if (!prev) return prev;
+      const newWork = [...prev.tailoredCv.workExperience];
+      const exp = { ...newWork[expIndex] };
+      const styleKey = bulletStyle === 'STAR Method' ? 'star' : bulletStyle === 'Short & Punchy' ? 'punchy' : 'standard';
+
+      const newBulletText = cvLanguage === 'DE'
+        ? 'Neue Leistung oder Verantwortlichkeit hier eingeben...'
+        : 'Enter new key achievement or responsibility here...';
+
+      if (Array.isArray(exp.bullets)) {
+        exp.bullets = [...exp.bullets, newBulletText];
+      } else if (exp.bullets && typeof exp.bullets === 'object') {
+        const currentList = exp.bullets[styleKey] || exp.bullets.standard || [];
+        exp.bullets = { ...exp.bullets, [styleKey]: [...currentList, newBulletText] };
+      } else {
+        exp.bullets = [newBulletText];
+      }
+      newWork[expIndex] = exp;
+      return { ...prev, tailoredCv: { ...prev.tailoredCv, workExperience: newWork } };
+    });
+  };
+
+  const handleDeleteWorkExperienceBullet = (expIndex: number, bulletIndex: number) => {
+    setResult((prev: any) => {
+      if (!prev) return prev;
+      const newWork = [...prev.tailoredCv.workExperience];
+      const exp = { ...newWork[expIndex] };
+      const styleKey = bulletStyle === 'STAR Method' ? 'star' : bulletStyle === 'Short & Punchy' ? 'punchy' : 'standard';
+
+      if (Array.isArray(exp.bullets)) {
+        exp.bullets = exp.bullets.filter((_: any, bIdx: number) => bIdx !== bulletIndex);
+      } else if (exp.bullets && typeof exp.bullets === 'object') {
+        const currentList = exp.bullets[styleKey] || exp.bullets.standard || [];
+        const updatedList = currentList.filter((_: any, bIdx: number) => bIdx !== bulletIndex);
+        exp.bullets = { ...exp.bullets, [styleKey]: updatedList };
+      }
+      newWork[expIndex] = exp;
+      return { ...prev, tailoredCv: { ...prev.tailoredCv, workExperience: newWork } };
+    });
+  };
 
   // Custom Skill Add & Confirmation Modal States
   const [skillModal, setSkillModal] = useState<{
@@ -636,6 +917,8 @@ export default function TailorWorkspace() {
     }
 
     sectionOrder.forEach((section) => {
+      if (hiddenSections.includes(section)) return;
+
       if (section === 'summary' && result.tailoredCv.summary) {
         orderedBlocks.push('summary');
       }
@@ -652,10 +935,16 @@ export default function TailorWorkspace() {
         });
       }
       else if (section === 'projects' && result.tailoredCv.projects && result.tailoredCv.projects.length > 0) {
-        orderedBlocks.push('projects-header');
-        result.tailoredCv.projects.forEach((_, idx) => {
-          orderedBlocks.push(`project-${idx}`);
-        });
+        const activeProjs = result.tailoredCv.projects
+          .map((p: any, idx: number) => ({ p, idx }))
+          .filter(({ p }: any) => selectedProjects.length === 0 || selectedProjects.includes(p.name));
+
+        if (activeProjs.length > 0) {
+          orderedBlocks.push('projects-header');
+          activeProjs.forEach(({ idx }: any) => {
+            orderedBlocks.push(`project-${idx}`);
+          });
+        }
       }
       else if (section === 'skills' && result.tailoredCv.skills && result.tailoredCv.skills.length > 0) {
         orderedBlocks.push('skills');
@@ -672,6 +961,7 @@ export default function TailorWorkspace() {
   const getFirstSectionWithData = () => {
     if (!result) return '';
     for (const section of sectionOrder) {
+      if (hiddenSections.includes(section)) continue;
       if (section === 'summary' && result.tailoredCv.summary) return 'summary';
       if (section === 'work' && result.tailoredCv.workExperience && result.tailoredCv.workExperience.length > 0) return 'work-history-header';
       if (section === 'education' && result.tailoredCv.education && result.tailoredCv.education.length > 0) return 'education-header';
@@ -680,6 +970,64 @@ export default function TailorWorkspace() {
       if (section === 'languages' && result.tailoredCv.languages && result.tailoredCv.languages.length > 0) return 'languages';
     }
     return '';
+  };
+
+  const renderSectionHeaderControls = (sectionKey: string, sectionTitle: string, currentContent: any) => {
+    const idx = sectionOrder.indexOf(sectionKey);
+    const isHidden = hiddenSections.includes(sectionKey);
+
+    return (
+      <div className="absolute left-0 -top-7 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-all duration-200 flex items-center gap-1 bg-zinc-900/95 border border-zinc-700/80 rounded-lg p-1 text-[11px] shadow-xl backdrop-blur-md z-30 font-sans">
+        <button
+          disabled={idx <= 0}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleMoveSection(sectionKey, 'up');
+          }}
+          className="p-1 hover:bg-zinc-800 rounded text-zinc-300 hover:text-white disabled:opacity-30 cursor-pointer"
+          title="Move Section Up"
+        >
+          <ChevronUp className="w-3.5 h-3.5" />
+        </button>
+
+        <button
+          disabled={idx === -1 || idx >= sectionOrder.length - 1}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleMoveSection(sectionKey, 'down');
+          }}
+          className="p-1 hover:bg-zinc-800 rounded text-zinc-300 hover:text-white disabled:opacity-30 cursor-pointer"
+          title="Move Section Down"
+        >
+          <ChevronDown className="w-3.5 h-3.5" />
+        </button>
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleToggleHideSection(sectionKey);
+          }}
+          className="p-1 hover:bg-zinc-800 rounded text-zinc-300 hover:text-white cursor-pointer"
+          title={isHidden ? "Unhide Section" : "Hide Section"}
+        >
+          {isHidden ? <EyeOff className="w-3.5 h-3.5 text-amber-400" /> : <Eye className="w-3.5 h-3.5 text-zinc-300" />}
+        </button>
+
+        <div className="w-[1px] h-3.5 bg-zinc-800 mx-0.5" />
+
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            handleOpenRegenModal(sectionKey, sectionTitle, currentContent);
+          }}
+          className="flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 rounded text-white font-medium cursor-pointer transition-all text-[10px]"
+          title="Regenerate Section with AI"
+        >
+          <Sparkles className="w-3 h-3 text-indigo-200 animate-pulse" />
+          <span>Regen AI</span>
+        </button>
+      </div>
+    );
   };
 
   const renderBlock = (blockId: string, isMeasurement: boolean) => {
@@ -934,7 +1282,8 @@ export default function TailorWorkspace() {
 
     if (blockId === 'summary') {
       return (
-        <div key={blockId} data-block-id={blockId} className="w-full text-left">
+        <div key={blockId} data-block-id={blockId} className="w-full text-left group relative">
+          {!isMeasurement && renderSectionHeaderControls('summary', cvLanguage === 'DE' ? 'Berufliches Profil' : 'Professional Profile', result.tailoredCv.summary)}
           {(() => {
             const title = cvLanguage === 'DE' ? 'Berufliches Profil' : 'Professional Profile';
             const idx = title.indexOf(' ');
@@ -962,6 +1311,7 @@ export default function TailorWorkspace() {
             onChange={(val) => handleCvSummaryChange(val, true)}
             onBlur={(e: any) => handleCvSummaryChange(e.target.innerHTML, false)}
             isMeasurement={isMeasurement}
+            highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(result.tailoredCv.summary) : undefined}
             className="text-gray-700 text-left font-sans focus:outline-none"
             style={{
               fontSize: `${fontSize}px`,
@@ -977,12 +1327,13 @@ export default function TailorWorkspace() {
         <div
           key={blockId}
           data-block-id={blockId}
-          className="text-left w-full"
+          className="text-left w-full group relative"
           style={{
             marginTop: `${isFirstSection ? 0 : sectionSpacing * 0.4}px`,
             marginBottom: `${sectionSpacing * 0.2}px`
           }}
         >
+          {!isMeasurement && renderSectionHeaderControls('work', cvLanguage === 'DE' ? 'Berufserfahrung' : 'Work History', result.tailoredCv.workExperience)}
           {(() => {
             const title = cvLanguage === 'DE' ? 'Berufserfahrung' : 'Work History';
             const idx = title.indexOf(' ');
@@ -1090,31 +1441,49 @@ export default function TailorWorkspace() {
                     onChange={(val) => handleWorkExperienceBulletChange(idx, bIdx, val, true)}
                     onBlur={(e: any) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerHTML, false)}
                     isMeasurement={isMeasurement}
+                    highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(b) : undefined}
                     className="focus:outline-none flex-1"
                   />
                   {!isMeasurement && (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteWorkExperienceBullet(idx, bIdx)}
-                      className="no-print opacity-0 group-hover:opacity-100 ml-1.5 text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 cursor-pointer w-4 h-4 rounded-full flex items-center justify-center transition-all duration-150 shrink-0 select-none border border-rose-200 font-sans"
-                      title="Delete bullet point"
-                      style={{
-                        fontSize: '10px',
-                        lineHeight: '1',
-                      }}
-                    >
-                      ×
-                    </button>
+                    <div className="no-print opacity-0 group-hover:opacity-100 flex items-center gap-1 ml-1.5 shrink-0 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => handleFetchBulletVariations(idx, bIdx, b)}
+                        className="text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 cursor-pointer w-4 h-4 rounded-full flex items-center justify-center transition-all duration-150 border border-indigo-200"
+                        title="Polish bullet point with AI"
+                      >
+                        <Wand2 className="w-2.5 h-2.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteWorkExperienceBullet(idx, bIdx)}
+                        className="text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 cursor-pointer w-4 h-4 rounded-full flex items-center justify-center transition-all duration-150 select-none border border-rose-200 font-sans text-[10px]"
+                        title="Delete bullet point"
+                      >
+                        ×
+                      </button>
+                    </div>
                   )}
                 </li>
               ))}
             </ul>
+            {!isMeasurement && (
+              <button
+                type="button"
+                onClick={() => handleAddWorkExperienceBullet(idx)}
+                className="no-print opacity-0 group-hover/workitem:opacity-100 focus:opacity-100 mt-1 self-start px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center gap-1 transition-all cursor-pointer select-none"
+                title="Add new bullet point to this work experience entry"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Add Bullet Point</span>
+              </button>
+            )}
           </div>
         );
       }
 
       return (
-        <div key={blockId} data-block-id={blockId} className="w-full text-left font-sans" style={{ marginBottom: `${bulletSpacing}px` }}>
+        <div key={blockId} data-block-id={blockId} className="w-full text-left font-sans group/workitem relative" style={{ marginBottom: `${bulletSpacing}px` }}>
           <table className="w-full border-collapse">
             <tbody>
               <tr>
@@ -1207,25 +1576,43 @@ export default function TailorWorkspace() {
                           onChange={(val) => handleWorkExperienceBulletChange(idx, bIdx, val, true)}
                           onBlur={(e: any) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerHTML, false)}
                           isMeasurement={isMeasurement}
+                          highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(b) : undefined}
                           className="focus:outline-none flex-1"
                         />
                         {!isMeasurement && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteWorkExperienceBullet(idx, bIdx)}
-                            className="no-print opacity-0 group-hover:opacity-100 ml-1.5 text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 cursor-pointer w-4 h-4 rounded-full flex items-center justify-center transition-all duration-150 shrink-0 select-none border border-rose-200 font-sans"
-                            title="Delete bullet point"
-                            style={{
-                              fontSize: '10px',
-                              lineHeight: '1',
-                            }}
-                          >
-                            ×
-                          </button>
+                          <div className="no-print opacity-0 group-hover:opacity-100 flex items-center gap-1 ml-1.5 shrink-0 transition-opacity">
+                            <button
+                              type="button"
+                              onClick={() => handleFetchBulletVariations(idx, bIdx, b)}
+                              className="text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 cursor-pointer w-4 h-4 rounded-full flex items-center justify-center transition-all duration-150 border border-indigo-200"
+                              title="Polish bullet point with AI"
+                            >
+                              <Wand2 className="w-2.5 h-2.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteWorkExperienceBullet(idx, bIdx)}
+                              className="text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 cursor-pointer w-4 h-4 rounded-full flex items-center justify-center transition-all duration-150 select-none border border-rose-200 font-sans text-[10px]"
+                              title="Delete bullet point"
+                            >
+                              ×
+                            </button>
+                          </div>
                         )}
                       </li>
                     ))}
                   </ul>
+                  {!isMeasurement && (
+                    <button
+                      type="button"
+                      onClick={() => handleAddWorkExperienceBullet(idx)}
+                      className="no-print opacity-0 group-hover/workitem:opacity-100 focus:opacity-100 mt-1.5 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center gap-1 transition-all cursor-pointer select-none"
+                      title="Add new bullet point to this work experience entry"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Add Bullet Point</span>
+                    </button>
+                  )}
                 </td>
               </tr>
             </tbody>
@@ -1239,12 +1626,13 @@ export default function TailorWorkspace() {
         <div
           key={blockId}
           data-block-id={blockId}
-          className="text-left w-full"
+          className="text-left w-full group relative"
           style={{
             marginTop: `${isFirstSection ? 0 : sectionSpacing * 0.4}px`,
             marginBottom: `${sectionSpacing * 0.2}px`
           }}
         >
+          {!isMeasurement && renderSectionHeaderControls('education', cvLanguage === 'DE' ? 'Ausbildung' : 'Education', result.tailoredCv.education)}
           {(() => {
             const title = cvLanguage === 'DE' ? 'Ausbildung' : 'Education';
             const idx = title.indexOf(' ');
@@ -1423,12 +1811,13 @@ export default function TailorWorkspace() {
         <div
           key={blockId}
           data-block-id={blockId}
-          className="text-left w-full"
+          className="text-left w-full group relative"
           style={{
             marginTop: `${sectionSpacing * 0.4}px`,
             marginBottom: `${sectionSpacing * 0.2}px`
           }}
         >
+          {!isMeasurement && renderSectionHeaderControls('projects', cvLanguage === 'DE' ? 'Projekte' : 'Projects', result.tailoredCv.projects)}
           {(() => {
             const title = cvLanguage === 'DE' ? 'Projekte' : 'Projects';
             const idx = title.indexOf(' ');
@@ -1489,6 +1878,7 @@ export default function TailorWorkspace() {
                   onBlur={(e: any) => handleProjectChange(idx, 'technologies', e.target.innerText, false)}
                   useInnerText={true}
                   isMeasurement={isMeasurement}
+                  highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies) : undefined}
                   className="focus:outline-none"
                 />
               </p>
@@ -1499,6 +1889,7 @@ export default function TailorWorkspace() {
               onChange={(val) => handleProjectChange(idx, 'description', val, true)}
               onBlur={(e: any) => handleProjectChange(idx, 'description', e.target.innerHTML, false)}
               isMeasurement={isMeasurement}
+              highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(proj.description) : undefined}
               className="text-gray-700 text-left font-sans focus:outline-none"
               style={{
                 fontSize: `${fontSize}px`,
@@ -1550,6 +1941,7 @@ export default function TailorWorkspace() {
                           onBlur={(e: any) => handleProjectChange(idx, 'technologies', e.target.innerText, false)}
                           useInnerText={true}
                           isMeasurement={isMeasurement}
+                          highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies) : undefined}
                           className="focus:outline-none"
                         />
                       </span>
@@ -1566,6 +1958,7 @@ export default function TailorWorkspace() {
                     onChange={(val) => handleProjectChange(idx, 'description', val, true)}
                     onBlur={(e: any) => handleProjectChange(idx, 'description', e.target.innerHTML, false)}
                     isMeasurement={isMeasurement}
+                    highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(proj.description) : undefined}
                     className="text-gray-700 text-left font-sans focus:outline-none"
                     style={{
                       fontSize: `${fontSize}px`,
@@ -1582,7 +1975,8 @@ export default function TailorWorkspace() {
 
     if (blockId === 'skills') {
       return (
-        <div key={blockId} data-block-id={blockId} className="w-full text-left font-sans">
+        <div key={blockId} data-block-id={blockId} className="w-full text-left font-sans group relative">
+          {!isMeasurement && renderSectionHeaderControls('skills', cvLanguage === 'DE' ? 'Fähigkeiten' : 'Skills', result.tailoredCv.skills)}
           {(() => {
             const title = cvLanguage === 'DE' ? 'Fähigkeiten' : 'Skills';
             const idx = title.indexOf(' ');
@@ -1628,7 +2022,11 @@ export default function TailorWorkspace() {
                       <span className="text-gray-500 leading-none mt-[2px] shrink-0">•</span>
                       <span>
                         <span className="font-semibold text-gray-800">{levelLabel}:</span>{' '}
-                        <span className="text-gray-700">{names.join(', ')}</span>
+                        {isAtsHighlightEnabled ? (
+                          <span className="text-gray-700" dangerouslySetInnerHTML={{ __html: names.map(n => getHighlightedHtml(n)).join(', ') }} />
+                        ) : (
+                          <span className="text-gray-700">{names.join(', ')}</span>
+                        )}
                       </span>
                     </li>
                   );
@@ -1649,7 +2047,11 @@ export default function TailorWorkspace() {
                       <span className="text-gray-500 leading-none mt-[2px] shrink-0">•</span>
                       <span>
                         <span className="font-semibold text-gray-800">{cat}:</span>{' '}
-                        <span className="text-gray-700">{names.join(', ')}</span>
+                        {isAtsHighlightEnabled ? (
+                          <span className="text-gray-700" dangerouslySetInnerHTML={{ __html: names.map(n => getHighlightedHtml(n)).join(', ') }} />
+                        ) : (
+                          <span className="text-gray-700">{names.join(', ')}</span>
+                        )}
                       </span>
                     </li>
                   );
@@ -1666,9 +2068,10 @@ export default function TailorWorkspace() {
         <div
           key={blockId}
           data-block-id={blockId}
-          className="text-left w-full font-sans"
+          className="text-left w-full font-sans group relative"
           style={{ marginTop: `${isFirstSection ? 0 : sectionSpacing * 0.5}px` }}
         >
+          {!isMeasurement && renderSectionHeaderControls('languages', cvLanguage === 'DE' ? 'Sprachen' : 'Languages', result.tailoredCv.languages)}
           <p
             className="font-semibold text-gray-800 mb-1"
             style={{
@@ -1901,7 +2304,7 @@ export default function TailorWorkspace() {
         }
       };
     }
-  }, [result, fontSize, sectionSpacing, pagePaddingTop, pagePaddingBottom, pagePaddingSide, bulletSpacing, signatureSpacing, photoHeight, headerSpacing, bulletStyle, lengthTarget, previewTab, showSignatureImage, sectionOrder]);
+  }, [result, fontSize, sectionSpacing, pagePaddingTop, pagePaddingBottom, pagePaddingSide, bulletSpacing, signatureSpacing, photoHeight, headerSpacing, bulletStyle, lengthTarget, previewTab, showSignatureImage, sectionOrder, selectedProjects, isAtsHighlightEnabled]);
 
 
   const fetchProfile = async () => {
@@ -2902,45 +3305,7 @@ export default function TailorWorkspace() {
     }
   };
 
-  const handleDeleteWorkExperienceBullet = (expIdx: number, bulletIdx: number) => {
-    if (!result) return;
-    const activeStyleKey = getActiveBulletStyleKey(bulletStyle);
-    const newWorkExp = [...result.tailoredCv.workExperience];
 
-    let currentBulletsObj = newWorkExp[expIdx].bullets;
-    if (Array.isArray(currentBulletsObj)) {
-      currentBulletsObj = {
-        star: [...currentBulletsObj],
-        punchy: [...currentBulletsObj],
-        standard: [...currentBulletsObj]
-      };
-    } else {
-      currentBulletsObj = {
-        star: currentBulletsObj.star ? [...currentBulletsObj.star] : [],
-        punchy: currentBulletsObj.punchy ? [...currentBulletsObj.punchy] : [],
-        standard: currentBulletsObj.standard ? [...currentBulletsObj.standard] : []
-      };
-    }
-
-    const variantBullets = [...(currentBulletsObj[activeStyleKey] || [])];
-    variantBullets.splice(bulletIdx, 1);
-
-    newWorkExp[expIdx] = {
-      ...newWorkExp[expIdx],
-      bullets: {
-        ...currentBulletsObj,
-        [activeStyleKey]: variantBullets
-      }
-    };
-
-    setResult({
-      ...result,
-      tailoredCv: {
-        ...result.tailoredCv,
-        workExperience: newWorkExp
-      }
-    });
-  };
 
   const handleEducationChange = (eduIdx: number, key: 'period' | 'degree' | 'institution' | 'location', value: string, isRealtime = false) => {
     if (!result) return;
@@ -3142,7 +3507,7 @@ export default function TailorWorkspace() {
   return (
     <div className="flex-grow flex flex-col min-h-[calc(100vh-73px)] w-full overflow-x-hidden">
       {/* Mobile Switch Tab Bar */}
-      <div className="lg:hidden sticky top-0 z-30 flex bg-[var(--background)]/90 backdrop-blur-md border-b border-white/5 p-2 gap-2 w-full shrink-0">
+      <div className="lg:hidden sticky top-0 z-30 flex bg-[var(--layout-backdrop-bg)]/90 backdrop-blur-md border-b border-white/5 p-2 gap-2 w-full shrink-0">
         <button
           onClick={() => setActiveMobileTab('edit')}
           className={`flex-grow flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeMobileTab === 'edit'
@@ -3391,63 +3756,6 @@ export default function TailorWorkspace() {
               </div>
             )}
 
-            {/* Section Order Panel */}
-            {result && (
-              <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3 font-sans">
-                <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5 justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Sliders className="w-3.5 h-3.5 text-indigo-400" />
-                    CV Section Order
-                  </span>
-                </h3>
-                <div className="space-y-1.5">
-                  {sectionOrder.map((section, idx) => {
-                    let label = 'Summary';
-                    if (section === 'work') label = 'Work History';
-                    else if (section === 'education') label = 'Education';
-                    else if (section === 'projects') label = 'Project Works';
-                    else if (section === 'skills') label = 'Skills';
-                    else if (section === 'languages') label = 'Languages';
-
-                    return (
-                      <div key={section} className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] border border-white/5 text-xs text-zinc-300">
-                        <span>{label}</span>
-                        <div className="flex items-center gap-1">
-                          <button
-                            disabled={idx === 0}
-                            onClick={() => {
-                              const newOrder = [...sectionOrder];
-                              const temp = newOrder[idx - 1];
-                              newOrder[idx - 1] = newOrder[idx];
-                              newOrder[idx] = temp;
-                              setSectionOrder(newOrder);
-                            }}
-                            className="p-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:text-zinc-500 transition-colors cursor-pointer"
-                            title="Move Up"
-                          >
-                            ▲
-                          </button>
-                          <button
-                            disabled={idx === sectionOrder.length - 1}
-                            onClick={() => {
-                              const newOrder = [...sectionOrder];
-                              const temp = newOrder[idx + 1];
-                              newOrder[idx + 1] = newOrder[idx];
-                              newOrder[idx] = temp;
-                              setSectionOrder(newOrder);
-                            }}
-                            className="p-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:text-zinc-500 transition-colors cursor-pointer"
-                            title="Move Down"
-                          >
-                            ▼
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
 
             {/* Visual Spacing Fine-Tuning Sidebar Panel */}
             {result && previewTab === 'cv' && (
@@ -4121,10 +4429,10 @@ export default function TailorWorkspace() {
         </div>
 
         {/* Right Preview Pane: Col 7 */}
-        <div className={`lg:col-span-7 bg-[var(--surface-1)]/30 flex flex-col overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] ${activeMobileTab === 'preview' ? 'block' : 'hidden lg:block'
+        <div className={`lg:col-span-7 bg-[var(--layout-surface-card-bg)]/30 flex flex-col overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] ${activeMobileTab === 'preview' ? 'block' : 'hidden lg:block'
           }`}>
           {/* Toolbar */}
-          <div className="sticky top-0 z-20 no-print flex items-center justify-between px-6 py-3 bg-[var(--surface-2)] border-b border-white/5">
+          <div className="sticky top-0 z-20 no-print flex items-center justify-between px-6 py-3 bg-[var(--layout-surface-panel-bg)] border-b border-white/5">
             <div className="flex items-center gap-3">
               <div className="flex gap-1.5 font-sans">
                 <button
@@ -4200,7 +4508,7 @@ export default function TailorWorkspace() {
                 {exportDropdownOpen && (
                   <>
                     <div className="fixed inset-0 z-20" onClick={() => setExportDropdownOpen(false)}></div>
-                    <div className="absolute right-0 mt-2 w-52 bg-[var(--surface-2)] border border-white/10 rounded-xl shadow-xl z-30 py-1.5 text-xs text-zinc-300">
+                    <div className="absolute right-0 mt-2 w-52 bg-[var(--layout-surface-panel-bg)] border border-white/10 rounded-xl shadow-xl z-30 py-1.5 text-xs text-zinc-300">
                       <button
                         onClick={() => {
                           setExportDropdownOpen(false);
@@ -4251,7 +4559,7 @@ export default function TailorWorkspace() {
           )}
 
           {/* Live A4 Sheet Render */}
-          <div className="flex-1 p-6 md:p-8 bg-[var(--surface-4)] flex items-start justify-center">
+          <div className="flex-1 p-6 md:p-8 bg-[var(--layout-workspace-bg)] flex items-start justify-center">
             {result ? (
               <div className="w-full max-w-[210mm] flex flex-col items-center">
 
@@ -4283,6 +4591,66 @@ export default function TailorWorkspace() {
                         >
                           Ultra-Tight
                         </button>
+                      </div>
+
+                      {/* One-Click Section Layout Presets */}
+                      <div className="flex items-center gap-1 font-sans">
+                        <span className="font-semibold text-zinc-400 text-[10px]">Layout Preset:</span>
+                        <button
+                          type="button"
+                          onClick={() => setSectionOrder(['summary', 'work', 'projects', 'education', 'skills', 'languages'])}
+                          className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium text-zinc-300 transition-colors cursor-pointer"
+                          title="Experience-First Section Order"
+                        >
+                          Work-First
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSectionOrder(['summary', 'skills', 'projects', 'work', 'education', 'languages'])}
+                          className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium text-zinc-300 transition-colors cursor-pointer"
+                          title="Tech & Skills First Section Order"
+                        >
+                          Tech-First
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSectionOrder(['summary', 'education', 'work', 'projects', 'skills', 'languages'])}
+                          className="px-2 py-0.5 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium text-zinc-300 transition-colors cursor-pointer"
+                          title="Academic / Education First Section Order"
+                        >
+                          Academic-First
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsAtsHighlightEnabled((prev) => !prev)}
+                          className={`flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-semibold transition-all cursor-pointer border ${
+                            isAtsHighlightEnabled
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
+                              : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
+                          }`}
+                          title="Highlight ATS Job Description keywords in preview text"
+                        >
+                          <Target className="w-3 h-3 text-emerald-400" />
+                          <span>ATS Highlights {isAtsHighlightEnabled ? '(ON)' : '(OFF)'}</span>
+                        </button>
+
+                        {(() => {
+                          const stats = getAtsMatchStats();
+                          if (!stats) return null;
+                          const colorClass = stats.percentage >= 75
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                            : stats.percentage >= 50
+                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                            : 'bg-rose-500/10 border-rose-500/30 text-rose-300';
+                          return (
+                            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold ${colorClass}`} title={`${stats.matched} matched out of ${stats.total} total extracted job keywords`}>
+                              <span>ATS Match: {stats.matched}/{stats.total} ({stats.percentage}%)</span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                     <div className="flex items-center gap-4 flex-wrap text-[11px]">
@@ -4344,6 +4712,42 @@ export default function TailorWorkspace() {
                         />
                         <span className="text-zinc-300 font-semibold w-8">{pagePaddingTop}mm</span>
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Hidden Sections Unhide Banner */}
+                {hiddenSections.length > 0 && (
+                  <div className="w-full max-w-[210mm] no-print mb-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-between gap-3 text-amber-300 font-sans text-xs animate-in slide-in-from-top duration-200">
+                    <div className="flex items-center gap-2">
+                      <EyeOff className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                      <span>
+                        <strong>{hiddenSections.length} Hidden Section(s):</strong>{' '}
+                        {hiddenSections.map((s) => (s === 'summary' ? 'Summary' : s === 'work' ? 'Work History' : s === 'education' ? 'Education' : s === 'projects' ? 'Projects' : s === 'skills' ? 'Skills' : 'Languages')).join(', ')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {hiddenSections.map((secKey) => {
+                        const label = secKey === 'summary' ? 'Summary' : secKey === 'work' ? 'Work' : secKey === 'education' ? 'Education' : secKey === 'projects' ? 'Projects' : secKey === 'skills' ? 'Skills' : 'Languages';
+                        return (
+                          <button
+                            key={secKey}
+                            type="button"
+                            onClick={() => handleToggleHideSection(secKey)}
+                            className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>Unhide {label}</span>
+                          </button>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        onClick={() => setHiddenSections([])}
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-bold cursor-pointer transition-colors"
+                      >
+                        Unhide All
+                      </button>
                     </div>
                   </div>
                 )}
@@ -4440,7 +4844,7 @@ export default function TailorWorkspace() {
                         <div
                           ref={clPreviewRef}
                           id="cl-sheet"
-                          className="w-[794px] min-h-[1123px] relative flex flex-col justify-between bg-white text-[#1a1a1a] mx-auto shadow-lg print:shadow-none"
+                          className="w-[794px] min-h-[1123px] relative flex flex-col justify-between bg-white text-[#1a1a1a] mx-auto shadow-lg print:shadow-none group"
                           style={{
                             width: '794px',
                             minHeight: '1123px',
@@ -4453,6 +4857,21 @@ export default function TailorWorkspace() {
                             flexShrink: 0
                           }}
                         >
+                          {/* Cover Letter Header AI Action Bar */}
+                          <div className="absolute right-6 top-6 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-all duration-200 flex items-center gap-1 bg-zinc-900/95 border border-zinc-700/80 rounded-xl p-1.5 text-xs shadow-2xl backdrop-blur-md z-30 font-sans no-print">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenRegenModal('coverLetter', clLanguage === 'DE' ? 'Anschreiben' : 'Cover Letter', result.tailoredCoverLetter);
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 rounded-lg text-white font-bold cursor-pointer transition-all text-xs shadow-md"
+                              title="Regenerate Cover Letter with AI"
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-indigo-200 animate-pulse" />
+                              <span>Regenerate Cover Letter (AI)</span>
+                            </button>
+                          </div>
                           <div className="text-xs">
                             {/* Sender block */}
                             <div className={`${isAtsMode ? 'text-left' : 'text-right'} text-[11.5px] leading-[1.7]`}>
@@ -4523,6 +4942,7 @@ export default function TailorWorkspace() {
                                   onChange={(val) => handleClParagraphChange(i, val, true)}
                                   onBlur={(e: any) => handleClParagraphChange(i, e.target.innerHTML, false)}
                                   isMeasurement={false}
+                                  highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(p) : undefined}
                                 />
                               ))}
                             </div>
@@ -4696,6 +5116,212 @@ export default function TailorWorkspace() {
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Section Regeneration Modal */}
+      {regenModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
+          <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4 font-sans text-left">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                  <Sparkles className="w-5 h-5 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wide">
+                    Regenerate {regenModal.sectionTitle}
+                  </h3>
+                  <p className="text-[11px] text-zinc-400">
+                    Customize prompt instruction for AI section generation (5 Tokens)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setRegenModal({ isOpen: false, sectionKey: '', sectionTitle: '', currentContent: null })}
+                className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-white/5 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Preset Prompt Chips */}
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-zinc-300 block">Select Quick Directive Preset:</label>
+              <div className="flex flex-wrap gap-1.5">
+                {(regenModal.sectionKey === 'coverLetter' ? [
+                  'Corporate Formal (DIN 5008)',
+                  'Energetic & Enthusiastic',
+                  'Executive Leadership',
+                  'Short & Punchy (under 250 words)',
+                  'Highlight technical achievements'
+                ] : [
+                  'More metric-focused & STAR formula',
+                  'Emphasize leadership & ownership',
+                  'More technical & ATS keyword dense',
+                  'Shorten & make more punchy',
+                  'Highlight cloud & modern devops tech'
+                ]).map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => setSelectedPresetChip(selectedPresetChip === chip ? null : chip)}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
+                      selectedPresetChip === chip
+                        ? 'bg-indigo-600 text-white border-indigo-500 shadow-md'
+                        : 'bg-zinc-950/80 text-zinc-400 border-zinc-800 hover:border-zinc-700 hover:text-zinc-200'
+                    }`}
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Instruction Box */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-zinc-300 block">Custom AI Instructions (Optional):</label>
+              <textarea
+                value={customRegenInstruction}
+                onChange={(e) => setCustomRegenInstruction(e.target.value)}
+                placeholder="e.g. Highlight React, Next.js, and API optimization achievements specifically..."
+                rows={3}
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all resize-none font-sans"
+              />
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex items-center justify-between pt-2 border-t border-white/10">
+              <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+                <Coins className="w-3.5 h-3.5 text-amber-400" />
+                <span>Cost: <strong>5 Tokens</strong></span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={isRegeneratingSection}
+                  onClick={() => setRegenModal({ isOpen: false, sectionKey: '', sectionTitle: '', currentContent: null })}
+                  className="px-3.5 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={isRegeneratingSection}
+                  onClick={handleExecuteSectionRegen}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 disabled:opacity-50 cursor-pointer transition-all shadow-lg shadow-indigo-600/20"
+                >
+                  {isRegeneratingSection ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Regenerating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Generate Section</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bullet Point Polish Modal */}
+      {bulletPolishModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
+          <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-xl w-full shadow-2xl space-y-4 font-sans text-left">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                  <Wand2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wide">
+                    Polish Bullet Point with AI
+                  </h3>
+                  <p className="text-[11px] text-zinc-400">
+                    Select an AI variation to replace your bullet point (2 Tokens)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setBulletPolishModal({ isOpen: false, expIndex: -1, bulletIndex: -1, originalBullet: '', variations: null })}
+                className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-white/5 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-zinc-950 border border-zinc-800 text-xs text-zinc-300">
+              <span className="text-zinc-500 font-bold block mb-1">Original Bullet:</span>
+              <p className="italic">{bulletPolishModal.originalBullet}</p>
+            </div>
+
+            {isPolishingBullet ? (
+              <div className="p-8 text-center space-y-2">
+                <RefreshCw className="w-6 h-6 text-indigo-400 animate-spin mx-auto" />
+                <p className="text-xs text-zinc-400">Crafting 3 AI variations tailored to job description...</p>
+              </div>
+            ) : bulletPolishModal.variations ? (
+              <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                <label className="text-xs font-semibold text-zinc-300 block">AI Suggested Variations:</label>
+
+                {/* STAR Variation */}
+                <div className="p-3 rounded-xl bg-zinc-950/80 border border-indigo-500/30 hover:border-indigo-500 transition-all space-y-2 group">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
+                      STAR Formula (Metric Heavy)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyBulletVariation(bulletPolishModal.variations!.star)}
+                      className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                    >
+                      Apply This
+                    </button>
+                  </div>
+                  <p className="text-xs text-zinc-200 leading-relaxed">{bulletPolishModal.variations.star}</p>
+                </div>
+
+                {/* Punchy Variation */}
+                <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+                      Concise & Punchy
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyBulletVariation(bulletPolishModal.variations!.punchy)}
+                      className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                    >
+                      Apply This
+                    </button>
+                  </div>
+                  <p className="text-xs text-zinc-200 leading-relaxed">{bulletPolishModal.variations.punchy}</p>
+                </div>
+
+                {/* ATS Keyword Variation */}
+                <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
+                  <div className="flex items-center justify-between">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
+                      ATS Keyword-Dense
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleApplyBulletVariation(bulletPolishModal.variations!.ats)}
+                      className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                    >
+                      Apply This
+                    </button>
+                  </div>
+                  <p className="text-xs text-zinc-200 leading-relaxed">{bulletPolishModal.variations.ats}</p>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       )}

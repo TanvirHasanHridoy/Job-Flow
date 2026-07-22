@@ -319,146 +319,174 @@ export function CvDocument({ cv, options }: { cv: any; options: any }) {
           )}
         </View>
 
-        {/* Summary */}
-        {cv.summary && (
-          <View>
-            <View style={cvStyles.sectionTitleContainer}>
-              <Text style={cvStyles.sectionTitleText}>PROFESSIONAL PROFILE</Text>
-            </View>
-            <Text style={cvStyles.summaryText}>{cv.summary.replace(/<[^>]*>/g, '')}</Text>
-          </View>
-        )}
+        {/* Dynamic Ordered Sections */}
+        {(() => {
+          const sectionOrder = options.sectionOrder || ['summary', 'work', 'education', 'projects', 'skills', 'languages'];
+          const hidden = options.hiddenSections || [];
 
-        {/* Work History */}
-        {cv.workExperience && cv.workExperience.length > 0 && (
-          <View>
-            <View style={cvStyles.sectionTitleContainer}>
-              <Text style={cvStyles.sectionTitleText}>WORK HISTORY</Text>
-            </View>
-            {cv.workExperience.map((exp: any, idx: number) => {
-              let bulletsList: string[] = [];
-              if (exp.bullets) {
-                if (Array.isArray(exp.bullets)) {
-                  bulletsList = exp.bullets;
-                } else {
-                  const styleKey = options.bulletStyle === 'STAR Method' ? 'star' : options.bulletStyle === 'Short & Punchy' ? 'punchy' : 'standard';
-                  bulletsList = exp.bullets[styleKey] || exp.bullets.standard || [];
-                }
-              }
+          return sectionOrder.map((sectionKey: string) => {
+            if (hidden.includes(sectionKey)) return null;
+
+            if (sectionKey === 'summary' && cv.summary) {
               return (
-                <View key={idx} style={cvStyles.tableRow}>
-                  <Text style={cvStyles.dateCell}>{exp.period}</Text>
-                  <View style={cvStyles.contentCell}>
-                    <Text style={cvStyles.roleName}>{exp.role}</Text>
-                    <Text style={cvStyles.companyName}>
-                      {exp.company} {exp.location ? `– ${exp.location}` : ''}
+                <View key="summary">
+                  <View style={cvStyles.sectionTitleContainer}>
+                    <Text style={cvStyles.sectionTitleText}>
+                      {options.cvLanguage === 'DE' ? 'BERUFLICHES PROFIL' : 'PROFESSIONAL PROFILE'}
                     </Text>
-                    <View style={cvStyles.bulletList}>
-                      {bulletsList.map((bullet: string, bIdx: number) => (
-                        <View key={bIdx} style={cvStyles.bulletItem}>
-                          <Text style={cvStyles.bulletDot}>•</Text>
-                          <Text style={cvStyles.bulletText}>{bullet.replace(/<[^>]*>/g, '')}</Text>
+                  </View>
+                  <Text style={cvStyles.summaryText}>{cv.summary.replace(/<[^>]*>/g, '')}</Text>
+                </View>
+              );
+            }
+
+            if (sectionKey === 'work' && cv.workExperience && cv.workExperience.length > 0) {
+              return (
+                <View key="work">
+                  <View style={cvStyles.sectionTitleContainer}>
+                    <Text style={cvStyles.sectionTitleText}>
+                      {options.cvLanguage === 'DE' ? 'BERUFSERFAHRUNG' : 'WORK HISTORY'}
+                    </Text>
+                  </View>
+                  {cv.workExperience.map((exp: any, idx: number) => {
+                    let bulletsList: string[] = [];
+                    if (exp.bullets) {
+                      if (Array.isArray(exp.bullets)) {
+                        bulletsList = exp.bullets;
+                      } else {
+                        const styleKey = options.bulletStyle === 'STAR Method' ? 'star' : options.bulletStyle === 'Short & Punchy' ? 'punchy' : 'standard';
+                        bulletsList = exp.bullets[styleKey] || exp.bullets.standard || [];
+                      }
+                    }
+                    return (
+                      <View key={idx} style={cvStyles.tableRow}>
+                        <Text style={cvStyles.dateCell}>{exp.period}</Text>
+                        <View style={cvStyles.contentCell}>
+                          <Text style={cvStyles.roleName}>{exp.role}</Text>
+                          <Text style={cvStyles.companyName}>
+                            {exp.company} {exp.location ? `– ${exp.location}` : ''}
+                          </Text>
+                          <View style={cvStyles.bulletList}>
+                            {bulletsList.map((bullet: string, bIdx: number) => (
+                              <View key={bIdx} style={cvStyles.bulletItem}>
+                                <Text style={cvStyles.bulletDot}>•</Text>
+                                <Text style={cvStyles.bulletText}>{bullet.replace(/<[^>]*>/g, '')}</Text>
+                              </View>
+                            ))}
+                          </View>
                         </View>
-                      ))}
-                    </View>
-                  </View>
+                      </View>
+                    );
+                  })}
                 </View>
               );
-            })}
-          </View>
-        )}
+            }
 
-        {/* Education */}
-        {cv.education && cv.education.length > 0 && (
-          <View>
-            <View style={cvStyles.sectionTitleContainer}>
-              <Text style={cvStyles.sectionTitleText}>EDUCATION</Text>
-            </View>
-            {cv.education.map((edu: any, idx: number) => (
-              <View key={idx} style={cvStyles.tableRow}>
-                <Text style={cvStyles.dateCell}>{edu.period}</Text>
-                <View style={cvStyles.contentCell}>
-                  <Text style={cvStyles.roleName}>{edu.degree}</Text>
-                  <Text style={cvStyles.companyName}>
-                    {edu.institution} {edu.location ? `– ${edu.location}` : ''}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Projects */}
-        {cv.projects && cv.projects.length > 0 && (
-          <View>
-            <View style={cvStyles.sectionTitleContainer}>
-              <Text style={cvStyles.sectionTitleText}>
-                {options.cvLanguage === 'DE' ? 'PROJEKTE' : 'PROJECTS'}
-              </Text>
-            </View>
-            {cv.projects.map((proj: any, idx: number) => {
-              const techStr = Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies;
+            if (sectionKey === 'education' && cv.education && cv.education.length > 0) {
               return (
-                <View key={idx} style={cvStyles.tableRow}>
-                  <Text style={{ ...cvStyles.dateCell, fontFamily: 'Inter', fontWeight: 700, color: '#111827' }}>
-                    {proj.name}
-                  </Text>
-                  <View style={cvStyles.contentCell}>
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 2 }}>
-                      {techStr ? (
-                        <Text style={{ fontSize: 9, color: '#4B5563', fontFamily: 'Inter', fontWeight: 700 }}>
-                          Technologies: {techStr}
-                        </Text>
-                      ) : null}
-                      {proj.url ? (
-                        <Text style={{ fontSize: 9, color: '#2563EB', marginLeft: 6 }}>
-                          ({proj.url})
-                        </Text>
-                      ) : null}
-                    </View>
-                    <Text style={{ ...cvStyles.bulletText, marginTop: 4 }}>
-                      {proj.description ? proj.description.replace(/<[^>]*>/g, '') : ''}
+                <View key="education">
+                  <View style={cvStyles.sectionTitleContainer}>
+                    <Text style={cvStyles.sectionTitleText}>
+                      {options.cvLanguage === 'DE' ? 'AUSBILDUNG' : 'EDUCATION'}
                     </Text>
                   </View>
+                  {cv.education.map((edu: any, idx: number) => (
+                    <View key={idx} style={cvStyles.tableRow}>
+                      <Text style={cvStyles.dateCell}>{edu.period}</Text>
+                      <View style={cvStyles.contentCell}>
+                        <Text style={cvStyles.roleName}>{edu.degree}</Text>
+                        <Text style={cvStyles.companyName}>
+                          {edu.institution} {edu.location ? `– ${edu.location}` : ''}
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
                 </View>
               );
-            })}
-          </View>
-        )}
+            }
 
-        {/* Skills */}
-        {cv.skills && cv.skills.length > 0 && (
-          <View>
-            <View style={cvStyles.sectionTitleContainer}>
-              <Text style={cvStyles.sectionTitleText}>SKILLS</Text>
-            </View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-              {cv.skills.map((skill: any, idx: number) => (
-                <View key={idx} style={{ width: '50%', marginBottom: 4, flexDirection: 'row' }}>
-                  <Text style={{ fontFamily: 'Inter', fontWeight: 700 }}>{skill.name}: </Text>
-                  <Text style={{ color: '#4B5563' }}>{skill.level}</Text>
+            if (sectionKey === 'projects' && cv.projects && cv.projects.length > 0) {
+              return (
+                <View key="projects">
+                  <View style={cvStyles.sectionTitleContainer}>
+                    <Text style={cvStyles.sectionTitleText}>
+                      {options.cvLanguage === 'DE' ? 'PROJEKTE' : 'PROJECTS'}
+                    </Text>
+                  </View>
+                  {cv.projects.map((proj: any, idx: number) => {
+                    const techStr = Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies;
+                    return (
+                      <View key={idx} style={cvStyles.tableRow}>
+                        <Text style={{ ...cvStyles.dateCell, fontFamily: 'Inter', fontWeight: 700, color: '#111827' }}>
+                          {proj.name}
+                        </Text>
+                        <View style={cvStyles.contentCell}>
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 2 }}>
+                            {techStr ? (
+                              <Text style={{ fontSize: 9, color: '#4B5563', fontFamily: 'Inter', fontWeight: 700 }}>
+                                Technologies: {techStr}
+                              </Text>
+                            ) : null}
+                            {proj.url ? (
+                              <Text style={{ fontSize: 9, color: '#2563EB', marginLeft: 6 }}>
+                                ({proj.url})
+                              </Text>
+                            ) : null}
+                          </View>
+                          <Text style={{ ...cvStyles.bulletText, marginTop: 4 }}>
+                            {proj.description ? proj.description.replace(/<[^>]*>/g, '') : ''}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
                 </View>
-              ))}
-            </View>
-          </View>
-        )}
+              );
+            }
 
-        {/* Languages */}
-        {cv.languages && cv.languages.length > 0 && (
-          <View>
-            <View style={cvStyles.sectionTitleContainer}>
-              <Text style={{ ...cvStyles.sectionTitleText, marginTop: 8 }}>LANGUAGES</Text>
-            </View>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-              {cv.languages.map((lang: any, idx: number) => (
-                <View key={idx} style={{ width: '50%', marginBottom: 4, flexDirection: 'row' }}>
-                  <Text style={{ fontFamily: 'Inter', fontWeight: 700 }}>{lang.language}: </Text>
-                  <Text style={{ color: '#4B5563' }}>{lang.level}</Text>
+            if (sectionKey === 'skills' && cv.skills && cv.skills.length > 0) {
+              return (
+                <View key="skills">
+                  <View style={cvStyles.sectionTitleContainer}>
+                    <Text style={cvStyles.sectionTitleText}>
+                      {options.cvLanguage === 'DE' ? 'FÄHIGKEITEN' : 'SKILLS'}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                    {cv.skills.map((skill: any, idx: number) => (
+                      <View key={idx} style={{ width: '50%', marginBottom: 4, flexDirection: 'row' }}>
+                        <Text style={{ fontFamily: 'Inter', fontWeight: 700 }}>{skill.name}: </Text>
+                        <Text style={{ color: '#4B5563' }}>{skill.level}</Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
-              ))}
-            </View>
-          </View>
-        )}
+              );
+            }
+
+            if (sectionKey === 'languages' && cv.languages && cv.languages.length > 0) {
+              return (
+                <View key="languages">
+                  <View style={cvStyles.sectionTitleContainer}>
+                    <Text style={{ ...cvStyles.sectionTitleText, marginTop: 8 }}>
+                      {options.cvLanguage === 'DE' ? 'SPRACHEN' : 'LANGUAGES'}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                    {cv.languages.map((lang: any, idx: number) => (
+                      <View key={idx} style={{ width: '50%', marginBottom: 4, flexDirection: 'row' }}>
+                        <Text style={{ fontFamily: 'Inter', fontWeight: 700 }}>{lang.language}: </Text>
+                        <Text style={{ color: '#4B5563' }}>{lang.level}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              );
+            }
+
+            return null;
+          });
+        })()}
 
         {/* Signature */}
         {cv.signingLine ? (

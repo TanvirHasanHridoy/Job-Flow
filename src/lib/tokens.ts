@@ -4,6 +4,8 @@ export const TOKEN_PRICING = {
   TAILOR: 20,          // /api/tailor
   IMPORT_PROFILE: 30,  // /api/import-profile & /api/profile/import-pdf
   INTAKE: 5,           // /api/intake/parse-job-pdf & /api/intake/scrape-url
+  REGENERATE_SECTION: 5, // /api/tailor/section
+  POLISH_BULLET: 2,    // /api/tailor/section (single bullet)
 } as const;
 
 /**

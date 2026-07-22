@@ -1774,16 +1774,16 @@ export default function ProfileVault() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
           <style>{`
             .checkerboard-bg {
-              background-image: linear-gradient(45deg, var(--surface-checkerboard-square) 25%, transparent 25%), 
-                                linear-gradient(-45deg, var(--surface-checkerboard-square) 25%, transparent 25%), 
-                                linear-gradient(45deg, transparent 75%, var(--surface-checkerboard-square) 75%), 
-                                linear-gradient(-45deg, transparent 75%, var(--surface-checkerboard-square) 75%);
+              background-image: linear-gradient(45deg, var(--effect-checkerboard-square) 25%, transparent 25%), 
+                                linear-gradient(-45deg, var(--effect-checkerboard-square) 25%, transparent 25%), 
+                                linear-gradient(45deg, transparent 75%, var(--effect-checkerboard-square) 75%), 
+                                linear-gradient(-45deg, transparent 75%, var(--effect-checkerboard-square) 75%);
               background-size: 16px 16px;
               background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
-              background-color: var(--surface-checkerboard-base);
+              background-color: var(--effect-checkerboard-base);
             }
           `}</style>
-          <div className="relative w-full max-w-3xl bg-[var(--surface-1)] border border-zinc-800/80 rounded-2xl p-6 shadow-2xl flex flex-col gap-6">
+          <div className="relative w-full max-w-3xl bg-[var(--layout-surface-panel-bg)] border border-zinc-800/80 rounded-2xl p-6 shadow-2xl flex flex-col gap-6">
             
             {/* Modal Header */}
             <div className="flex justify-between items-center pb-4 border-b border-zinc-800/60">

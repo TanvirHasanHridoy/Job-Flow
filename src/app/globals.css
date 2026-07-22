@@ -1,184 +1,221 @@
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════════
-   SHARED COLORS — Same in both dark and light mode
+   LIGHT MODE DESIGN SYSTEM VARIABLES (Default under :root)
    ═══════════════════════════════════════════════════════════════ */
 :root {
-  /* Brand / Accent */
-  --color-primary: #6366f1;
-  --color-primary-hover: #4f46e5;
-  --color-primary-deep: #3730a3;
-  --color-primary-light: #818cf8;
-  --color-primary-pale: #a5b4fc;
-  --color-secondary: #a855f7;
-  --color-secondary-dark: #7c3aed;
-  --color-accent: #06b6d4;
-  --color-accent-dark: #0891b2;
+  /* Canvas & Layout */
+  --layout-backdrop-bg: #f9fafb;
+  --layout-backdrop-fg: #111827;
+  --layout-surface-card-bg: rgba(255, 255, 255, 0.7);
+  --layout-surface-card-border: rgba(0, 0, 0, 0.06);
+  --layout-surface-card-shadow: rgba(0, 0, 0, 0.05);
+  --layout-surface-card-bg-hover: rgba(255, 255, 255, 0.85);
+  --layout-surface-card-border-hover: rgba(99, 102, 241, 0.2);
+  --layout-surface-card-shadow-hover: rgba(99, 102, 241, 0.08);
+  --layout-surface-panel-bg: #ffffff;
+  --layout-surface-panel-border: rgba(0, 0, 0, 0.08);
+  --layout-surface-panel-shadow: rgba(0, 0, 0, 0.03);
+  --layout-surface-workspace-bg: #d1d5db;
+  --layout-divider-border: rgba(0, 0, 0, 0.12);
 
-  /* Semantic / Status */
-  --color-success: #059669;
-  --color-error: #e11d48;
-  --color-warning: #d97706;
+  /* Typography */
+  --text-title-fg: #111827;
+  --text-body-fg: #374151;
+  --text-muted-fg: #4b5563;
+  --text-subtle-fg: #6b7280;
+  --text-inverse-fg: #ffffff;
 
-  /* Print */
-  --print-bg: #ffffff;
-  --print-text: #000000;
+  /* Interactive Actions: Primary (Indigo) */
+  --action-primary-bg: #6366f1;
+  --action-primary-fg: #ffffff;
+  --action-primary-border: #818cf8;
+  --action-primary-bg-hover: #4f46e5;
+  --action-primary-fg-hover: #ffffff;
+  --action-primary-border-hover: #6366f1;
+
+  /* Interactive Actions: Secondary (Muted Outline) */
+  --action-secondary-bg: rgba(0, 0, 0, 0.02);
+  --action-secondary-fg: #111827;
+  --action-secondary-border: rgba(0, 0, 0, 0.08);
+  --action-secondary-bg-hover: rgba(0, 0, 0, 0.04);
+  --action-secondary-fg-hover: #111827;
+  --action-secondary-border-hover: rgba(0, 0, 0, 0.15);
+
+  /* Interactive Actions: CTA (Purple Marketing) */
+  --action-cta-bg: #a855f7;
+  --action-cta-fg: #ffffff;
+  --action-cta-border: #c084fc;
+  --action-cta-bg-hover: #7c3aed;
+  --action-cta-fg-hover: #ffffff;
+  --action-cta-border-hover: #a855f7;
+
+  /* Interactive Actions: Destructive (Rose/Red Danger) */
+  --action-destructive-bg: #e11d48;
+  --action-destructive-fg: #ffffff;
+  --action-destructive-border: #fda4af;
+  --action-destructive-bg-hover: #be123c;
+  --action-destructive-fg-hover: #ffffff;
+  --action-destructive-border-hover: #e11d48;
+
+  /* Inputs */
+  --input-default-bg: rgba(0, 0, 0, 0.02);
+  --input-default-fg: #111827;
+  --input-default-border: rgba(0, 0, 0, 0.08);
+  --input-focus-bg: rgba(0, 0, 0, 0.04);
+  --input-focus-fg: #111827;
+  --input-focus-border: rgba(99, 102, 241, 0.4);
+  --input-focus-ring: rgba(99, 102, 241, 0.15);
+
+  /* Feedback & Badges */
+  --feedback-success-bg: rgba(5, 150, 105, 0.05);
+  --feedback-success-fg: #059669;
+  --feedback-success-border: rgba(5, 150, 105, 0.15);
+  --feedback-warning-bg: rgba(217, 119, 6, 0.05);
+  --feedback-warning-fg: #d97706;
+  --feedback-warning-border: rgba(217, 119, 6, 0.15);
+  --feedback-error-bg: rgba(225, 29, 72, 0.05);
+  --feedback-error-fg: #e11d48;
+  --feedback-error-border: rgba(225, 29, 72, 0.15);
+
+  /* Effects & Glows */
+  --effect-glow-primary: rgba(99, 102, 241, 0.06);
+  --effect-glow-secondary: rgba(168, 85, 247, 0.06);
+  --effect-checkerboard-base: #f3f4f6;
+  --effect-checkerboard-square: #e5e7eb;
+  --effect-scrollbar-track: rgba(243, 244, 246, 0.5);
+  --effect-scrollbar-thumb: rgba(99, 102, 241, 0.25);
+  --effect-scrollbar-thumb-hover: rgba(99, 102, 241, 0.45);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   DARK MODE (default)
+   DARK MODE OVERRIDES (Applied when NOT class .light)
    ═══════════════════════════════════════════════════════════════ */
-:root {
-  --background: #030014;
-  --foreground: #f4f4f5;
+:root:not(.light) {
+  /* Canvas & Layout */
+  --layout-backdrop-bg: #030014;
+  --layout-backdrop-fg: #f4f4f5;
+  --layout-surface-card-bg: rgba(15, 12, 30, 0.55);
+  --layout-surface-card-border: rgba(255, 255, 255, 0.08);
+  --layout-surface-card-shadow: rgba(0, 0, 0, 0.37);
+  --layout-surface-card-bg-hover: rgba(20, 16, 40, 0.7);
+  --layout-surface-card-border-hover: rgba(99, 102, 241, 0.3);
+  --layout-surface-card-shadow-hover: rgba(99, 102, 241, 0.15);
+  --layout-surface-panel-bg: #0a061b;
+  --layout-surface-panel-border: rgba(255, 255, 255, 0.1);
+  --layout-surface-panel-shadow: rgba(0, 0, 0, 0.5);
+  --layout-surface-workspace-bg: #040116;
+  --layout-divider-border: rgba(255, 255, 255, 0.08);
 
-  /* Surfaces */
-  --surface-1: #0b081e;
-  --surface-2: #0a061b;
-  --surface-3: #080517;
-  --surface-4: #040116;
-  --surface-5: #0f0c1e;
-  --surface-checkerboard-base: #0d0d0d;
-  --surface-checkerboard-square: #181818;
+  /* Typography */
+  --text-title-fg: #ffffff;
+  --text-body-fg: #e4e4e7;
+  --text-muted-fg: #a5b4fc;
+  --text-subtle-fg: #64748b;
+  --text-inverse-fg: #ffffff;
 
-  /* Text */
-  --text-on-surface: #ffffff;
+  /* Interactive Actions: Primary (Indigo) */
+  --action-primary-bg: #6366f1;
+  --action-primary-fg: #ffffff;
+  --action-primary-border: #818cf8;
+  --action-primary-bg-hover: #4f46e5;
+  --action-primary-fg-hover: #ffffff;
+  --action-primary-border-hover: #6366f1;
 
-  /* Glass */
-  --glass-bg: rgba(15, 12, 30, 0.55);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-shadow: rgba(0, 0, 0, 0.37);
-  --glass-hover-bg: rgba(20, 16, 40, 0.7);
-  --glass-hover-border: rgba(99, 102, 241, 0.3);
-  --glass-hover-shadow: rgba(99, 102, 241, 0.15);
+  /* Interactive Actions: Secondary (Muted Outline) */
+  --action-secondary-bg: rgba(255, 255, 255, 0.03);
+  --action-secondary-fg: #f4f4f5;
+  --action-secondary-border: rgba(255, 255, 255, 0.08);
+  --action-secondary-bg-hover: rgba(255, 255, 255, 0.07);
+  --action-secondary-fg-hover: #ffffff;
+  --action-secondary-border-hover: rgba(255, 255, 255, 0.15);
+
+  /* Interactive Actions: CTA (Purple Marketing) */
+  --action-cta-bg: #a855f7;
+  --action-cta-fg: #ffffff;
+  --action-cta-border: #c084fc;
+  --action-cta-bg-hover: #7c3aed;
+  --action-cta-fg-hover: #ffffff;
+  --action-cta-border-hover: #a855f7;
+
+  /* Interactive Actions: Destructive (Rose/Red Danger) */
+  --action-destructive-bg: #e11d48;
+  --action-destructive-fg: #ffffff;
+  --action-destructive-border: #fda4af;
+  --action-destructive-bg-hover: #be123c;
+  --action-destructive-fg-hover: #ffffff;
+  --action-destructive-border-hover: #e11d48;
 
   /* Inputs */
-  --input-bg: rgba(255, 255, 255, 0.03);
-  --input-border: rgba(255, 255, 255, 0.08);
-  --input-text: #ffffff;
+  --input-default-bg: rgba(255, 255, 255, 0.03);
+  --input-default-fg: #ffffff;
+  --input-default-border: rgba(255, 255, 255, 0.08);
   --input-focus-bg: rgba(255, 255, 255, 0.07);
+  --input-focus-fg: #ffffff;
   --input-focus-border: rgba(99, 102, 241, 0.5);
   --input-focus-ring: rgba(99, 102, 241, 0.2);
 
-  /* Scrollbar */
-  --scroll-track: rgba(3, 0, 20, 0.5);
-  --scroll-thumb: rgba(99, 102, 241, 0.3);
-  --scroll-thumb-hover: rgba(99, 102, 241, 0.5);
+  /* Feedback & Badges */
+  --feedback-success-bg: rgba(5, 150, 105, 0.1);
+  --feedback-success-fg: #10b981;
+  --feedback-success-border: rgba(5, 150, 105, 0.25);
+  --feedback-warning-bg: rgba(217, 119, 6, 0.1);
+  --feedback-warning-fg: #f59e0b;
+  --feedback-warning-border: rgba(217, 119, 6, 0.25);
+  --feedback-error-bg: rgba(225, 29, 72, 0.1);
+  --feedback-error-fg: #f43f5e;
+  --feedback-error-border: rgba(225, 29, 72, 0.25);
 
-  /* Gradient Text */
-  --gradient-text-from: #ffffff;
-  --gradient-text-via: #e4e4e7;
-  --gradient-text-to: #a5b4fc;
-
-  /* Background Glows */
-  --primary-glow-color: rgba(99, 102, 241, 0.15);
-  --secondary-glow-color: rgba(168, 85, 247, 0.15);
-
-  /* Card (derived from glass, kept for @theme compatibility) */
-  --card-bg: var(--glass-bg);
-  --card-border: var(--glass-border);
-  --card-shadow: var(--glass-shadow);
-  --card-hover-bg: var(--glass-hover-bg);
-  --card-hover-border: var(--glass-hover-border);
-  --card-hover-shadow: var(--glass-hover-shadow);
+  /* Effects & Glows */
+  --effect-glow-primary: rgba(99, 102, 241, 0.15);
+  --effect-glow-secondary: rgba(168, 85, 247, 0.15);
+  --effect-checkerboard-base: #0d0d0d;
+  --effect-checkerboard-square: #181818;
+  --effect-scrollbar-track: rgba(3, 0, 20, 0.5);
+  --effect-scrollbar-thumb: rgba(99, 102, 241, 0.3);
+  --effect-scrollbar-thumb-hover: rgba(99, 102, 241, 0.5);
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   LIGHT MODE
-   ═══════════════════════════════════════════════════════════════ */
-.light {
-  --background: #f9fafb;
-  --foreground: #111827;
-
-  /* Surfaces */
-  --surface-1: #ffffff;
-  --surface-2: #f3f4f6;
-  --surface-3: #e5e7eb;
-  --surface-4: #d1d5db;
-
-  /* Text */
-  --text-on-surface: #111827;
-  --text-secondary: #1f2937;
-  --text-tertiary: #374151;
-  --text-muted: #4b5563;
-  --text-subtle: #6b7280;
-
-  /* Glass */
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(0, 0, 0, 0.06);
-  --glass-shadow: rgba(0, 0, 0, 0.05);
-  --glass-hover-bg: rgba(255, 255, 255, 0.85);
-  --glass-hover-border: rgba(99, 102, 241, 0.2);
-  --glass-hover-shadow: rgba(99, 102, 241, 0.08);
-
-  /* Inputs */
-  --input-bg: rgba(0, 0, 0, 0.02);
-  --input-border: rgba(0, 0, 0, 0.08);
-  --input-text: #111827;
-  --input-focus-bg: rgba(0, 0, 0, 0.04);
-  --input-focus-border: rgba(99, 102, 241, 0.4);
-
-  /* Scrollbar */
-  --scroll-track: rgba(243, 244, 246, 0.5);
-
-  /* Gradient Text */
-  --gradient-text-from: #111827;
-  --gradient-text-via: #374151;
-  --gradient-text-to: #4f46e5;
-
-  /* Background Glows */
-  --primary-glow-color: rgba(99, 102, 241, 0.06);
-  --secondary-glow-color: rgba(168, 85, 247, 0.06);
-
-  /* Card */
-  --card-bg: var(--glass-bg);
-  --card-border: var(--glass-border);
-  --card-shadow: var(--glass-shadow);
-  --card-hover-bg: var(--glass-hover-bg);
-  --card-hover-border: var(--glass-hover-border);
-  --card-hover-shadow: var(--glass-hover-shadow);
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   TAILWIND @theme REGISTRATION
+   TAILWIND @theme SEMANTIC REGISTRATION
    ═══════════════════════════════════════════════════════════════ */
 @theme {
-  --color-primary: var(--color-primary);
-  --color-primary-hover: var(--color-primary-hover);
-  --color-secondary: var(--color-secondary);
-  --color-accent: var(--color-accent);
-  --color-dark-bg: var(--background);
-  --color-card-bg: var(--card-bg);
-  --color-card-border: var(--card-border);
+  --color-primary: var(--action-primary-bg);
+  --color-primary-hover: var(--action-primary-bg-hover);
+  --color-secondary: var(--action-cta-bg);
+  --color-accent: var(--action-primary-border);
+  --color-dark-bg: var(--layout-backdrop-bg);
+  --color-card-bg: var(--layout-surface-card-bg);
+  --color-card-border: var(--layout-surface-card-border);
 
   /* Tailwind Core Color Overrides linked to CSS custom properties */
-  --color-indigo-400: var(--color-primary-light);
-  --color-indigo-500: var(--color-primary);
-  --color-indigo-600: var(--color-primary-hover);
-  --color-indigo-700: var(--color-primary-deep);
-  
-  --color-purple-400: var(--color-secondary);
-  --color-purple-500: var(--color-secondary);
-  --color-purple-600: var(--color-secondary-dark);
-  
-  --color-cyan-400: var(--color-accent);
-  --color-cyan-500: var(--color-accent);
-  --color-cyan-600: var(--color-accent-dark);
-  
-  --color-emerald-400: var(--color-success);
-  --color-emerald-500: var(--color-success);
-  
-  --color-rose-400: var(--color-error);
-  --color-rose-500: var(--color-error);
-  
-  --color-amber-400: var(--color-warning);
-  --color-amber-500: var(--color-warning);
+  --color-indigo-400: var(--action-primary-border);
+  --color-indigo-500: var(--action-primary-bg);
+  --color-indigo-600: var(--action-primary-bg-hover);
+  --color-indigo-700: var(--action-primary-bg-hover);
+
+  --color-purple-400: var(--action-cta-bg);
+  --color-purple-500: var(--action-cta-bg);
+  --color-purple-600: var(--action-cta-bg-hover);
+
+  --color-cyan-400: var(--action-primary-border);
+  --color-cyan-500: var(--action-primary-border);
+  --color-cyan-600: var(--action-primary-border);
+
+  --color-emerald-400: var(--feedback-success-fg);
+  --color-emerald-500: var(--feedback-success-fg);
+
+  --color-rose-400: var(--action-destructive-bg);
+  --color-rose-500: var(--action-destructive-bg-hover);
+
+  --color-amber-400: var(--feedback-warning-fg);
+  --color-amber-500: var(--feedback-warning-fg);
 
   /* Mappings for standard background/surface shades */
-  --color-zinc-950: var(--surface-4);
-  --color-zinc-900: var(--surface-3);
-  --color-zinc-800: var(--surface-2);
-  --color-zinc-700: var(--surface-1);
+  --color-zinc-950: var(--layout-workspace-bg);
+  --color-zinc-900: var(--layout-surface-panel-bg);
+  --color-zinc-800: var(--layout-surface-panel-bg);
+  --color-zinc-700: var(--layout-surface-card-bg);
 
   --font-sans: 'Outfit', 'Inter', sans-serif;
 }
@@ -187,8 +224,8 @@
    BODY STYLES
    ═══════════════════════════════════════════════════════════════ */
 body {
-  background-color: var(--background);
-  color: var(--foreground);
+  background-color: var(--layout-backdrop-bg);
+  color: var(--layout-backdrop-fg);
   font-family: 'Outfit', 'Inter', sans-serif;
   overflow-x: hidden;
   min-height: 100vh;
@@ -204,7 +241,7 @@ body::before {
   width: 600px;
   height: 600px;
   border-radius: 50%;
-  background: radial-gradient(var(--primary-glow-color), transparent);
+  background: radial-gradient(var(--effect-glow-primary), transparent);
   filter: blur(80px);
   z-index: -1;
   pointer-events: none;
@@ -218,7 +255,7 @@ body::after {
   width: 500px;
   height: 500px;
   border-radius: 50%;
-  background: radial-gradient(var(--secondary-glow-color), transparent);
+  background: radial-gradient(var(--effect-glow-secondary), transparent);
   filter: blur(80px);
   z-index: -1;
   pointer-events: none;
@@ -228,11 +265,11 @@ body::after {
    GLASSMORPHISM UTILITIES
    ═══════════════════════════════════════════════════════════════ */
 .glass-panel {
-  background: var(--glass-bg);
+  background: var(--layout-surface-card-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 8px 32px 0 var(--glass-shadow);
+  border: 1px solid var(--layout-surface-card-border);
+  box-shadow: 0 8px 32px 0 var(--layout-surface-card-shadow);
 }
 
 .glass-panel-hover {
@@ -240,17 +277,17 @@ body::after {
 }
 
 .glass-panel-hover:hover {
-  background: var(--glass-hover-bg);
-  border-color: var(--glass-hover-border);
-  box-shadow: 0 12px 40px 0 var(--glass-hover-shadow);
+  background: var(--layout-surface-card-bg-hover);
+  border-color: var(--layout-surface-card-border-hover);
+  box-shadow: 0 12px 40px 0 var(--layout-surface-card-shadow-hover);
   transform: translateY(-2px);
 }
 
 .glass-input {
-  background: var(--input-bg);
-  border: 1px solid var(--input-border);
+  background: var(--input-default-bg);
+  border: 1px solid var(--input-default-border);
   border-radius: 8px;
-  color: var(--input-text);
+  color: var(--input-default-fg);
   transition: all 0.2s ease;
 }
 
@@ -270,16 +307,16 @@ body::after {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--scroll-track);
+  background: var(--effect-scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--scroll-thumb);
+  background: var(--effect-scrollbar-thumb);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--scroll-thumb-hover);
+  background: var(--effect-scrollbar-thumb-hover);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -305,8 +342,8 @@ body::after {
    ═══════════════════════════════════════════════════════════════ */
 @media print {
   body {
-    background: var(--print-bg) !important;
-    color: var(--print-text) !important;
+    background: #ffffff !important;
+    color: #000000 !important;
   }
   
   .no-print {
@@ -319,8 +356,8 @@ body::after {
     margin: 0 auto;
     padding: 20mm;
     box-shadow: none !important;
-    background: var(--print-bg) !important;
-    color: var(--print-text) !important;
+    background: #ffffff !important;
+    color: #000000 !important;
     font-size: 10pt;
     line-height: 1.5;
     page-break-after: always;
@@ -343,35 +380,35 @@ body::after {
 
 /* Headings & text */
 .light h1, .light h2, .light h3, .light h4, .light h5, .light h6 {
-  color: var(--foreground) !important;
+  color: var(--text-title-fg) !important;
 }
 
 .light p {
-  color: var(--text-tertiary) !important;
+  color: var(--text-body-fg) !important;
 }
 
 .light .text-zinc-400 {
-  color: var(--text-muted) !important;
+  color: var(--text-muted-fg) !important;
 }
 
 .light .text-zinc-300 {
-  color: var(--text-tertiary) !important;
+  color: var(--text-body-fg) !important;
 }
 
 .light .text-zinc-500 {
-  color: var(--text-subtle) !important;
+  color: var(--text-subtle-fg) !important;
 }
 
 .light .text-zinc-600 {
-  color: var(--text-muted) !important;
+  color: var(--text-muted-fg) !important;
 }
 
 .light .text-zinc-200 {
-  color: var(--text-secondary) !important;
+  color: var(--text-body-fg) !important;
 }
 
 .light .text-zinc-100 {
-  color: var(--foreground) !important;
+  color: var(--text-title-fg) !important;
 }
 
 /* Borders */
@@ -417,85 +454,81 @@ body::after {
 }
 
 .light .bg-zinc-950 {
-  background-color: var(--surface-1) !important;
+  background-color: var(--layout-surface-panel-bg) !important;
 }
 
 .light .bg-\[\#0b081e\]\/30 {
   background-color: rgba(0, 0, 0, 0.02) !important;
 }
 
-.light .bg-\[var\(--surface-4\)\] {
-  background-color: var(--surface-2) !important;
+.light .bg-\[var\(--layout-workspace-bg\)\] {
+  background-color: var(--layout-surface-panel-bg) !important;
 }
 
-.light .bg-\[var\(--surface-2\)\] {
-  background-color: var(--surface-1) !important;
+.light .bg-\[var\(--layout-surface-panel-bg\)\] {
+  background-color: var(--layout-surface-panel-bg) !important;
 }
 
-.light .bg-\[var\(--surface-3\)\] {
-  background-color: var(--surface-1) !important;
+.light .bg-\[var\(--layout-surface-card-bg\)\] {
+  background-color: var(--layout-surface-panel-bg) !important;
 }
 
-.light .bg-\[var\(--surface-1\)\] {
-  background-color: var(--surface-1) !important;
-}
-
-.light .bg-\[var\(--background\)\] {
-  background-color: var(--background) !important;
+.light .bg-\[var\(--layout-backdrop-bg\)\] {
+  background-color: var(--layout-backdrop-bg) !important;
 }
 
 /* Legacy class overrides for any remaining old references */
 .light .bg-\[\#040116\] {
-  background-color: var(--surface-2) !important;
+  background-color: var(--layout-surface-panel-bg) !important;
 }
 
 .light .bg-\[\#0a061b\] {
-  background-color: var(--surface-1) !important;
+  background-color: var(--layout-surface-panel-bg) !important;
 }
 
 .light .bg-\[\#080517\] {
-  background-color: var(--surface-1) !important;
+  background-color: var(--layout-surface-panel-bg) !important;
 }
 
 .light .bg-\[\#0b081e\] {
-  background-color: var(--background) !important;
+  background-color: var(--layout-backdrop-bg) !important;
 }
 
 .light .bg-zinc-800 {
-  background-color: var(--surface-3) !important;
-  color: var(--text-secondary) !important;
-  border-color: var(--surface-4) !important;
+  background-color: var(--layout-surface-panel-bg) !important;
+  color: var(--text-body-fg) !important;
+  border-color: var(--layout-surface-panel-border) !important;
 }
 
 .light .bg-zinc-800:hover {
-  background-color: var(--surface-4) !important;
+  background-color: var(--layout-surface-card-bg-hover) !important;
 }
 
 .light .text-zinc-700 {
-  color: var(--text-tertiary) !important;
+  color: var(--text-muted-fg) !important;
 }
 
 .light .text-zinc-800 {
-  color: var(--text-secondary) !important;
+  color: var(--text-body-fg) !important;
 }
 
 /* Glass Panels & Inputs */
 .light .glass-panel {
-  background: var(--glass-bg) !important;
-  border-color: var(--glass-border) !important;
-  box-shadow: 0 8px 32px 0 var(--glass-shadow) !important;
+  background: var(--layout-surface-card-bg) !important;
+  border-color: var(--layout-surface-card-border) !important;
+  box-shadow: 0 8px 32px 0 var(--layout-surface-card-shadow) !important;
 }
 
 .light .glass-panel-hover:hover {
-  background: var(--glass-hover-bg) !important;
-  border-color: var(--glass-hover-border) !important;
-  box-shadow: 0 12px 40px 0 var(--glass-hover-shadow) !important;
+  background: var(--layout-surface-card-bg-hover) !important;
+  border-color: var(--layout-surface-card-border-hover) !important;
+  box-shadow: 0 12px 40px 0 var(--layout-surface-card-shadow-hover) !important;
 }
 
 .light .glass-input {
-  background: var(--input-bg) !important;
-  border-color: var(--input-border) !important;
-  color: var(--foreground) !important;
+  background: var(--input-default-bg) !important;
+  border-color: var(--input-default-border) !important;
+  color: var(--layout-backdrop-fg) !important;
 }
 
 .light .glass-input:focus {
@@ -505,42 +538,42 @@ body::after {
 
 /* Gradient Text Dynamic Scaling Overrides */
 .light .text-transparent.bg-clip-text {
-  background-image: linear-gradient(to right, var(--gradient-text-from), var(--gradient-text-via), var(--gradient-text-to)) !important;
-  color: transparent !important;
+  color: var(--text-title-fg) !important;
+  background-image: none !important;
 }
 
 /* WCAG AA Compliant Accent Colors on Light Mode */
-.light .text-indigo-400 { color: var(--color-primary-hover) !important; }
-.light .text-purple-400 { color: var(--color-secondary-dark) !important; }
-.light .text-cyan-400 { color: var(--color-accent-dark) !important; }
-.light .text-emerald-400 { color: var(--color-success) !important; }
-.light .text-rose-400 { color: var(--color-error) !important; }
-.light .text-amber-400 { color: var(--color-warning) !important; }
+.light .text-indigo-400 { color: var(--action-primary-bg-hover) !important; }
+.light .text-purple-400 { color: var(--action-cta-bg-hover) !important; }
+.light .text-cyan-400 { color: var(--action-primary-border) !important; }
+.light .text-emerald-400 { color: var(--feedback-success-fg) !important; }
+.light .text-rose-400 { color: var(--action-destructive-bg) !important; }
+.light .text-amber-400 { color: var(--feedback-warning-fg) !important; }
 
 /* Status Column & Badge Borders in Light Mode */
 .light .border-indigo-500\/30 { border-color: rgba(79, 70, 229, 0.25) !important; }
 .light .border-indigo-500\/20 { border-color: rgba(79, 70, 229, 0.15) !important; }
 .light .bg-indigo-500\/5 { background-color: rgba(79, 70, 229, 0.05) !important; }
-.light .text-indigo-300 { color: var(--color-primary-hover) !important; }
+.light .text-indigo-300 { color: var(--action-primary-bg-hover) !important; }
 
 .light .border-cyan-500\/30 { border-color: rgba(8, 145, 178, 0.25) !important; }
 .light .border-cyan-500\/20 { border-color: rgba(8, 145, 178, 0.15) !important; }
 .light .bg-cyan-500\/5 { background-color: rgba(8, 145, 178, 0.05) !important; }
-.light .text-cyan-300 { color: var(--color-accent-dark) !important; }
+.light .text-cyan-300 { color: var(--action-primary-border) !important; }
 
 .light .border-purple-500\/30 { border-color: rgba(124, 58, 237, 0.25) !important; }
 .light .border-purple-500\/20 { border-color: rgba(124, 58, 237, 0.15) !important; }
 .light .bg-purple-500\/5 { background-color: rgba(124, 58, 237, 0.05) !important; }
-.light .text-purple-300 { color: var(--color-secondary-dark) !important; }
+.light .text-purple-300 { color: var(--action-cta-bg-hover) !important; }
 
 .light .border-emerald-500\/30 { border-color: rgba(5, 150, 105, 0.25) !important; }
 .light .border-emerald-500\/20 { border-color: rgba(5, 150, 105, 0.15) !important; }
 .light .bg-emerald-500\/5 { background-color: rgba(5, 150, 105, 0.05) !important; }
-.light .text-emerald-300 { color: var(--color-success) !important; }
+.light .text-emerald-300 { color: var(--feedback-success-fg) !important; }
 
 /* Dropdown Drawer and Profile Menus in Light Mode */
 .light .bg-\[\#0a061b\]\/95,
-.light .bg-\[var\(--surface-2\)\]\/95 {
+.light .bg-\[var\(--layout-surface-panel-bg\)\]\/95 {
   background-color: rgba(255, 255, 255, 0.95) !important;
   border-color: rgba(0, 0, 0, 0.08) !important;
 }
@@ -552,11 +585,11 @@ body::after {
 }
 
 .light .bg-zinc-900\/95 * {
-  color: var(--foreground) !important;
+  color: var(--layout-backdrop-fg) !important;
 }
 
 .light .bg-zinc-900\/95 .text-zinc-400 {
-  color: var(--text-muted) !important;
+  color: var(--text-muted-fg) !important;
 }
 
 .light .bg-zinc-900\/95 button:hover {
@@ -570,41 +603,41 @@ select.glass-input {
 
 /* Default to dark text on light background for options */
 select.glass-input option {
-  background-color: var(--print-bg) !important;
-  color: var(--foreground) !important;
+  background-color: #ffffff !important;
+  color: var(--layout-backdrop-fg) !important;
 }
 
 /* If the user's browser/OS uses a dark theme, use white text on dark background */
 @media (prefers-color-scheme: dark) {
   select.glass-input option {
-    background-color: var(--surface-5) !important;
-    color: var(--text-on-surface) !important;
+    background-color: var(--layout-surface-panel-bg) !important;
+    color: var(--text-inverse-fg) !important;
   }
 }
 
 .light select.glass-input {
   color-scheme: light;
-  background-color: var(--card-bg) !important;
-  color: var(--foreground) !important;
-  border-color: var(--card-border) !important;
+  background-color: var(--layout-surface-card-bg) !important;
+  color: var(--layout-backdrop-fg) !important;
+  border-color: var(--layout-surface-card-border) !important;
 }
 
 .light select.glass-input option {
-  background-color: var(--surface-1) !important;
-  color: var(--foreground) !important;
+  background-color: var(--layout-surface-panel-bg) !important;
+  color: var(--layout-backdrop-fg) !important;
 }
 
 /* Inactive button/link hover states on light background */
 .light .hover\:text-white:hover {
-  color: var(--foreground) !important;
+  color: var(--layout-backdrop-fg) !important;
 }
 
 .light .hover\:text-zinc-200:hover {
-  color: var(--foreground) !important;
+  color: var(--layout-backdrop-fg) !important;
 }
 
 .light .hover\:text-indigo-300:hover {
-  color: var(--color-primary-deep) !important;
+  color: var(--action-primary-bg-hover) !important;
 }
 
 /* Interactive elements background and border hover highlights */
@@ -618,7 +651,7 @@ select.glass-input option {
 
 /* Active states */
 .light .bg-zinc-800.text-white {
-  color: var(--foreground) !important;
+  color: var(--layout-backdrop-fg) !important;
 }
 
 /* Enhanced separator borders for columns */
@@ -631,8 +664,8 @@ select.glass-input option {
 }
 
 /* Ring color overrides for timeline nodes */
-.light .ring-\[var\(--surface-3\)\] {
-  --tw-ring-color: var(--surface-1) !important;
+.light .ring-\[var\(--layout-surface-panel-bg\)\] {
+  --tw-ring-color: var(--layout-surface-panel-bg) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════

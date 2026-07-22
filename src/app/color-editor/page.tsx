@@ -13,83 +13,155 @@ interface VariableDefinition {
   isRgba?: boolean;
 }
 
-// Default variable values
+// 1. Shared / Universal Variables (Accents & Canvas)
 const DEFAULTS_SHARED: VariableDefinition[] = [
-  { name: '--color-primary', label: 'Primary Accent Color', defaultVal: '#6366f1', description: 'Applies to buttons and active states. Examples: "Tailor Workspace" button on the dashboard, active navigation indicators, and primary action buttons.', example: 'Active buttons & indicators' },
-  { name: '--color-primary-hover', label: 'Primary Accent Hover', defaultVal: '#4f46e5', description: 'The color of primary buttons and active components when you hover your mouse over them.', example: 'Buttons on hover' },
-  { name: '--color-primary-deep', label: 'Primary Accent Deep', defaultVal: '#3730a3', description: 'Mainly used on light background hover states to ensure colors remain highly visible and readable (WCAG AAA standard compliant).', example: 'Text on light bg buttons' },
-  { name: '--color-primary-light', label: 'Primary Accent Subtle Glow', defaultVal: '#818cf8', description: 'Subtle light blue/indigo glow borders, loading indicators, and active component frames.', example: 'Active loaders & panel borders' },
-  { name: '--color-primary-pale', label: 'Primary Accent Pale Gradient', defaultVal: '#a5b4fc', description: 'The light end color used inside typography gradient fills.', example: 'Right side of title text gradient' },
-  { name: '--color-secondary', label: 'Secondary Theme Color', defaultVal: '#a855f7', description: 'Applies to purple gradients, secondary badges, and glowing highlights.', example: 'Decorative background glow orbs' },
-  { name: '--color-secondary-dark', label: 'Secondary Theme (Light Mode)', defaultVal: '#7c3aed', description: 'Used in place of secondary purple in light mode to provide appropriate contrast.', example: 'Purple text contrast in light mode' },
-  { name: '--color-accent', label: 'Cyan Accent Glow', defaultVal: '#06b6d4', description: 'Applies to cyan highlight gradients, glowing blobs, and visual status tags.', example: 'Cyan tags & decorative tags' },
-  { name: '--color-accent-dark', label: 'Cyan Accent (Light Mode)', defaultVal: '#0891b2', description: 'Used in place of cyan accent in light mode to maintain readability.', example: 'Cyan text contrast in light mode' },
-  { name: '--color-success', label: 'Success / Green Status Badge', defaultVal: '#059669', description: 'Applies to successful status indicators, e.g., "Tailored" job application status tags or timeline checkmarks.', example: '"Tailored" tag & checkmarks' },
-  { name: '--color-error', label: 'Error / Red Status Badge', defaultVal: '#e11d48', description: 'Applies to failure status indicators, warning text elements, and spillover page alerts.', example: 'Height limit warning notices' },
-  { name: '--color-warning', label: 'Warning / Amber Status Badge', defaultVal: '#d97706', description: 'Applies to partial mismatch warnings, page overflow warnings, and warning status tags.', example: 'Page overflow spillover alerts' },
-  { name: '--print-bg', label: 'PDF Export Sheet Background', defaultVal: '#ffffff', description: 'The physical sheet background when printing or exporting to PDF/Word.', example: 'A4 sheet background in document export' },
-  { name: '--print-text', label: 'PDF Export Sheet Text', defaultVal: '#000000', description: 'The physical sheet body text color when printing or exporting.', example: 'A4 body text color in document export' },
+  /* Primary Action Tier */
+  { name: '--action-primary-bg', label: 'Primary Button Background', defaultVal: '#6366f1', description: 'Base color for main primary action buttons (e.g. "Tailor Workspace" button, confirmation buttons).', example: 'Primary action CTA buttons' },
+  { name: '--action-primary-fg', label: 'Primary Button Foreground', defaultVal: '#ffffff', description: 'Text/icon color displayed on top of primary buttons.', example: 'Primary button text' },
+  { name: '--action-primary-border', label: 'Primary Action Border/Glow', defaultVal: '#818cf8', description: 'Border lines, active focus glows, and highlights for primary items.', example: 'Active item borders & loaders' },
+  { name: '--action-primary-bg-hover', label: 'Primary Button Hover BG', defaultVal: '#4f46e5', description: 'Background color of primary action buttons on mouse hover.', example: 'Primary button hover state' },
+  { name: '--action-primary-fg-hover', label: 'Primary Button Hover FG', defaultVal: '#ffffff', description: 'Text color of primary buttons on mouse hover.', example: 'Primary button hover text' },
+  { name: '--action-primary-border-hover', label: 'Primary Button Hover Border', defaultVal: '#6366f1', description: 'Border outline color of primary buttons on mouse hover.', example: 'Primary button hover border' },
+
+  /* CTA Action Tier */
+  { name: '--action-cta-bg', label: 'Marketing CTA Background', defaultVal: '#a855f7', description: 'Base background color of secondary conversion or marketing actions (e.g. export button gradients).', example: 'Conversion badges & CTA buttons' },
+  { name: '--action-cta-fg', label: 'Marketing CTA Foreground', defaultVal: '#ffffff', description: 'Text color displayed on top of CTA actions.', example: 'CTA button labels' },
+  { name: '--action-cta-border', label: 'Marketing CTA Border', defaultVal: '#c084fc', description: 'Border/glow outline for CTA components.', example: 'CTA active frame outlines' },
+  { name: '--action-cta-bg-hover', label: 'Marketing CTA Hover BG', defaultVal: '#7c3aed', description: 'Background color of CTA buttons on mouse hover.', example: 'CTA button hover state' },
+  { name: '--action-cta-fg-hover', label: 'Marketing CTA Hover FG', defaultVal: '#ffffff', description: 'Text color of CTA buttons on mouse hover.', example: 'CTA button hover text' },
+  { name: '--action-cta-border-hover', label: 'Marketing CTA Hover Border', defaultVal: '#a855f7', description: 'Border color of CTA buttons on mouse hover.', example: 'CTA button hover border' },
+
+  /* Destructive Action Tier */
+  { name: '--action-destructive-bg', label: 'Destructive Action Background', defaultVal: '#e11d48', description: 'Base color for cancellation, deletion, or destructive actions.', example: 'Sign out & delete buttons' },
+  { name: '--action-destructive-fg', label: 'Destructive Action Foreground', defaultVal: '#ffffff', description: 'Text/icon color displayed on destructive buttons.', example: 'Destructive action labels' },
+  { name: '--action-destructive-border', label: 'Destructive Action Border', defaultVal: '#fda4af', description: 'Border outline for destructive buttons.', example: 'Destructive buttons border' },
+  { name: '--action-destructive-bg-hover', label: 'Destructive Action Hover BG', defaultVal: '#be123c', description: 'Background color of destructive buttons on hover.', example: 'Destructive hover state bg' },
+  { name: '--action-destructive-fg-hover', label: 'Destructive Action Hover FG', defaultVal: '#ffffff', description: 'Text color of destructive buttons on hover.', example: 'Destructive hover text' },
+  { name: '--action-destructive-border-hover', label: 'Destructive Action Hover Border', defaultVal: '#e11d48', description: 'Border outline of destructive buttons on hover.', example: 'Destructive hover border outline' },
 ];
 
+// 2. Dark Mode variables
 const DEFAULTS_DARK: VariableDefinition[] = [
-  { name: '--background', label: 'App Main Background', defaultVal: '#030014', description: 'Background of the entire app interface, including landing page, dashboard, and tailor workspace.', example: 'Application background (body)' },
-  { name: '--foreground', label: 'Primary Text', defaultVal: '#f4f4f5', description: 'Main readable body text color throughout the application in dark mode.', example: 'Main body text' },
-  { name: '--surface-1', label: 'Primary Panels & Modals', defaultVal: '#0b081e', description: 'Background for core container panels (e.g., the tailor editor form, popups, and dialog overlays).', example: 'Tailor editor form background' },
-  { name: '--surface-2', label: 'Secondary Panels & Toolbar', defaultVal: '#0a061b', description: 'Background of dropdowns, navigation drawer, and the sticky preview workspace header bar.', example: 'Dropdown menus & preview header' },
-  { name: '--surface-3', label: 'Detail Drawers & Timeline Base', defaultVal: '#080517', description: 'Background of the application detail sidebar drawer and status timeline trail nodes.', example: 'Sidebar drawer & timeline node rings' },
-  { name: '--surface-4', label: 'Preview Sheet Canvas Backdrop', defaultVal: '#040116', description: 'Background of the right-hand panel where the A4 paper document preview is hosted.', example: 'Right-hand side workspace bg' },
-  { name: '--surface-5', label: 'Select Dropdown Items', defaultVal: '#0f0c1e', description: 'Background of native select drop-down option lists.', example: 'Select dropdown options' },
-  { name: '--surface-checkerboard-base', label: 'Signature Canvas Base', defaultVal: '#0d0d0d', description: 'The base grid background color for the signature background remover canvas.', example: 'Signature pad grid base' },
-  { name: '--surface-checkerboard-square', label: 'Signature Canvas Square', defaultVal: '#181818', description: 'The repeating square color for the signature background remover checkerboard grid.', example: 'Signature pad checkerboard squares' },
-  { name: '--text-on-surface', label: 'Bright Text / Active Values', defaultVal: '#ffffff', description: 'Highlights selected tabs, highlighted text, and active input texts in panels.', example: 'Input text & active tabs' },
-  { name: '--glass-bg', label: 'Glass Panel Backdrop', defaultVal: 'rgba(15, 12, 30, 0.55)', description: 'The semi-transparent container background using frosted-glass styling.', example: 'Landing page & login card backdrops', isRgba: true },
-  { name: '--glass-border', label: 'Glass Panel Border', defaultVal: 'rgba(255, 255, 255, 0.08)', description: 'The thin outline border of glassmorphic panels and cards.', example: 'Frosted-glass card borders', isRgba: true },
-  { name: '--glass-shadow', label: 'Glass Panel Shadow', defaultVal: 'rgba(0, 0, 0, 0.37)', description: 'The drop-shadow overlay color of glassmorphic containers.', example: 'Drop shadows under panels', isRgba: true },
-  { name: '--glass-hover-bg', label: 'Glass Card Hover Background', defaultVal: 'rgba(20, 16, 40, 0.7)', description: 'Glass card background on mouse hover (e.g., Job Board application listings).', example: 'Job board cards on hover', isRgba: true },
-  { name: '--glass-hover-border', label: 'Glass Card Hover Border', defaultVal: 'rgba(99, 102, 241, 0.3)', description: 'The border outline color of glassmorphic cards on mouse hover.', example: 'Job card border on hover', isRgba: true },
-  { name: '--glass-hover-shadow', label: 'Glass Card Hover Shadow', defaultVal: 'rgba(99, 102, 241, 0.15)', description: 'The glow shadow outline of glassmorphic cards on mouse hover.', example: 'Outer border glow on hover', isRgba: true },
-  { name: '--input-bg', label: 'Input Field Background', defaultVal: 'rgba(255, 255, 255, 0.03)', description: 'Default background color of text input boxes, dropdown selectors, and textareas.', example: 'Form input fields background', isRgba: true },
-  { name: '--input-border', label: 'Input Field Border', defaultVal: 'rgba(255, 255, 255, 0.08)', description: 'Default border outline color of text input fields.', example: 'Form input fields border outline', isRgba: true },
-  { name: '--input-focus-bg', label: 'Input Field Focus Background', defaultVal: 'rgba(255, 255, 255, 0.07)', description: 'Text input background when active/focused.', example: 'Background of active input field', isRgba: true },
-  { name: '--input-focus-border', label: 'Input Field Focus Border', defaultVal: 'rgba(99, 102, 241, 0.5)', description: 'Border outline color of input boxes when active/focused.', example: 'Active input border ring', isRgba: true },
-  { name: '--input-focus-ring', label: 'Input Field Focus Glow', defaultVal: 'rgba(99, 102, 241, 0.2)', description: 'The outer glow shadow color around inputs when active/focused.', example: 'Outer input border glow', isRgba: true },
-  { name: '--scroll-track', label: 'Scrollbar Track', defaultVal: 'rgba(3, 0, 20, 0.5)', description: 'Scrollable container track background.', example: 'Scrollbar lane background', isRgba: true },
-  { name: '--scroll-thumb', label: 'Scrollbar Slider', defaultVal: 'rgba(99, 102, 241, 0.3)', description: 'The color of the browser scrollbar slider thumb.', example: 'Scrollbar draggable handle', isRgba: true },
-  { name: '--scroll-thumb-hover', label: 'Scrollbar Slider Hover', defaultVal: 'rgba(99, 102, 241, 0.5)', description: 'The color of the scrollbar slider thumb when hovered.', example: 'Scrollbar handle on hover', isRgba: true },
-  { name: '--gradient-text-from', label: 'Text Gradient Start', defaultVal: '#ffffff', description: 'Starting color (left) of the main decorative title text gradients.', example: 'Left end of header text' },
-  { name: '--gradient-text-via', label: 'Text Gradient Middle', defaultVal: '#e4e4e7', description: 'Middle transition color of main decorative title text gradients.', example: 'Middle of header text' },
-  { name: '--gradient-text-to', label: 'Text Gradient End', defaultVal: '#a5b4fc', description: 'Ending color (right) of main decorative title text gradients.', example: 'Right end of header text' },
-  { name: '--primary-glow-color', label: 'Background Orb 1 Glow', defaultVal: 'rgba(99, 102, 241, 0.15)', description: 'Indigo radial glow backdrop blur element behind the app interface.', example: 'Decorative indigo background orb', isRgba: true },
-  { name: '--secondary-glow-color', label: 'Background Orb 2 Glow', defaultVal: 'rgba(168, 85, 247, 0.15)', description: 'Purple radial glow backdrop blur element behind the app interface.', example: 'Decorative purple background orb', isRgba: true },
+  /* Canvas & Layout */
+  { name: '--layout-backdrop-bg', label: 'App Backdrop Background', defaultVal: '#030014', description: 'Default background color of the HTML body / app view wrapper.', example: 'Entire app main background' },
+  { name: '--layout-backdrop-fg', label: 'App Backdrop Foreground', defaultVal: '#f4f4f5', description: 'Default main paragraph and text color inside the workspace.', example: 'Main page typography base' },
+  { name: '--layout-surface-card-bg', label: 'Card Container Surface', defaultVal: 'rgba(15, 12, 30, 0.55)', description: 'Semi-transparent background for card listing panels.', example: 'Application listing blocks', isRgba: true },
+  { name: '--layout-surface-card-border', label: 'Card Container Border', defaultVal: 'rgba(255, 255, 255, 0.08)', description: 'Standard card outline border.', example: 'Card boundary limits', isRgba: true },
+  { name: '--layout-surface-card-shadow', label: 'Card Container Shadow', defaultVal: 'rgba(0, 0, 0, 0.37)', description: 'Default drop shadow applied under cards.', example: 'Container drop shadow', isRgba: true },
+  { name: '--layout-surface-card-bg-hover', label: 'Card Hover Surface', defaultVal: 'rgba(20, 16, 40, 0.7)', description: 'Background of card panels when hovered.', example: 'Application list hover state', isRgba: true },
+  { name: '--layout-surface-card-border-hover', label: 'Card Hover Border', defaultVal: 'rgba(99, 102, 241, 0.3)', description: 'Border outline of card panels when hovered.', example: 'Application list hover outline', isRgba: true },
+  { name: '--layout-surface-card-shadow-hover', label: 'Card Hover Shadow', defaultVal: 'rgba(99, 102, 241, 0.15)', description: 'Active glow shadow of card panels when hovered.', example: 'Application list hover glow', isRgba: true },
+  { name: '--layout-surface-panel-bg', label: 'Panel / Modal Surface', defaultVal: '#0a061b', description: 'Core backdrop panels for active dialog modals and navigation drawers.', example: 'Mobile drawer & popups' },
+  { name: '--layout-surface-panel-border', label: 'Panel / Modal Border', defaultVal: 'rgba(255, 255, 255, 0.1)', description: 'Outline border of active modal boxes.', example: 'Popup card boundary line' },
+  { name: '--layout-surface-panel-shadow', label: 'Panel / Modal Shadow', defaultVal: 'rgba(0, 0, 0, 0.5)', description: 'Drop shadow under panel dialogs.', example: 'Modal overlay shadow', isRgba: true },
+  { name: '--layout-surface-workspace-bg', label: 'Workspace Sheet Canvas Backdrop', defaultVal: '#040116', description: 'The workspace background behind the document workspace canvas.', example: 'Workspace editor layout background' },
+  { name: '--layout-divider-border', label: 'Separation Boundary Line', defaultVal: 'rgba(255, 255, 255, 0.08)', description: 'Decorative separation lines dividing sections.', example: 'Horizontal divider lines', isRgba: true },
+
+  /* Typography */
+  { name: '--text-title-fg', label: 'Title / Heading Typography', defaultVal: '#ffffff', description: 'Text color of titles and section headers.', example: 'Workspace headers & titles' },
+  { name: '--text-body-fg', label: 'Main Paragraph Typography', defaultVal: '#e4e4e7', description: 'Standard readable paragraph text color.', example: 'Main body copy text' },
+  { name: '--text-muted-fg', label: 'Secondary / Caption Typography', defaultVal: '#a5b4fc', description: 'Subheaders, list detail labels, and secondary texts.', example: 'Secondary captions' },
+  { name: '--text-subtle-fg', label: 'Subtle / Info Typography', defaultVal: '#64748b', description: 'Timestamps, limits counters, and unfocused dates.', example: 'Timestamps & details text' },
+  { name: '--text-inverse-fg', label: 'High Contrast Inverse Typography', defaultVal: '#ffffff', description: 'Text color layered on top of dark/colored action assets.', example: 'Tokens indicator text' },
+
+  /* Secondary Action */
+  { name: '--action-secondary-bg', label: 'Secondary Action Background', defaultVal: 'rgba(255, 255, 255, 0.03)', description: 'Base color for secondary Ghost button shapes.', example: 'Ghost outline actions', isRgba: true },
+  { name: '--action-secondary-fg', label: 'Secondary Action Foreground', defaultVal: '#f4f4f5', description: 'Text color for secondary actions.', example: 'Secondary button text' },
+  { name: '--action-secondary-border', label: 'Secondary Action Border', defaultVal: 'rgba(255, 255, 255, 0.08)', description: 'Outline border for secondary buttons.', example: 'Secondary outline borders', isRgba: true },
+  { name: '--action-secondary-bg-hover', label: 'Secondary Action Hover BG', defaultVal: 'rgba(255, 255, 255, 0.07)', description: 'Background of secondary actions when hovered.', example: 'Secondary button hover state', isRgba: true },
+  { name: '--action-secondary-fg-hover', label: 'Secondary Action Hover FG', defaultVal: '#ffffff', description: 'Text color of secondary actions when hovered.', example: 'Secondary button hover text' },
+  { name: '--action-secondary-border-hover', label: 'Secondary Action Hover Border', defaultVal: 'rgba(255, 255, 255, 0.15)', description: 'Border of secondary actions when hovered.', example: 'Secondary button hover border', isRgba: true },
+
+  /* Inputs */
+  { name: '--input-default-bg', label: 'Form Input Background', defaultVal: 'rgba(255, 255, 255, 0.03)', description: 'Default background color of textboxes and textareas.', example: 'Textbox default backdrop', isRgba: true },
+  { name: '--input-default-fg', label: 'Form Input Value Text', defaultVal: '#ffffff', description: 'Color of text written inside form inputs.', example: 'Textbox user text value' },
+  { name: '--input-default-border', label: 'Form Input Border', defaultVal: 'rgba(255, 255, 255, 0.08)', description: 'Inactive boundary border line for inputs.', example: 'Textbox borders', isRgba: true },
+  { name: '--input-focus-bg', label: 'Form Input Focus Background', defaultVal: 'rgba(255, 255, 255, 0.07)', description: 'Background of input elements when focused.', example: 'Active textbox backdrop', isRgba: true },
+  { name: '--input-focus-fg', label: 'Form Input Focus Value Text', defaultVal: '#ffffff', description: 'Text color inside active input elements.', example: 'Active textbox user values' },
+  { name: '--input-focus-border', label: 'Form Input Focus Border', defaultVal: 'rgba(99, 102, 241, 0.5)', description: 'Border of input elements when focused.', example: 'Active textbox borders', isRgba: true },
+  { name: '--input-focus-ring', label: 'Form Input Focus Glow Ring', defaultVal: 'rgba(99, 102, 241, 0.2)', description: 'Shadow glow around focused input elements.', example: 'Active textbox glow ring', isRgba: true },
+
+  /* Feedback */
+  { name: '--feedback-success-bg', label: 'Success Alert Background', defaultVal: 'rgba(5, 150, 105, 0.1)', description: 'Green status backdrop for successful indicators.', example: '"Tailored" status tag bg', isRgba: true },
+  { name: '--feedback-success-fg', label: 'Success Alert Foreground', defaultVal: '#10b981', description: 'Green status typography.', example: '"Tailored" status label text' },
+  { name: '--feedback-success-border', label: 'Success Alert Border', defaultVal: 'rgba(5, 150, 105, 0.25)', description: 'Success status frame borders.', example: 'Success tag framing line', isRgba: true },
+  { name: '--feedback-warning-bg', label: 'Warning Alert Background', defaultVal: 'rgba(217, 119, 6, 0.1)', description: 'Amber status backdrop for warnings.', example: 'Spillover warn tag bg', isRgba: true },
+  { name: '--feedback-warning-fg', label: 'Warning Alert Foreground', defaultVal: '#f59e0b', description: 'Amber status text.', example: 'Spillover warn label text' },
+  { name: '--feedback-warning-border', label: 'Warning Alert Border', defaultVal: 'rgba(217, 119, 6, 0.25)', description: 'Warning status borders.', example: 'Spillover tag framing line', isRgba: true },
+  { name: '--feedback-error-bg', label: 'Error Alert Background', defaultVal: 'rgba(225, 29, 72, 0.1)', description: 'Rose status backdrop for error boxes.', example: 'Page cutoff warning backdrop', isRgba: true },
+  { name: '--feedback-error-fg', label: 'Error Alert Foreground', defaultVal: '#f43f5e', description: 'Rose status text.', example: 'Cutoff warning text' },
+  { name: '--feedback-error-border', label: 'Error Alert Border', defaultVal: 'rgba(225, 29, 72, 0.25)', description: 'Error status borders.', example: 'Cutoff warning border', isRgba: true },
+
+  /* Effects */
+  { name: '--effect-glow-primary', label: 'Background Orb 1 (Indigo)', defaultVal: 'rgba(99, 102, 241, 0.15)', description: 'Indigo glow orb behind the dashboard.', example: 'Indigo decorative glow layer', isRgba: true },
+  { name: '--effect-glow-secondary', label: 'Background Orb 2 (Purple)', defaultVal: 'rgba(168, 85, 247, 0.15)', description: 'Purple glow orb behind the dashboard.', example: 'Purple decorative glow layer', isRgba: true },
+  { name: '--effect-checkerboard-base', label: 'Signature Canvas Base', defaultVal: '#0d0d0d', description: 'Signature checker grid canvas background color.', example: 'Signature pad grid base' },
+  { name: '--effect-checkerboard-square', label: 'Signature Canvas Squares', defaultVal: '#181818', description: 'Signature checker grid canvas square grid color.', example: 'Signature pad grid square' },
+  { name: '--effect-scrollbar-track', label: 'Scrollbar Track', defaultVal: 'rgba(3, 0, 20, 0.5)', description: 'Track background of scroll bars.', example: 'Scroll lane track', isRgba: true },
+  { name: '--effect-scrollbar-thumb', label: 'Scrollbar Slider', defaultVal: 'rgba(99, 102, 241, 0.3)', description: 'Slider handle of scroll bars.', example: 'Scroll slider thumb', isRgba: true },
+  { name: '--effect-scrollbar-thumb-hover', label: 'Scrollbar Slider Hover', defaultVal: 'rgba(99, 102, 241, 0.5)', description: 'Scrollbar slider handle on hover.', example: 'Scroll thumb on hover', isRgba: true },
 ];
 
+// 3. Light Mode variables
 const DEFAULTS_LIGHT: VariableDefinition[] = [
-  { name: '--background', label: 'App Main Background (Light)', defaultVal: '#f9fafb', description: 'Main background color of application shell in light mode.', example: 'Application background (light Mode)' },
-  { name: '--foreground', label: 'Primary Text & Headings (Light)', defaultVal: '#111827', description: 'Main headings, dashboard text, and title labels in light mode.', example: 'Headings & labels' },
-  { name: '--surface-1', label: 'Primary Cards & Modals (Light)', defaultVal: '#ffffff', description: 'Background of main container cards, dialog popups, and dropdown elements in light mode.', example: 'Cards & modal popups' },
-  { name: '--surface-2', label: 'Secondary Surfaces (Light)', defaultVal: '#f3f4f6', description: 'Background of lists and helper panels in light mode.', example: 'List panels & helpers' },
-  { name: '--surface-3', label: 'Buttons / Inactive Rings (Light)', defaultVal: '#e5e7eb', description: 'Default background color of buttons and status rings in light mode.', example: 'Default buttons & rings' },
-  { name: '--surface-4', label: 'Interactive Button Hover (Light)', defaultVal: '#d1d5db', description: 'Background color of buttons when hovered in light mode.', example: 'Button hover overlay' },
-  { name: '--text-on-surface', label: 'Active Input Value (Light)', defaultVal: '#111827', description: 'Color of text inside active input controls and selectors in light mode.', example: 'Text inside select dropdowns' },
-  { name: '--text-secondary', label: 'Bold Subheaders (Light)', defaultVal: '#1f2937', description: 'Secondary subheadings and intermediate labels in light mode.', example: 'Subheadings & bold labels' },
-  { name: '--text-tertiary', label: 'Paragraphs & Text Listings (Light)', defaultVal: '#374151', description: 'Standard body text, descriptions, and list items in light mode.', example: 'Standard body text' },
-  { name: '--text-muted', label: 'Muted / Info Text (Light)', defaultVal: '#4b5563', description: 'Smaller status texts and informational elements in light mode.', example: 'Helper text & detail captions' },
-  { name: '--text-subtle', label: 'Faint Text (Light)', defaultVal: '#6b7280', description: 'Subtle meta tags, page targets, and unfocused dates in light mode.', example: 'Faint dates & counter limits' },
-  { name: '--glass-bg', label: 'Glass Background (Light)', defaultVal: 'rgba(255, 255, 255, 0.7)', description: 'Faceted container panel background using light mode frosted-glass styling.', example: 'Glass card panel backdrop', isRgba: true },
-  { name: '--glass-border', label: 'Glass Border (Light)', defaultVal: 'rgba(0, 0, 0, 0.06)', description: 'The border outline color of glassmorphic elements in light mode.', example: 'Glass card borders', isRgba: true },
-  { name: '--glass-shadow', label: 'Glass Shadow (Light)', defaultVal: 'rgba(0, 0, 0, 0.05)', description: 'The drop-shadow overlay of glassmorphic elements in light mode.', example: 'Glass card shadows', isRgba: true },
-  { name: '--glass-hover-bg', label: 'Glass Hover Background (Light)', defaultVal: 'rgba(255, 255, 255, 0.85)', description: 'Background of light mode glassmorphic cards when hovered.', example: 'Glass cards on hover', isRgba: true },
-  { name: '--glass-hover-border', label: 'Glass Hover Border (Light)', defaultVal: 'rgba(99, 102, 241, 0.2)', description: 'The border outline of light mode glassmorphic elements on hover.', example: 'Glass card border on hover', isRgba: true },
-  { name: '--glass-hover-shadow', label: 'Glass Hover Shadow (Light)', defaultVal: 'rgba(99, 102, 241, 0.08)', description: 'The glow shadow outline of light mode glassmorphic elements on hover.', example: 'Glass card shadow on hover', isRgba: true },
-  { name: '--input-bg', label: 'Input Field Background (Light)', defaultVal: 'rgba(0, 0, 0, 0.02)', description: 'Default background color of text inputs in light mode.', example: 'Form inputs background', isRgba: true },
-  { name: '--input-border', label: 'Input Field Border (Light)', defaultVal: 'rgba(0, 0, 0, 0.08)', description: 'Default border outline of text inputs in light mode.', example: 'Form inputs border outline', isRgba: true },
-  { name: '--input-focus-bg', label: 'Input Field Focus (Light)', defaultVal: 'rgba(0, 0, 0, 0.04)', description: 'Background of inputs when active in light mode.', example: 'Background of active inputs', isRgba: true },
-  { name: '--input-focus-border', label: 'Input Field Focus Border (Light)', defaultVal: 'rgba(99, 102, 241, 0.4)', description: 'Border outline of inputs when active in light mode.', example: 'Active inputs border outline', isRgba: true },
-  { name: '--gradient-text-from', label: 'Gradient Text Start (Light)', defaultVal: '#111827', description: 'Starting color of decorative titles in light mode.', example: 'Header text gradient start' },
-  { name: '--gradient-text-via', label: 'Gradient Text Middle (Light)', defaultVal: '#374151', description: 'Middle transition color of titles in light mode.', example: 'Header text gradient middle' },
-  { name: '--gradient-text-to', label: 'Gradient Text End (Light)', defaultVal: '#4f46e5', description: 'Ending color of titles in light mode.', example: 'Header text gradient end' },
-  { name: '--primary-glow-color', label: 'Background Orb 1 Glow (Light)', defaultVal: 'rgba(99, 102, 241, 0.06)', description: 'Subtle light mode background orb glow color.', example: 'Decorative orb 1 glow', isRgba: true },
-  { name: '--secondary-glow-color', label: 'Background Orb 2 Glow (Light)', defaultVal: 'rgba(168, 85, 247, 0.06)', description: 'Subtle light mode background orb secondary glow color.', example: 'Decorative orb 2 glow', isRgba: true },
+  /* Canvas & Layout */
+  { name: '--layout-backdrop-bg', label: 'App Backdrop Background (Light)', defaultVal: '#f9fafb', description: 'Default background color of the HTML body / app view wrapper.', example: 'Entire app main background' },
+  { name: '--layout-backdrop-fg', label: 'App Backdrop Foreground (Light)', defaultVal: '#111827', description: 'Default main paragraph and text color inside the workspace.', example: 'Main page typography base' },
+  { name: '--layout-surface-card-bg', label: 'Card Container Surface (Light)', defaultVal: 'rgba(255, 255, 255, 0.7)', description: 'Semi-transparent background for card listing panels.', example: 'Application listing blocks', isRgba: true },
+  { name: '--layout-surface-card-border', label: 'Card Container Border (Light)', defaultVal: 'rgba(0, 0, 0, 0.06)', description: 'Standard card outline border.', example: 'Card boundary limits', isRgba: true },
+  { name: '--layout-surface-card-shadow', label: 'Card Container Shadow (Light)', defaultVal: 'rgba(0, 0, 0, 0.05)', description: 'Default drop shadow applied under cards.', example: 'Container drop shadow', isRgba: true },
+  { name: '--layout-surface-card-bg-hover', label: 'Card Hover Surface (Light)', defaultVal: 'rgba(255, 255, 255, 0.85)', description: 'Background of card panels when hovered.', example: 'Application list hover state', isRgba: true },
+  { name: '--layout-surface-card-border-hover', label: 'Card Hover Border (Light)', defaultVal: 'rgba(99, 102, 241, 0.2)', description: 'Border outline of card panels when hovered.', example: 'Application list hover outline', isRgba: true },
+  { name: '--layout-surface-card-shadow-hover', label: 'Card Hover Shadow (Light)', defaultVal: 'rgba(99, 102, 241, 0.08)', description: 'Active glow shadow of card panels when hovered.', example: 'Application list hover glow', isRgba: true },
+  { name: '--layout-surface-panel-bg', label: 'Panel / Modal Surface (Light)', defaultVal: '#ffffff', description: 'Core backdrop panels for active dialog modals and navigation drawers.', example: 'Mobile drawer & popups' },
+  { name: '--layout-surface-panel-border', label: 'Panel / Modal Border (Light)', defaultVal: 'rgba(0, 0, 0, 0.08)', description: 'Outline border of active modal boxes.', example: 'Popup card boundary line' },
+  { name: '--layout-surface-panel-shadow', label: 'Panel / Modal Shadow (Light)', defaultVal: 'rgba(0, 0, 0, 0.03)', description: 'Drop shadow under panel dialogs.', example: 'Modal overlay shadow', isRgba: true },
+  { name: '--layout-surface-workspace-bg', label: 'Workspace Sheet Canvas Backdrop (Light)', defaultVal: '#d1d5db', description: 'The workspace background behind the document workspace canvas.', example: 'Workspace editor layout background' },
+  { name: '--layout-divider-border', label: 'Separation Boundary Line (Light)', defaultVal: 'rgba(0, 0, 0, 0.12)', description: 'Decorative separation lines dividing sections.', example: 'Horizontal divider lines', isRgba: true },
+
+  /* Typography */
+  { name: '--text-title-fg', label: 'Title / Heading Typography (Light)', defaultVal: '#111827', description: 'Text color of titles and section headers.', example: 'Workspace headers & titles' },
+  { name: '--text-body-fg', label: 'Main Paragraph Typography (Light)', defaultVal: '#374151', description: 'Standard readable paragraph text color.', example: 'Main body copy text' },
+  { name: '--text-muted-fg', label: 'Secondary / Caption Typography (Light)', defaultVal: '#4b5563', description: 'Subheaders, list detail labels, and secondary texts.', example: 'Secondary captions' },
+  { name: '--text-subtle-fg', label: 'Subtle / Info Typography (Light)', defaultVal: '#6b7280', description: 'Timestamps, limits counters, and unfocused dates.', example: 'Timestamps & details text' },
+  { name: '--text-inverse-fg', label: 'High Contrast Inverse Typography (Light)', defaultVal: '#ffffff', description: 'Text color layered on top of dark/colored action assets.', example: 'Tokens indicator text' },
+
+  /* Secondary Action */
+  { name: '--action-secondary-bg', label: 'Secondary Action Background (Light)', defaultVal: 'rgba(0, 0, 0, 0.02)', description: 'Base color for secondary Ghost button shapes.', example: 'Ghost outline actions', isRgba: true },
+  { name: '--action-secondary-fg', label: 'Secondary Action Foreground (Light)', defaultVal: '#111827', description: 'Text color for secondary actions.', example: 'Secondary button text' },
+  { name: '--action-secondary-border', label: 'Secondary Action Border (Light)', defaultVal: 'rgba(0, 0, 0, 0.08)', description: 'Outline border for secondary buttons.', example: 'Secondary outline borders', isRgba: true },
+  { name: '--action-secondary-bg-hover', label: 'Secondary Action Hover BG (Light)', defaultVal: 'rgba(0, 0, 0, 0.04)', description: 'Background of secondary actions when hovered.', example: 'Secondary button hover state', isRgba: true },
+  { name: '--action-secondary-fg-hover', label: 'Secondary Action Hover FG (Light)', defaultVal: '#111827', description: 'Text color of secondary actions when hovered.', example: 'Secondary button hover text' },
+  { name: '--action-secondary-border-hover', label: 'Secondary Action Hover Border (Light)', defaultVal: 'rgba(0, 0, 0, 0.15)', description: 'Border of secondary actions when hovered.', example: 'Secondary button hover border', isRgba: true },
+
+  /* Inputs */
+  { name: '--input-default-bg', label: 'Form Input Background (Light)', defaultVal: 'rgba(0, 0, 0, 0.02)', description: 'Default background color of text inputs.', example: 'Textbox default backdrop', isRgba: true },
+  { name: '--input-default-fg', label: 'Form Input Value Text (Light)', defaultVal: '#111827', description: 'Color of text written inside form inputs.', example: 'Textbox user text value' },
+  { name: '--input-default-border', label: 'Form Input Border (Light)', defaultVal: 'rgba(0, 0, 0, 0.08)', description: 'Inactive boundary border line for inputs.', example: 'Textbox borders', isRgba: true },
+  { name: '--input-focus-bg', label: 'Form Input Focus BG (Light)', defaultVal: 'rgba(0, 0, 0, 0.04)', description: 'Background of inputs when focused.', example: 'Active textbox backdrop', isRgba: true },
+  { name: '--input-focus-fg', label: 'Form Input Focus Value (Light)', defaultVal: '#111827', description: 'Text color inside active input elements.', example: 'Active textbox user values' },
+  { name: '--input-focus-border', label: 'Form Input Focus Border (Light)', defaultVal: 'rgba(99, 102, 241, 0.4)', description: 'Border of inputs when focused.', example: 'Active textbox borders' },
+  { name: '--input-focus-ring', label: 'Form Input Focus Ring (Light)', defaultVal: 'rgba(99, 102, 241, 0.15)', description: 'Shadow glow around focused inputs.', example: 'Active textbox glow ring', isRgba: true },
+
+  /* Feedback */
+  { name: '--feedback-success-bg', label: 'Success Alert Background (Light)', defaultVal: 'rgba(5, 150, 105, 0.05)', description: 'Green status backdrop for successful indicators.', example: '"Tailored" status tag bg', isRgba: true },
+  { name: '--feedback-success-fg', label: 'Success Alert Foreground (Light)', defaultVal: '#059669', description: 'Green status typography.', example: '"Tailored" status label text' },
+  { name: '--feedback-success-border', label: 'Success Alert Border (Light)', defaultVal: 'rgba(5, 150, 105, 0.15)', description: 'Success status frame borders.', example: 'Success tag framing line', isRgba: true },
+  { name: '--feedback-warning-bg', label: 'Warning Alert Background (Light)', defaultVal: 'rgba(217, 119, 6, 0.05)', description: 'Amber status backdrop for warnings.', example: 'Spillover warn tag bg', isRgba: true },
+  { name: '--feedback-warning-fg', label: 'Warning Alert Foreground (Light)', defaultVal: '#d97706', description: 'Amber status text.', example: 'Spillover warn label text' },
+  { name: '--feedback-warning-border', label: 'Warning Alert Border (Light)', defaultVal: 'rgba(217, 119, 6, 0.15)', description: 'Warning status borders.', example: 'Spillover tag framing line', isRgba: true },
+  { name: '--feedback-error-bg', label: 'Error Alert Background (Light)', defaultVal: 'rgba(225, 29, 72, 0.05)', description: 'Rose status backdrop for error boxes.', example: 'Page cutoff warning backdrop', isRgba: true },
+  { name: '--feedback-error-fg', label: 'Error Alert Foreground (Light)', defaultVal: '#e11d48', description: 'Rose status text.', example: 'Cutoff warning text' },
+  { name: '--feedback-error-border', label: 'Error Alert Border (Light)', defaultVal: 'rgba(225, 29, 72, 0.15)', description: 'Error status borders.', example: 'Cutoff warning border', isRgba: true },
+
+  /* Effects */
+  { name: '--effect-glow-primary', label: 'Background Orb 1 Glow (Light)', defaultVal: 'rgba(99, 102, 241, 0.06)', description: 'Subtle light mode background orb glow color.', example: 'Decorative orb 1 glow', isRgba: true },
+  { name: '--effect-glow-secondary', label: 'Background Orb 2 Glow (Light)', defaultVal: 'rgba(168, 85, 247, 0.06)', description: 'Subtle light mode background orb secondary glow color.', example: 'Decorative orb 2 glow', isRgba: true },
+  { name: '--effect-checkerboard-base', label: 'Signature Canvas Base (Light)', defaultVal: '#f3f4f6', description: 'Signature checker grid canvas background color in light mode.', example: 'Signature pad grid base' },
+  { name: '--effect-checkerboard-square', label: 'Signature Canvas Square (Light)', defaultVal: '#e5e7eb', description: 'Signature checker grid canvas square grid color in light mode.', example: 'Signature pad grid square' },
+  { name: '--effect-scrollbar-track', label: 'Scrollbar Track (Light)', defaultVal: 'rgba(243, 244, 246, 0.5)', description: 'Track background of scroll bars.', example: 'Scroll lane track', isRgba: true },
+  { name: '--effect-scrollbar-thumb', label: 'Scrollbar Slider (Light)', defaultVal: 'rgba(99, 102, 241, 0.25)', description: 'Slider handle of scroll bars.', example: 'Scroll slider thumb', isRgba: true },
+  { name: '--effect-scrollbar-thumb-hover', label: 'Scrollbar Slider Hover (Light)', defaultVal: 'rgba(99, 102, 241, 0.45)', description: 'Scrollbar slider handle on hover.', example: 'Scroll thumb on hover', isRgba: true },
 ];
 
 // Helper to parse rgba string to hex and alpha
@@ -332,7 +404,7 @@ ${buildCssList(colorsLight)}
 
         <div className="flex items-center gap-3.5 mt-2 bg-black/20 p-2.5 rounded-xl border border-white/5">
           {/* Color Preview Block */}
-          <div
+          <div 
             className="w-8 h-8 rounded-lg border border-white/10 flex-shrink-0 shadow-inner"
             style={{ backgroundColor: currentVal }}
           />
@@ -340,8 +412,8 @@ ${buildCssList(colorsLight)}
           {/* Color Controls */}
           <div className="flex-1 flex flex-col gap-1.5">
             <div className="flex items-center gap-2">
-              <input
-                type="color"
+              <input 
+                type="color" 
                 value={hex}
                 onChange={(e) => {
                   const newHex = e.target.value;
@@ -350,8 +422,8 @@ ${buildCssList(colorsLight)}
                 }}
                 className="w-6 h-6 p-0 border-0 bg-transparent rounded cursor-pointer [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch]:rounded-md"
               />
-              <input
-                type="text"
+              <input 
+                type="text" 
                 value={isRgba ? currentVal : hex}
                 onChange={(e) => {
                   handleColorChange(v.name, e.target.value, category);
@@ -364,7 +436,7 @@ ${buildCssList(colorsLight)}
             {isRgba && (
               <div className="flex items-center gap-2">
                 <span className="text-[9px] text-zinc-500 font-mono w-7">Alpha:</span>
-                <input
+                <input 
                   type="range"
                   min="0"
                   max="1"
@@ -389,9 +461,9 @@ ${buildCssList(colorsLight)}
   };
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] overflow-y-auto">
+    <div className="min-h-screen bg-[var(--layout-backdrop-bg)] text-[var(--layout-backdrop-fg)] overflow-y-auto">
       {/* Header Banner */}
-      <div className="sticky top-0 z-40 bg-[var(--surface-2)]/95 backdrop-blur-md border-b border-white/5 px-6 py-4 md:px-12 flex flex-col md:flex-row justify-between items-center gap-4 shadow-xl">
+      <div className="sticky top-0 z-40 bg-[var(--layout-surface-panel-bg)]/95 backdrop-blur-md border-b border-white/5 px-6 py-4 md:px-12 flex flex-col md:flex-row justify-between items-center gap-4 shadow-xl">
         <div className="flex items-center gap-3">
           <Link href="/dashboard" className="p-2 hover:bg-white/5 rounded-xl transition-colors text-zinc-400 hover:text-white">
             <ArrowLeft className="w-5 h-5" />
@@ -460,7 +532,7 @@ ${buildCssList(colorsLight)}
 
       {/* Editor Content Area */}
       <div className="max-w-[1400px] mx-auto px-6 py-8 md:px-12 grid grid-cols-1 lg:grid-cols-4 gap-8">
-
+        
         {/* Navigation jump table */}
         <div className="lg:col-span-1">
           <div className="sticky top-[100px] bg-white/5 border border-white/10 rounded-2xl p-5 shadow-lg flex flex-col gap-4">
@@ -468,15 +540,15 @@ ${buildCssList(colorsLight)}
             <div className="flex flex-col gap-1.5 font-sans">
               <a href="#shared-vars" className="px-3 py-2 rounded-xl text-sm font-medium hover:bg-white/5 text-zinc-300 hover:text-white transition-all flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-indigo-400" />
-                <span>Universal Brand Accents</span>
+                <span>Interactive Action Accents</span>
               </a>
               <a href="#dark-vars" className="px-3 py-2 rounded-xl text-sm font-medium hover:bg-white/5 text-zinc-300 hover:text-white transition-all flex items-center gap-2">
                 <Moon className="w-4 h-4 text-purple-400" />
-                <span>Dark Theme Surfaces</span>
+                <span>Dark Theme Canvas & Layout</span>
               </a>
               <a href="#light-vars" className="px-3 py-2 rounded-xl text-sm font-medium hover:bg-white/5 text-zinc-300 hover:text-white transition-all flex items-center gap-2">
                 <Sun className="w-4 h-4 text-amber-400" />
-                <span>Light Theme Surfaces</span>
+                <span>Light Theme Canvas & Layout</span>
               </a>
             </div>
 
@@ -495,12 +567,12 @@ ${buildCssList(colorsLight)}
 
         {/* Input variables lists */}
         <div className="lg:col-span-3 flex flex-col gap-12">
-
+          
           {/* Universal Accents */}
           <section id="shared-vars">
             <div className="flex items-center gap-2 border-b border-white/10 pb-3 mb-6">
               <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse" />
-              <h2 className="text-lg font-bold text-white font-sans">Universal Brand Accent & Print Colors</h2>
+              <h2 className="text-lg font-bold text-white font-sans">Universal Interactive Accents</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {DEFAULTS_SHARED.map((v) => renderEditorCard(v, colorsShared[v.name] || v.defaultVal, 'shared'))}
@@ -511,7 +583,7 @@ ${buildCssList(colorsLight)}
           <section id="dark-vars">
             <div className="flex items-center gap-2 border-b border-white/10 pb-3 mb-6">
               <Moon className="w-5 h-5 text-purple-400" />
-              <h2 className="text-lg font-bold text-white font-sans">Dark Theme Backgrounds & Surfaces</h2>
+              <h2 className="text-lg font-bold text-white font-sans">Dark Theme Semantic Configuration</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {DEFAULTS_DARK.map((v) => renderEditorCard(v, colorsDark[v.name] || v.defaultVal, 'dark'))}
@@ -522,13 +594,13 @@ ${buildCssList(colorsLight)}
           <section id="light-vars">
             <div className="flex items-center gap-2 border-b border-white/10 pb-3 mb-6">
               <Sun className="w-5 h-5 text-amber-400" />
-              <h2 className="text-lg font-bold text-white font-sans">Light Theme Backgrounds & Surfaces</h2>
+              <h2 className="text-lg font-bold text-white font-sans">Light Theme Semantic Configuration</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {DEFAULTS_LIGHT.map((v) => renderEditorCard(v, colorsLight[v.name] || v.defaultVal, 'light'))}
             </div>
           </section>
-
+          
         </div>
       </div>
     </div>
