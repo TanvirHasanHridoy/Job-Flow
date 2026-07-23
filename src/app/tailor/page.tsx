@@ -2137,7 +2137,7 @@ export default function TailorWorkspace() {
                     className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 disabled:opacity-30 cursor-pointer shadow-sm border border-zinc-200"
                     title="Move Project Up"
                   >
-                    â¬†ï¸
+                    🔼
                   </button>
                   <button
                     type="button"
@@ -2146,7 +2146,7 @@ export default function TailorWorkspace() {
                     className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 disabled:opacity-30 cursor-pointer shadow-sm border border-zinc-200"
                     title="Move Project Down"
                   >
-                    â¬‡ï¸
+                    🔽
                   </button>
                   <button
                     type="button"
@@ -2254,7 +2254,7 @@ export default function TailorWorkspace() {
                           className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 disabled:opacity-30 cursor-pointer shadow-sm border border-zinc-200"
                           title="Move Project Up"
                         >
-                          â¬†ï¸
+                          🔼
                         </button>
                         <button
                           type="button"
@@ -2263,7 +2263,7 @@ export default function TailorWorkspace() {
                           className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 disabled:opacity-30 cursor-pointer shadow-sm border border-zinc-200"
                           title="Move Project Down"
                         >
-                          â¬‡ï¸
+                          🔽
                         </button>
                         <button
                           type="button"
