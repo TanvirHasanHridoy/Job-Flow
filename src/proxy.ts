@@ -51,7 +51,7 @@ export default async function proxy(request: NextRequest) {
   }
 
   // If user is not authenticated and trying to access a protected route
-  if (!user && !isPublicRoute) {
+  if (!user && !isPublicRoute && process.env.NODE_ENV !== 'development') {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);

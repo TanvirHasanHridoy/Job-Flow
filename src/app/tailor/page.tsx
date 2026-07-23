@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Sparkles, FileText, Download, Briefcase, Award, CheckCircle2, AlertTriangle, Languages, Save, Check,
   List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Palette, Highlighter, RotateCcw, Sliders, Coins, Plus, FolderGit,
-  ChevronUp, ChevronDown, Eye, EyeOff, Wand2, RefreshCw, Target, X, GitCompare
+  ChevronUp, ChevronDown, Eye, EyeOff, Wand2, RefreshCw, Target, X, GitCompare, Loader2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { groupSkillsByCategory } from '@/lib/skills';
@@ -471,6 +471,24 @@ export default function TailorWorkspace() {
   const [styleTemplate, setStyleTemplate] = useState<'CLASSIC_CORPORATE' | 'MODERN_MINIMALIST' | 'TECH_CREATIVE'>('CLASSIC_CORPORATE');
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [isAtsMode, setIsAtsMode] = useState(false);
+  const [isNudgeEnabled, setIsNudgeEnabled] = useState<boolean>(true);
+
+  // Project Description Polish Modal State
+  const [projectPolishModal, setProjectPolishModal] = useState<{
+    isOpen: boolean;
+    projectIndex: number;
+    originalDescription: string;
+    projectName: string;
+    variations: { ats: string; impact: string; concise: string } | null;
+  }>({
+    isOpen: false,
+    projectIndex: -1,
+    originalDescription: '',
+    projectName: '',
+    variations: null
+  });
+  const [projectCustomPrompt, setProjectCustomPrompt] = useState<string>('');
+  const [isPolishingProject, setIsPolishingProject] = useState<boolean>(false);
 
   // On-Preview Section & Enhancements States
   const [hiddenSections, setHiddenSections] = useState<string[]>([]);
@@ -601,6 +619,74 @@ export default function TailorWorkspace() {
     handleClParagraphChange(paraIndex, newParaText);
     showAlert({ title: 'Paragraph Polish', message: 'Cover Letter paragraph updated successfully!', type: 'success' });
     setClPolishModal({ isOpen: false, paraIndex: -1, originalPara: '', variations: null });
+  };
+
+  const handleMoveProject = (projIdx: number, direction: 'up' | 'down') => {
+    if (!result || !result.tailoredCv.projects) return;
+    const targetIdx = direction === 'up' ? projIdx - 1 : projIdx + 1;
+    if (targetIdx < 0 || targetIdx >= result.tailoredCv.projects.length) return;
+
+    const newProjects = [...result.tailoredCv.projects];
+    const temp = newProjects[projIdx];
+    newProjects[projIdx] = newProjects[targetIdx];
+    newProjects[targetIdx] = temp;
+
+    setResult(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        tailoredCv: {
+          ...prev.tailoredCv,
+          projects: newProjects
+        }
+      };
+    });
+  };
+
+  const handleFetchProjectVariations = async (projectIndex: number, originalDescription: string, projectName: string) => {
+    setProjectPolishModal({
+      isOpen: true,
+      projectIndex,
+      originalDescription,
+      projectName,
+      variations: null
+    });
+    setIsPolishingProject(true);
+    try {
+      const res = await fetch('/api/tailor/section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sectionKey: 'projects',
+          mode: 'project',
+          targetLanguage: cvLanguage,
+          jobDescription,
+          profile,
+          currentContent: { project: originalDescription },
+          userInstruction: projectCustomPrompt,
+          tone
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.data?.variations) {
+        setProjectPolishModal(prev => ({ ...prev, variations: data.data.variations }));
+        fetchTokens();
+      } else {
+        showAlert({ title: 'Project Polish', message: data.error || 'Failed to polish project description', type: 'error' });
+      }
+    } catch (err) {
+      showAlert({ title: 'Project Polish', message: 'Error generating project variations.', type: 'error' });
+    } finally {
+      setIsPolishingProject(false);
+    }
+  };
+
+  const handleApplyProjectVariation = (newDescText: string) => {
+    const { projectIndex } = projectPolishModal;
+    if (projectIndex < 0 || !result) return;
+    handleProjectChange(projectIndex, 'description', newDescText);
+    showAlert({ title: 'Project Polish', message: 'Project description updated successfully!', type: 'success' });
+    setProjectPolishModal({ isOpen: false, projectIndex: -1, originalDescription: '', projectName: '', variations: null });
   };
 
   const getAtsMatchStats = () => {
@@ -795,6 +881,17 @@ export default function TailorWorkspace() {
     setBulletPolishModal({ isOpen: false, expIndex: -1, bulletIndex: -1, originalBullet: '', variations: null });
   };
 
+  const getRenderedBullets = (exp: any, style: string, length: string, isFirst = false): string[] => {
+    if (!exp || !exp.bullets) return [];
+    if (Array.isArray(exp.bullets)) return exp.bullets;
+    if (typeof exp.bullets === 'object') {
+      const styleKey = style === 'STAR Method' ? 'star' : style === 'Short & Punchy' ? 'punchy' : 'standard';
+      const list = exp.bullets[styleKey] || exp.bullets.standard || Object.values(exp.bullets)[0];
+      if (Array.isArray(list)) return list;
+    }
+    return [];
+  };
+
   const handleAddWorkExperienceBullet = (expIndex: number) => {
     setResult((prev: any) => {
       if (!prev) return prev;
@@ -810,7 +907,12 @@ export default function TailorWorkspace() {
         exp.bullets = [...exp.bullets, newBulletText];
       } else if (exp.bullets && typeof exp.bullets === 'object') {
         const currentList = exp.bullets[styleKey] || exp.bullets.standard || [];
-        exp.bullets = { ...exp.bullets, [styleKey]: [...currentList, newBulletText] };
+        const updatedList = [...currentList, newBulletText];
+        exp.bullets = {
+          ...exp.bullets,
+          [styleKey]: updatedList,
+          standard: exp.bullets.standard ? [...exp.bullets.standard, newBulletText] : updatedList
+        };
       } else {
         exp.bullets = [newBulletText];
       }
@@ -1625,15 +1727,17 @@ export default function TailorWorkspace() {
               ))}
             </ul>
             {!isMeasurement && (
-              <button
-                type="button"
-                onClick={() => handleAddWorkExperienceBullet(idx)}
-                className="no-print opacity-0 group-hover/workitem:opacity-100 focus:opacity-100 mt-1 self-start px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center gap-1 transition-all cursor-pointer select-none"
-                title="Add new bullet point to this work experience entry"
-              >
-                <Plus className="w-3 h-3" />
-                <span>Add Bullet Point</span>
-              </button>
+              <div className="relative h-0 no-print font-sans">
+                <button
+                  type="button"
+                  onClick={() => handleAddWorkExperienceBullet(idx)}
+                  className="absolute left-0 top-1 z-10 opacity-100 sm:opacity-0 sm:group-hover/workitem:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
+                  title="Add new bullet point to this work experience entry"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Add Bullet Point</span>
+                </button>
+              </div>
             )}
           </div>
         );
@@ -1737,7 +1841,7 @@ export default function TailorWorkspace() {
                           className="focus:outline-none flex-1"
                         />
                         {!isMeasurement && (
-                          <div className="no-print opacity-0 group-hover:opacity-100 flex items-center gap-1 ml-1.5 shrink-0 transition-opacity">
+                          <div className="no-print opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex items-center gap-1 ml-1.5 shrink-0 transition-opacity">
                             <button
                               type="button"
                               onClick={() => handleFetchBulletVariations(idx, bIdx, b)}
@@ -1760,15 +1864,17 @@ export default function TailorWorkspace() {
                     ))}
                   </ul>
                   {!isMeasurement && (
-                    <button
-                      type="button"
-                      onClick={() => handleAddWorkExperienceBullet(idx)}
-                      className="no-print opacity-0 group-hover/workitem:opacity-100 focus:opacity-100 mt-1.5 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center gap-1 transition-all cursor-pointer select-none"
-                      title="Add new bullet point to this work experience entry"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>Add Bullet Point</span>
-                    </button>
+                    <div className="relative h-0 no-print font-sans">
+                      <button
+                        type="button"
+                        onClick={() => handleAddWorkExperienceBullet(idx)}
+                        className="absolute left-0 top-1 z-10 opacity-100 sm:opacity-0 sm:group-hover/workitem:opacity-100 focus:opacity-100 px-2.5 py-1 rounded-md text-[10px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm font-sans"
+                        title="Add new bullet point to this work experience entry"
+                      >
+                        <Plus className="w-3 h-3 text-indigo-600" />
+                        <span>Add Bullet Point</span>
+                      </button>
+                    </div>
                   )}
                 </td>
               </tr>
@@ -2003,28 +2109,61 @@ export default function TailorWorkspace() {
           <div
             key={blockId}
             data-block-id={blockId}
-            className="w-full text-left font-sans flex flex-col"
+            className="w-full text-left font-sans flex flex-col group relative"
             style={{ marginBottom: `${bulletSpacing * 1.5}px` }}
           >
-            <p
-              className="font-semibold text-[#2980B9] flex items-center gap-1.5 flex-wrap animate-none"
-              style={{ fontSize: `${fontSize + 0.5}px` }}
-            >
-              <ContentEditable
-                tagName="span"
-                value={proj.name}
-                onChange={(val) => handleProjectChange(idx, 'name', val, true)}
-                onBlur={(e: any) => handleProjectChange(idx, 'name', e.target.innerText, false)}
-                useInnerText={true}
-                isMeasurement={isMeasurement}
-                className="focus:outline-none font-bold"
-              />
-              {proj.url && (
-                <a href={proj.url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-400 hover:underline no-print font-normal">
-                  ({proj.url})
-                </a>
+            <div className="flex items-center justify-between gap-2">
+              <p
+                className="font-semibold text-[#2980B9] flex items-center gap-1.5 flex-wrap animate-none"
+                style={{ fontSize: `${fontSize + 0.5}px` }}
+              >
+                <ContentEditable
+                  tagName="span"
+                  value={proj.name}
+                  onChange={(val) => handleProjectChange(idx, 'name', val, true)}
+                  onBlur={(e: any) => handleProjectChange(idx, 'name', e.target.innerText, false)}
+                  useInnerText={true}
+                  isMeasurement={isMeasurement}
+                  className="focus:outline-none font-bold"
+                />
+                {proj.url && (
+                  <a href={proj.url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-400 hover:underline no-print font-normal">
+                    ({proj.url})
+                  </a>
+                )}
+              </p>
+              {!isMeasurement && (
+                <div className="no-print opacity-100 sm:opacity-0 group-hover:opacity-100 flex items-center gap-1 shrink-0 transition-opacity">
+                  <button
+                    type="button"
+                    onClick={() => handleMoveProject(idx, 'up')}
+                    disabled={idx === 0}
+                    className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 disabled:opacity-30 cursor-pointer shadow-sm border border-zinc-200"
+                    title="Move Project Up"
+                  >
+                    🔼
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMoveProject(idx, 'down')}
+                    disabled={idx === (result.tailoredCv.projects?.length || 0) - 1}
+                    className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 disabled:opacity-30 cursor-pointer shadow-sm border border-zinc-200"
+                    title="Move Project Down"
+                  >
+                    🔽
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleFetchProjectVariations(idx, proj.description, proj.name)}
+                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-600 cursor-pointer flex items-center gap-1 border border-indigo-200 shadow-sm"
+                    title="Polish Project Description with AI (2 Tokens)"
+                  >
+                    <Wand2 className="w-2.5 h-2.5 text-indigo-500" />
+                    <span>Polish</span>
+                  </button>
+                </div>
               )}
-            </p>
+            </div>
             {proj.technologies && proj.technologies.length > 0 && (
               <p className="text-[10px] text-gray-500 font-semibold mb-1">
                 Technologies:{' '}
@@ -2058,7 +2197,7 @@ export default function TailorWorkspace() {
       }
 
       return (
-        <div key={blockId} data-block-id={blockId} className="w-full text-left font-sans" style={{ marginBottom: `${bulletSpacing}px` }}>
+        <div key={blockId} data-block-id={blockId} className="w-full text-left font-sans group relative" style={{ marginBottom: `${bulletSpacing}px` }}>
           <table className="w-full border-collapse">
             <tbody>
               <tr>
@@ -2081,32 +2220,65 @@ export default function TailorWorkspace() {
                   />
                 </td>
                 <td
-                  className="align-top text-gray-700 leading-[1.55]"
+                  className="align-top text-gray-700 leading-[1.55] relative"
                   style={{
                     paddingTop: `${bulletSpacing * 0.25}px`,
                     paddingBottom: `${bulletSpacing * 0.25}px`
                   }}
                 >
-                  <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                    {proj.technologies && proj.technologies.length > 0 && (
-                      <span className="text-[10px] text-gray-500 font-semibold">
-                        Technologies:{' '}
-                        <ContentEditable
-                          tagName="span"
-                          value={Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies}
-                          onChange={(val) => handleProjectChange(idx, 'technologies', val, true)}
-                          onBlur={(e: any) => handleProjectChange(idx, 'technologies', e.target.innerText, false)}
-                          useInnerText={true}
-                          isMeasurement={isMeasurement}
-                          highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies) : undefined}
-                          className="focus:outline-none"
-                        />
-                      </span>
-                    )}
-                    {proj.url && (
-                      <a href={proj.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#2980B9] hover:underline no-print font-normal">
-                        ({proj.url})
-                      </a>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {proj.technologies && proj.technologies.length > 0 && (
+                        <span className="text-[10px] text-gray-500 font-semibold">
+                          Technologies:{' '}
+                          <ContentEditable
+                            tagName="span"
+                            value={Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies}
+                            onChange={(val) => handleProjectChange(idx, 'technologies', val, true)}
+                            onBlur={(e: any) => handleProjectChange(idx, 'technologies', e.target.innerText, false)}
+                            useInnerText={true}
+                            isMeasurement={isMeasurement}
+                            highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies) : undefined}
+                            className="focus:outline-none"
+                          />
+                        </span>
+                      )}
+                      {proj.url && (
+                        <a href={proj.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#2980B9] hover:underline no-print font-normal">
+                          ({proj.url})
+                        </a>
+                      )}
+                    </div>
+                    {!isMeasurement && (
+                      <div className="no-print opacity-100 sm:opacity-0 group-hover:opacity-100 flex items-center gap-1 shrink-0 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => handleMoveProject(idx, 'up')}
+                          disabled={idx === 0}
+                          className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 disabled:opacity-30 cursor-pointer shadow-sm border border-zinc-200"
+                          title="Move Project Up"
+                        >
+                          🔼
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMoveProject(idx, 'down')}
+                          disabled={idx === (result.tailoredCv.projects?.length || 0) - 1}
+                          className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 disabled:opacity-30 cursor-pointer shadow-sm border border-zinc-200"
+                          title="Move Project Down"
+                        >
+                          🔽
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleFetchProjectVariations(idx, proj.description, proj.name)}
+                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-600 cursor-pointer flex items-center gap-1 border border-indigo-200 shadow-sm"
+                          title="Polish Project Description with AI (2 Tokens)"
+                        >
+                          <Wand2 className="w-2.5 h-2.5 text-indigo-500" />
+                          <span>Polish</span>
+                        </button>
+                      </div>
                     )}
                   </div>
                   <ContentEditable
@@ -2400,14 +2572,11 @@ export default function TailorWorkspace() {
         let currentPage: string[] = [];
         let currentHeight = 0;
         const printableHeight = (297 - (pagePaddingTop + pagePaddingBottom)) * 3.779527559;
-        const bottomPaddingPx = pagePaddingBottom * 3.779527559;
-        const sigTolerance = Math.max(0, bottomPaddingPx - 15); // Maintain at least a 15px safety margin at the absolute page bottom
 
         ordered.forEach(blockId => {
           const blockHeight = heights[blockId] || 0;
-          const limit = blockId === 'signature' ? printableHeight + sigTolerance : printableHeight;
 
-          if (currentHeight + blockHeight > limit && currentPage.length > 0) {
+          if (currentHeight + blockHeight > printableHeight && currentPage.length > 0) {
             pagesList.push(currentPage);
             currentPage = [blockId];
             currentHeight = blockHeight;
@@ -2695,7 +2864,8 @@ export default function TailorWorkspace() {
           matchStrategy,
           applicationId: editingAppId,
           roleName,
-          selectedProjects
+          selectedProjects,
+          isNudgeEnabled
         })
       });
 
@@ -3149,7 +3319,7 @@ export default function TailorWorkspace() {
       });
       textContent += `${cl.closing}\n\n`;
       textContent += `${cl.signatureName}\n`;
-      
+
       const enclosureContent = cl.enclosure !== undefined
         ? cl.enclosure
         : "- Curriculum Vitae\n- Bachelor Degree Diploma\n- Reference letter from previous employers";
@@ -3216,8 +3386,8 @@ export default function TailorWorkspace() {
 
     const currentCvSkills = result.tailoredCv.skills || [];
     const hasCvSkill = currentCvSkills.some((s: any) => s.name?.toLowerCase() === cleanSkill.toLowerCase());
-    const updatedCvSkills = hasCvSkill 
-      ? currentCvSkills 
+    const updatedCvSkills = hasCvSkill
+      ? currentCvSkills
       : [...currentCvSkills, { name: cleanSkill, level: 'Intermediate' }];
 
     setResult({
@@ -3280,7 +3450,7 @@ export default function TailorWorkspace() {
     const newMissing = alreadyMissing ? initialMissing : [...initialMissing, cleanSkill];
 
     const totalKeywords = newMatching.length + newMissing.length;
-    const newScore = totalKeywords > 0 
+    const newScore = totalKeywords > 0
       ? Math.round((newMatching.length / totalKeywords) * 100)
       : 0;
 
@@ -3553,17 +3723,17 @@ export default function TailorWorkspace() {
   const handleProjectChange = (idx: number, key: 'name' | 'description' | 'technologies', value: any, isRealtime = false) => {
     if (!result) return;
     const newProjects = [...(result.tailoredCv.projects || [])];
-    
+
     let processedValue = value;
     if (key === 'technologies' && typeof value === 'string') {
       processedValue = value.split(',').map(s => s.trim()).filter(Boolean);
     }
-    
+
     newProjects[idx] = {
       ...newProjects[idx],
       [key]: processedValue
     };
-    
+
     const updated = {
       ...result,
       tailoredCv: {
@@ -3664,7 +3834,7 @@ export default function TailorWorkspace() {
   return (
     <div className="flex-grow flex flex-col min-h-[calc(100vh-73px)] w-full overflow-x-hidden">
       {/* Mobile Switch Tab Bar */}
-      <div className="lg:hidden sticky top-0 z-30 flex bg-[var(--layout-backdrop-bg)]/90 backdrop-blur-md border-b border-white/5 p-2 gap-2 w-full shrink-0">
+      <div className="lg:hidden sticky top-[49px] sm:top-[65px] z-30 flex bg-zinc-950/95 backdrop-blur-md border-b border-white/10 p-2 gap-2 w-full shrink-0">
         <button
           onClick={() => setActiveMobileTab('edit')}
           className={`flex-grow flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeMobileTab === 'edit'
@@ -3689,7 +3859,7 @@ export default function TailorWorkspace() {
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 w-full overflow-hidden">
         {/* Left Input Pane: Col 5 */}
-        <div className={`lg:col-span-5 border-r border-white/5 bg-zinc-950/40 p-6 md:p-8 overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] space-y-6 ${activeMobileTab === 'edit' ? 'block' : 'hidden lg:block'
+        <div className={`w-full col-span-1 lg:col-span-5 border-r border-white/5 bg-zinc-950/40 p-4 sm:p-6 md:p-8 overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] space-y-6 ${activeMobileTab === 'edit' ? 'block' : 'hidden lg:block'
           }`}>
           <div>
             <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">
@@ -3865,6 +4035,31 @@ export default function TailorWorkspace() {
                     <option value="category">By Category</option>
                   </select>
                 </div>
+              </div>
+
+              {/* AI Description Nudging Toggle Switch */}
+              <div className="pt-3 mt-3 border-t border-white/5 flex items-center justify-between gap-3 font-sans">
+                <div className="flex flex-col text-left">
+                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                    AI Description Nudging
+                  </span>
+                  <span className="text-[10px] text-zinc-400 leading-tight">
+                    Adapts project & work descriptions towards target Job Description
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsNudgeEnabled(prev => !prev)}
+                  className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer shrink-0 ${isNudgeEnabled ? 'bg-indigo-600' : 'bg-zinc-800 border border-white/10'
+                    }`}
+                  title="Toggle AI Description Nudging"
+                >
+                  <div
+                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${isNudgeEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                  />
+                </button>
               </div>
             </div>
 
@@ -4508,6 +4703,19 @@ export default function TailorWorkspace() {
                       <span className="text-[10px] text-zinc-500">Perfect keyword alignment!</span>
                     )}
                   </div>
+                  {result.gapAnalysis.missingSkills.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const missing = [...result.gapAnalysis.missingSkills];
+                        missing.forEach(s => handleAddSkillInteractive(s, true));
+                      }}
+                      className="mt-2 w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-amber-500/30 hover:border-amber-500/50"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add All Missing Keywords ({result.gapAnalysis.missingSkills.length})
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -4586,15 +4794,16 @@ export default function TailorWorkspace() {
         </div>
 
         {/* Right Preview Pane: Col 7 */}
-        <div className={`lg:col-span-7 bg-[var(--layout-surface-card-bg)]/30 flex flex-col overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] ${activeMobileTab === 'preview' ? 'block' : 'hidden lg:block'
+        <div className={`w-full col-span-1 lg:col-span-7 bg-[var(--layout-surface-card-bg)]/30 flex flex-col overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] ${activeMobileTab === 'preview' ? 'block' : 'hidden lg:block'
           }`}>
-          {/* Toolbar */}
-          <div className="sticky top-0 z-20 no-print flex items-center justify-between px-6 py-3 bg-[var(--layout-surface-panel-bg)] border-b border-white/5">
-            <div className="flex items-center gap-3">
-              <div className="flex gap-1.5 font-sans">
+          {/* Multi-Row Responsive Toolbar */}
+          <div className="sticky top-[49px] sm:top-0 z-20 no-print flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-3 sm:px-6 py-2.5 sm:py-3 bg-[var(--layout-surface-panel-bg)] border-b border-white/5 font-sans">
+            {/* Top Row / Left Group: Document Tabs & Layout Modes */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-wrap w-full sm:w-auto">
+              <div className="flex gap-1.5 font-sans w-full sm:w-auto">
                 <button
                   onClick={() => setPreviewTab('cv')}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${previewTab === 'cv'
+                  className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${previewTab === 'cv'
                     ? 'bg-zinc-800 text-white'
                     : 'text-zinc-400 hover:text-white hover:bg-white/5'
                     }`}
@@ -4603,7 +4812,7 @@ export default function TailorWorkspace() {
                 </button>
                 <button
                   onClick={() => setPreviewTab('coverLetter')}
-                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${previewTab === 'coverLetter'
+                  className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${previewTab === 'coverLetter'
                     ? 'bg-zinc-800 text-white'
                     : 'text-zinc-400 hover:text-white hover:bg-white/5'
                     }`}
@@ -4612,11 +4821,11 @@ export default function TailorWorkspace() {
                 </button>
               </div>
 
-              <div className="flex bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-0.5 font-sans">
+              <div className="flex bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-0.5 font-sans w-full sm:w-auto">
                 <button
                   type="button"
                   onClick={() => setIsAtsMode(false)}
-                  className={`px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${!isAtsMode
+                  className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${!isAtsMode
                     ? 'bg-zinc-800 text-white shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-200'
                     }`}
@@ -4626,7 +4835,7 @@ export default function TailorWorkspace() {
                 <button
                   type="button"
                   onClick={() => setIsAtsMode(true)}
-                  className={`px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${isAtsMode
+                  className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${isAtsMode
                     ? 'bg-zinc-800 text-white shadow-sm'
                     : 'text-zinc-400 hover:text-zinc-200'
                     }`}
@@ -4634,7 +4843,10 @@ export default function TailorWorkspace() {
                   Strict ATS Layout
                 </button>
               </div>
+            </div>
 
+            {/* Bottom Row / Right Group: Height badge & Export Format button */}
+            <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-1.5 sm:pt-0 border-t sm:border-t-0 border-white/5">
               {result && (
                 <span className="text-[10px] font-semibold px-2 py-1 rounded-md bg-zinc-900 border border-white/5 flex items-center gap-1.5 font-sans">
                   <span>Height:</span>
@@ -4648,61 +4860,59 @@ export default function TailorWorkspace() {
                   )}
                 </span>
               )}
+
+              {result && (
+                <div className="relative no-print font-sans">
+                  <button
+                    onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
+                    className="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export Format</span>
+                  </button>
+
+                  {exportDropdownOpen && (
+                    <>
+                      <div className="fixed inset-0 z-20" onClick={() => setExportDropdownOpen(false)}></div>
+                      <div className="absolute right-0 mt-2 w-52 bg-[var(--layout-surface-panel-bg)] border border-white/10 rounded-xl shadow-xl z-30 py-1.5 text-xs text-zinc-300">
+                        <button
+                          onClick={() => {
+                            setExportDropdownOpen(false);
+                            handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl');
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                        >
+                          Download PDF Document (.pdf)
+                        </button>
+                        <button
+                          onClick={() => {
+                            setExportDropdownOpen(false);
+                            handleExportWord();
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                        >
+                          Download MS Word Document (.doc)
+                        </button>
+                        <button
+                          onClick={() => {
+                            setExportDropdownOpen(false);
+                            handleExportText();
+                          }}
+                          className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                        >
+                          Download Plain Text (.txt)
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
-
-
-
-            {result && (
-              <div className="relative no-print font-sans">
-                <button
-                  onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
-                  className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 flex items-center gap-1.5 transition-colors cursor-pointer"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  Export Format
-                </button>
-
-                {exportDropdownOpen && (
-                  <>
-                    <div className="fixed inset-0 z-20" onClick={() => setExportDropdownOpen(false)}></div>
-                    <div className="absolute right-0 mt-2 w-52 bg-[var(--layout-surface-panel-bg)] border border-white/10 rounded-xl shadow-xl z-30 py-1.5 text-xs text-zinc-300">
-                      <button
-                        onClick={() => {
-                          setExportDropdownOpen(false);
-                          handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl');
-                        }}
-                        className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-                      >
-                        Download PDF Document (.pdf)
-                      </button>
-                      <button
-                        onClick={() => {
-                          setExportDropdownOpen(false);
-                          handleExportWord();
-                        }}
-                        className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-                      >
-                        Download MS Word Document (.doc)
-                      </button>
-                      <button
-                        onClick={() => {
-                          setExportDropdownOpen(false);
-                          handleExportText();
-                        }}
-                        className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-                      >
-                        Download Plain Text (.txt)
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Real-time page overflow alert */}
           {result && numPages > 1 && lengthTarget.includes('1-Page') && previewTab === 'cv' && (
-            <div className="no-print mx-6 mt-4 p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs flex items-center justify-between gap-3 text-rose-300 font-sans animate-in slide-in-from-top duration-300">
+            <div className="no-print mx-4 sm:mx-6 mt-4 p-3.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs flex items-center justify-between gap-3 text-rose-300 font-sans animate-in slide-in-from-top duration-300">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0 animate-bounce" />
                 <div>
@@ -4715,10 +4925,10 @@ export default function TailorWorkspace() {
             </div>
           )}
 
-          {/* Live A4 Sheet Render */}
-          <div className="flex-1 p-6 md:p-8 bg-[var(--layout-workspace-bg)] flex items-start justify-center">
+          {/* Live A4 Sheet Render - Fully Scrollable on Mobile */}
+          <div className="flex-1 p-3 sm:p-6 md:p-8 bg-[var(--layout-workspace-bg)] flex flex-col items-center justify-start overflow-x-auto overflow-y-auto w-full max-w-full">
             {result ? (
-              <div className="w-full max-w-[210mm] flex flex-col items-center">
+              <div className="w-full max-w-full sm:max-w-[210mm] flex flex-col items-center">
 
                 {/* Clean Restructured Customization Toolbar */}
                 {previewTab === 'cv' && (
@@ -4790,11 +5000,10 @@ export default function TailorWorkspace() {
                       <button
                         type="button"
                         onClick={() => setIsAtsHighlightEnabled((prev) => !prev)}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${
-                          isAtsHighlightEnabled
-                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
-                            : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
-                        }`}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${isAtsHighlightEnabled
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
+                          : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
+                          }`}
                         title="Highlight ATS Job Description keywords in preview text"
                       >
                         <Target className="w-3 h-3 text-emerald-400" />
@@ -4807,8 +5016,8 @@ export default function TailorWorkspace() {
                         const colorClass = stats.percentage >= 75
                           ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
                           : stats.percentage >= 50
-                          ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
-                          : 'bg-rose-500/10 border-rose-500/30 text-rose-300';
+                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                            : 'bg-rose-500/10 border-rose-500/30 text-rose-300';
                         return (
                           <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold ${colorClass}`} title={`${stats.matched} matched out of ${stats.total} total extracted job keywords`}>
                             <span>ATS Match: {stats.matched}/{stats.total} ({stats.percentage}%)</span>
@@ -4820,11 +5029,10 @@ export default function TailorWorkspace() {
                       <button
                         type="button"
                         onClick={() => setIsAdjustSpacingOpen((prev) => !prev)}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${
-                          isAdjustSpacingOpen
-                            ? 'bg-indigo-600 text-white border-indigo-500 shadow-md'
-                            : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
-                        }`}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${isAdjustSpacingOpen
+                          ? 'bg-indigo-600 text-white border-indigo-500 shadow-md'
+                          : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
+                          }`}
                         title="Fine-tune exact pixel spacing and margins"
                       >
                         <Sliders className="w-3 h-3 text-indigo-400" />
@@ -4985,16 +5193,17 @@ export default function TailorWorkspace() {
                       {pagesToRender.map((pageBlockIds, pageIdx) => {
                         const a4Width = 794; // A4 width in px (210mm)
                         const a4Height = 1123; // A4 height in px (297mm)
-                        const scale = previewWidth < a4Width ? (previewWidth - 24) / a4Width : 1;
+                        const containerW = previewWidth > 0 ? previewWidth : (typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 794) : 360);
+                        const rawScale = containerW < a4Width ? (containerW - 16) / a4Width : 1;
+                        const scale = Math.max(0.48, Math.min(1, rawScale));
 
                         return (
                           <div
                             key={pageIdx}
-                            className="cv-page-scale-wrapper flex items-center justify-center no-print"
+                            className="cv-page-scale-wrapper flex items-start justify-center no-print"
                             style={{
                               width: '100%',
                               height: `${a4Height * scale}px`,
-                              overflow: 'hidden',
                               flexShrink: 0
                             }}
                           >
@@ -5035,14 +5244,15 @@ export default function TailorWorkspace() {
                   {previewTab === 'coverLetter' && (() => {
                     const a4Width = 794;
                     const a4Height = 1123;
-                    const scale = previewWidth < a4Width ? (previewWidth - 24) / a4Width : 1;
+                    const containerW = previewWidth > 0 ? previewWidth : (typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 794) : 360);
+                    const rawScale = containerW < a4Width ? (containerW - 16) / a4Width : 1;
+                    const scale = Math.max(0.48, Math.min(1, rawScale));
                     return (
                       <div
-                        className="cl-page-scale-wrapper flex items-center justify-center no-print"
+                        className="cl-page-scale-wrapper flex items-start justify-center no-print"
                         style={{
                           width: '100%',
                           height: `${a4Height * scale}px`,
-                          overflow: 'hidden',
                           flexShrink: 0
                         }}
                       >
@@ -5063,7 +5273,7 @@ export default function TailorWorkspace() {
                           }}
                         >
                           {/* Cover Letter Header AI Action Bar */}
-                          <div className="absolute right-6 top-6 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-all duration-200 flex items-center gap-1 bg-zinc-900/95 border border-zinc-700/80 rounded-xl p-1.5 text-xs shadow-2xl backdrop-blur-md z-30 font-sans no-print">
+                          <div className="absolute right-6 top-6 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-all duration-200 flex items-center gap-1 bg-zinc-900/95 border border-zinc-700/80 rounded-xl p-1.5 text-xs shadow-2xl backdrop-blur-md z-30 font-sans no-print">
                             <button
                               type="button"
                               onClick={(e) => {
@@ -5275,7 +5485,7 @@ export default function TailorWorkspace() {
 
       {/* Premium Skill Confirmation Modal Overlay */}
       {skillModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-sm bg-zinc-950 border border-white/10 rounded-2xl p-5 shadow-2xl space-y-4 font-sans text-left">
             <div className="flex justify-between items-center pb-2.5 border-b border-white/5">
               <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
@@ -5340,7 +5550,7 @@ export default function TailorWorkspace() {
 
       {/* Section Regeneration Modal */}
       {regenModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4 font-sans text-left">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
@@ -5385,11 +5595,10 @@ export default function TailorWorkspace() {
                     key={chip}
                     type="button"
                     onClick={() => setSelectedPresetChip(selectedPresetChip === chip ? null : chip)}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
-                      selectedPresetChip === chip
-                        ? 'bg-indigo-600 text-white border-indigo-500 shadow-md'
-                        : 'bg-zinc-950/80 text-zinc-400 border-zinc-800 hover:border-zinc-700 hover:text-zinc-200'
-                    }`}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all cursor-pointer ${selectedPresetChip === chip
+                      ? 'bg-indigo-600 text-white border-indigo-500 shadow-md'
+                      : 'bg-zinc-950/80 text-zinc-400 border-zinc-800 hover:border-zinc-700 hover:text-zinc-200'
+                      }`}
                   >
                     {chip}
                   </button>
@@ -5450,7 +5659,7 @@ export default function TailorWorkspace() {
 
       {/* Bullet Point Polish Modal */}
       {bulletPolishModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-xl w-full shadow-2xl space-y-4 font-sans text-left">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
@@ -5546,7 +5755,7 @@ export default function TailorWorkspace() {
 
       {/* Cover Letter Paragraph Polish Modal */}
       {clPolishModal.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl space-y-4 font-sans text-left overflow-hidden">
             <div className="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
               <div className="flex items-center gap-2">
@@ -5664,9 +5873,130 @@ export default function TailorWorkspace() {
         </div>
       )}
 
+      {/* Project Description Polish Modal */}
+      {projectPolishModal.isOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 no-print">
+          <div className="bg-zinc-900 border border-white/10 rounded-2xl max-w-xl w-full flex flex-col shadow-2xl overflow-hidden font-sans">
+            <div className="p-4 border-b border-white/10 flex items-center justify-between bg-zinc-950">
+              <div className="flex items-center gap-2">
+                <Wand2 className="w-4 h-4 text-indigo-400" />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">
+                  AI Project Polish: {projectPolishModal.projectName}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProjectPolishModal({ isOpen: false, projectIndex: -1, originalDescription: '', projectName: '', variations: null })}
+                className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
+              {/* Original Description Display */}
+              <div>
+                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">
+                  Original Project Description:
+                </label>
+                <div className="p-3 rounded-xl bg-zinc-950/60 border border-white/5 text-xs text-zinc-300">
+                  {projectPolishModal.originalDescription}
+                </div>
+              </div>
+
+              {/* Custom Prompt Directives Box */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
+                  Custom AI Directive (Optional):
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={projectCustomPrompt}
+                    onChange={(e) => setProjectCustomPrompt(e.target.value)}
+                    placeholder="e.g. Highlight React & Next.js architecture, emphasize metrics..."
+                    className="flex-1 bg-zinc-950 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleFetchProjectVariations(projectPolishModal.projectIndex, projectPolishModal.originalDescription, projectPolishModal.projectName)}
+                    disabled={isPolishingProject}
+                    className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shrink-0"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{isPolishingProject ? 'Polishing...' : 'Re-generate'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Variations Display */}
+              {isPolishingProject ? (
+                <div className="py-8 flex flex-col items-center justify-center gap-2 text-indigo-400">
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  <span className="text-xs font-semibold">Crafting project variations with DeepSeek AI...</span>
+                </div>
+              ) : projectPolishModal.variations ? (
+                <div className="space-y-3 pt-2">
+                  {/* ATS Keyword Aligned Variation */}
+                  <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
+                        🎯 ATS Keyword Aligned
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyProjectVariation(projectPolishModal.variations!.ats)}
+                        className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition-colors cursor-pointer"
+                      >
+                        Apply Variation
+                      </button>
+                    </div>
+                    <p className="text-xs text-zinc-200 leading-relaxed">{projectPolishModal.variations.ats}</p>
+                  </div>
+
+                  {/* Impact & Metrics Variation */}
+                  <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+                        🚀 Impact & Metrics Driven
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyProjectVariation(projectPolishModal.variations!.impact)}
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                      >
+                        Apply Variation
+                      </button>
+                    </div>
+                    <p className="text-xs text-zinc-200 leading-relaxed">{projectPolishModal.variations.impact}</p>
+                  </div>
+
+                  {/* Short & Punchy Variation */}
+                  <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
+                    <div className="flex items-center justify-between">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
+                        ⚡ Short & Concise
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyProjectVariation(projectPolishModal.variations!.concise)}
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                      >
+                        Apply Variation
+                      </button>
+                    </div>
+                    <p className="text-xs text-zinc-200 leading-relaxed">{projectPolishModal.variations.concise}</p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Compare Original vs Tailored Modal */}
       {isCompareModalOpen && result && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 no-print">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 no-print">
           <div className="bg-zinc-950 border border-white/10 rounded-2xl max-w-5xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden font-sans">
             <div className="p-4 border-b border-white/10 flex items-center justify-between bg-zinc-900/50">
               <div className="flex items-center gap-2">
@@ -6070,3 +6400,4 @@ function FloatingToolbar({ cvPreviewRef }: FloatingToolbarProps) {
     </div>
   );
 }
+

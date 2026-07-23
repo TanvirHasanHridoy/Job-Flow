@@ -99,11 +99,11 @@ export default function Dashboard() {
         setEventDate(tomorrowStr);
       }
 
-      const titleLabel = 
+      const titleLabel =
         type === 'apply' ? 'Apply Deadline' :
-        type === 'applied' ? 'Applied Milestone' :
-        type === 'interview' ? 'Interview' :
-        type === 'offer' ? 'Offer decision due' : 'Task';
+          type === 'applied' ? 'Applied Milestone' :
+            type === 'interview' ? 'Interview' :
+              type === 'offer' ? 'Offer decision due' : 'Task';
       setEventTitle(`${titleLabel}: ${calendarModalApp.role} @ ${calendarModalApp.company}`);
 
       const loc = calendarModalApp.location || '';
@@ -132,11 +132,11 @@ export default function Dashboard() {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
-    const titleLabel = 
+    const titleLabel =
       newType === 'apply' ? 'Apply Deadline' :
-      newType === 'applied' ? 'Applied Milestone' :
-      newType === 'interview' ? 'Interview' :
-      newType === 'offer' ? 'Offer decision due' : 'Task';
+        newType === 'applied' ? 'Applied Milestone' :
+          newType === 'interview' ? 'Interview' :
+            newType === 'offer' ? 'Offer decision due' : 'Task';
     setEventTitle(`${titleLabel}: ${calendarModalApp.role} @ ${calendarModalApp.company}`);
 
     if (newType === 'applied') {
@@ -153,7 +153,7 @@ export default function Dashboard() {
   const generateGoogleCalendarUrl = () => {
     if (!calendarModalApp) return '';
     const base = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
-    
+
     let datesParam = '';
     const dateParts = eventDate.split('-');
     if (dateParts.length !== 3) return '';
@@ -169,7 +169,7 @@ export default function Dashboard() {
     } else {
       const localDateTime = new Date(`${eventDate}T${eventTime}:00`);
       if (isNaN(localDateTime.getTime())) return '';
-      
+
       const startStr = localDateTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
       const endDateTime = new Date(localDateTime.getTime() + parseInt(eventDuration) * 60 * 1000);
       const endStr = endDateTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
@@ -200,7 +200,7 @@ export default function Dashboard() {
     } else {
       const localDateTime = new Date(`${eventDate}T${eventTime}:00`);
       if (isNaN(localDateTime.getTime())) return;
-      
+
       const startStr = localDateTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
       const endDateTime = new Date(localDateTime.getTime() + parseInt(eventDuration) * 60 * 1000);
       const endStr = endDateTime.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
@@ -318,24 +318,24 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8 w-full flex-1 flex flex-col">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 min-w-0 flex-1 flex flex-col">
       {/* Welcome Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
         <div>
           <div className="flex items-center gap-2 mb-1.5">
             <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse" />
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-zinc-100 to-indigo-200 bg-clip-text text-transparent">
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-zinc-100 to-indigo-200 bg-clip-text text-transparent">
               JobFlow Command Center
             </h1>
           </div>
-          <p className="text-zinc-400 text-sm">
+          <p className="text-zinc-400 text-xs sm:text-sm">
             Track custom resume revisions, interviews, and offers in one centralized, multi-language hub.
           </p>
         </div>
       </div>
 
       {/* Analytics Summary Scorecards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8 w-full">
         <div className="glass-panel p-5 rounded-2xl flex items-center gap-4">
           <div className="p-3.5 rounded-xl bg-indigo-500/10 text-indigo-400">
             <LayoutGrid className="w-5 h-5" />
@@ -381,31 +381,28 @@ export default function Dashboard() {
       <div className="flex items-center gap-2 mb-6 border-b border-white/5 pb-4 no-print font-sans">
         <button
           onClick={() => setCurrentView('kanban')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            currentView === 'kanban'
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentView === 'kanban'
               ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
               : 'bg-white/5 text-zinc-400 hover:text-white'
-          }`}
+            }`}
         >
           📋 Kanban Board
         </button>
         <button
           onClick={() => setCurrentView('spreadsheet')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            currentView === 'spreadsheet'
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentView === 'spreadsheet'
               ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
               : 'bg-white/5 text-zinc-400 hover:text-white'
-          }`}
+            }`}
         >
           📊 Spreadsheet View
         </button>
         <button
           onClick={() => setCurrentView('calendar')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            currentView === 'calendar'
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentView === 'calendar'
               ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
               : 'bg-white/5 text-zinc-400 hover:text-white'
-          }`}
+            }`}
         >
           📅 Calendar View
         </button>
@@ -415,118 +412,118 @@ export default function Dashboard() {
       {currentView === 'kanban' && (
         <div className="flex-1 overflow-x-auto pb-4">
           <div className="flex gap-4 min-w-[1000px] h-[calc(100vh-340px)]">
-          {COLUMNS.map(col => {
-            const columnApps = applications.filter(app => app.status === col.id);
-            return (
-              <div
-                key={col.id}
-                className="flex-1 flex flex-col rounded-2xl border border-white/5 bg-zinc-950/20 backdrop-blur-sm p-4 w-[280px]"
-              >
-                {/* Column Header */}
-                <div className="flex justify-between items-center mb-4 pb-2 border-b border-white/5">
-                  <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${col.color}`}>
-                    {col.name}
-                  </span>
-                  <span className="text-xs text-zinc-500 font-bold bg-white/5 px-2 py-0.5 rounded">
-                    {columnApps.length}
-                  </span>
-                </div>
+            {COLUMNS.map(col => {
+              const columnApps = applications.filter(app => app.status === col.id);
+              return (
+                <div
+                  key={col.id}
+                  className="flex-1 flex flex-col rounded-2xl border border-white/5 bg-zinc-950/20 backdrop-blur-sm p-4 w-[280px]"
+                >
+                  {/* Column Header */}
+                  <div className="flex justify-between items-center mb-4 pb-2 border-b border-white/5">
+                    <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${col.color}`}>
+                      {col.name}
+                    </span>
+                    <span className="text-xs text-zinc-500 font-bold bg-white/5 px-2 py-0.5 rounded">
+                      {columnApps.length}
+                    </span>
+                  </div>
 
-                {/* Column Cards Container */}
-                <div className="flex-grow overflow-y-auto space-y-3 pr-1">
-                  {columnApps.length > 0 ? (
-                    columnApps.map(app => (
-                      <div
-                        key={app.id}
-                        onClick={() => setSelectedApp(app)}
-                        className="glass-panel glass-panel-hover p-4 rounded-xl cursor-pointer select-none space-y-3 relative group"
-                      >
-                        {/* Match & Lang tags */}
-                        <div className="flex items-center justify-between">
-                          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-zinc-500 font-sans">
-                            <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-zinc-300">
-                              {app.targetLanguage === 'DE' ? '🇩🇪 DE' : '🇬🇧 EN'}
+                  {/* Column Cards Container */}
+                  <div className="flex-grow overflow-y-auto space-y-3 pr-1">
+                    {columnApps.length > 0 ? (
+                      columnApps.map(app => (
+                        <div
+                          key={app.id}
+                          onClick={() => setSelectedApp(app)}
+                          className="glass-panel glass-panel-hover p-4 rounded-xl cursor-pointer select-none space-y-3 relative group"
+                        >
+                          {/* Match & Lang tags */}
+                          <div className="flex items-center justify-between">
+                            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-zinc-500 font-sans">
+                              <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-zinc-300">
+                                {app.targetLanguage === 'DE' ? '🇩🇪 DE' : '🇬🇧 EN'}
+                              </span>
                             </span>
-                          </span>
 
-                          <span className={`inline-flex items-center gap-1 text-xs font-bold ${app.matchScore >= 80 ? 'text-emerald-400' : app.matchScore >= 60 ? 'text-amber-400' : 'text-zinc-400'
-                            }`}>
-                            <Award className="w-3.5 h-3.5" />
-                            {app.matchScore}% Match
-                          </span>
-                        </div>
+                            <span className={`inline-flex items-center gap-1 text-xs font-bold ${app.matchScore >= 80 ? 'text-emerald-400' : app.matchScore >= 60 ? 'text-amber-400' : 'text-zinc-400'
+                              }`}>
+                              <Award className="w-3.5 h-3.5" />
+                              {app.matchScore}% Match
+                            </span>
+                          </div>
 
-                        {/* Title details */}
-                        <div>
-                          <h3 className="font-bold text-white text-sm line-clamp-1 group-hover:text-indigo-400 transition-colors">
-                            {app.role}
-                          </h3>
-                          <p className="text-[11px] text-zinc-400 truncate">{app.company}</p>
-                        </div>
+                          {/* Title details */}
+                          <div>
+                            <h3 className="font-bold text-white text-sm line-clamp-1 group-hover:text-indigo-400 transition-colors">
+                              {app.role}
+                            </h3>
+                            <p className="text-[11px] text-zinc-400 truncate">{app.company}</p>
+                          </div>
 
-                        {/* Card metadata indicators */}
-                        <div className="flex justify-between items-center pt-2.5 border-t border-white/5 text-[10px] text-zinc-500">
-                          <span className="flex items-center gap-1 font-sans">
-                            <Calendar className="w-3 h-3" />
-                            {new Date(app.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                          </span>
+                          {/* Card metadata indicators */}
+                          <div className="flex justify-between items-center pt-2.5 border-t border-white/5 text-[10px] text-zinc-500">
+                            <span className="flex items-center gap-1 font-sans">
+                              <Calendar className="w-3 h-3" />
+                              {new Date(app.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                            </span>
 
-                          {/* Trash indicator on hover */}
-                          <div className="flex items-center gap-1.5">
+                            {/* Trash indicator on hover */}
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={(e) => deleteApplication(app.id, e)}
+                                className="p-1 hover:text-rose-400 rounded transition-colors text-zinc-600 hover:bg-white/5 cursor-pointer"
+                                title="Delete application log"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Simple arrows to quick move status */}
+                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
                             <button
-                              onClick={(e) => deleteApplication(app.id, e)}
-                              className="p-1 hover:text-rose-400 rounded transition-colors text-zinc-600 hover:bg-white/5 cursor-pointer"
-                              title="Delete application log"
+                              disabled={app.status === 'TAILORED'}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const idx = COLUMNS.findIndex(c => c.id === app.status);
+                                if (idx > 0) updateAppStatus(app.id, COLUMNS[idx - 1].id);
+                              }}
+                              className="p-1 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:text-zinc-500 rounded cursor-pointer"
+                              title="Move left"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <ChevronLeft className="w-4 h-4" />
+                            </button>
+
+                            <span className="text-[9px] uppercase tracking-wider text-zinc-600 font-semibold font-sans">Move Status</span>
+
+                            <button
+                              disabled={app.status === 'REJECTED'}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const idx = COLUMNS.findIndex(c => c.id === app.status);
+                                if (idx < COLUMNS.length - 1) updateAppStatus(app.id, COLUMNS[idx + 1].id);
+                              }}
+                              className="p-1 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:text-zinc-500 rounded cursor-pointer"
+                              title="Move right"
+                            >
+                              <ChevronRight className="w-4 h-4" />
                             </button>
                           </div>
                         </div>
-
-                        {/* Simple arrows to quick move status */}
-                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
-                          <button
-                            disabled={app.status === 'TAILORED'}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const idx = COLUMNS.findIndex(c => c.id === app.status);
-                              if (idx > 0) updateAppStatus(app.id, COLUMNS[idx - 1].id);
-                            }}
-                            className="p-1 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:text-zinc-500 rounded cursor-pointer"
-                            title="Move left"
-                          >
-                            <ChevronLeft className="w-4 h-4" />
-                          </button>
-
-                          <span className="text-[9px] uppercase tracking-wider text-zinc-600 font-semibold font-sans">Move Status</span>
-
-                          <button
-                            disabled={app.status === 'REJECTED'}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const idx = COLUMNS.findIndex(c => c.id === app.status);
-                              if (idx < COLUMNS.length - 1) updateAppStatus(app.id, COLUMNS[idx + 1].id);
-                            }}
-                            className="p-1 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:text-zinc-500 rounded cursor-pointer"
-                            title="Move right"
-                          >
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="h-full min-h-[120px] border border-dashed border-white/5 rounded-xl flex items-center justify-center text-center text-zinc-600 text-xs p-4">
+                        No jobs in this stage.
                       </div>
-                    ))
-                  ) : (
-                    <div className="h-full min-h-[120px] border border-dashed border-white/5 rounded-xl flex items-center justify-center text-center text-zinc-600 text-xs p-4">
-                      No jobs in this stage.
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
-    )}
+      )}
 
       {/* Spreadsheet View */}
       {currentView === 'spreadsheet' && (
@@ -593,9 +590,8 @@ export default function Dashboard() {
                       <div className="text-zinc-500 text-[10px]">{app.contactInfo && app.contactInfo !== 'Not specified' ? app.contactInfo : 'N/A'}</div>
                     </td>
                     <td className="py-4 px-5 text-center">
-                      <span className={`inline-flex items-center gap-1 font-bold ${
-                        app.matchScore >= 80 ? 'text-emerald-400' : app.matchScore >= 60 ? 'text-amber-400' : 'text-zinc-500'
-                      }`}>
+                      <span className={`inline-flex items-center gap-1 font-bold ${app.matchScore >= 80 ? 'text-emerald-400' : app.matchScore >= 60 ? 'text-amber-400' : 'text-zinc-500'
+                        }`}>
                         {app.matchScore}%
                       </span>
                     </td>
@@ -689,7 +685,7 @@ export default function Dashboard() {
                       let label = `Status: ${hist.toStatus}`;
                       let color = 'bg-zinc-800 text-zinc-300 border-zinc-700/50';
                       if (hist.toStatus === 'APPLIED') {
-                        label = '📩 Applied';
+                        label = '📬 Applied';
                         color = 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30';
                       } else if (hist.toStatus === 'INTERVIEWING') {
                         label = '📅 Interview';
@@ -747,9 +743,8 @@ export default function Dashboard() {
                     return (
                       <div
                         key={idx}
-                        className={`min-h-[90px] p-2 bg-zinc-950/40 border border-white/5 text-left flex flex-col justify-between transition-all ${
-                          day.isCurrentMonth ? 'text-zinc-200' : 'text-zinc-600 opacity-40'
-                        } ${isToday ? 'ring-1 ring-indigo-500 bg-indigo-500/[0.02]' : ''}`}
+                        className={`min-h-[90px] p-2 bg-zinc-950/40 border border-white/5 text-left flex flex-col justify-between transition-all ${day.isCurrentMonth ? 'text-zinc-200' : 'text-zinc-600 opacity-40'
+                          } ${isToday ? 'ring-1 ring-indigo-500 bg-indigo-500/[0.02]' : ''}`}
                       >
                         <span className={`text-[10px] font-bold ${isToday ? 'text-indigo-400' : ''}`}>
                           {day.dayNum}
@@ -781,11 +776,11 @@ export default function Dashboard() {
 
       {/* Slideout Application Detail Modal Overlay */}
       {selectedApp && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm transition-all duration-300">
+        <div className="fixed inset-0 z-[60] flex justify-end bg-black/70 backdrop-blur-sm transition-all duration-300">
           {/* Close trigger boundary */}
-          <div className="flex-1" onClick={() => setSelectedApp(null)}></div>
+          <div className="hidden sm:block flex-1" onClick={() => setSelectedApp(null)}></div>
 
-          <div className="w-full max-w-xl bg-[var(--layout-surface-panel-bg)] border-l border-white/10 h-full overflow-y-auto p-6 md:p-8 flex flex-col justify-between shadow-2xl relative">
+          <div className="w-full sm:max-w-xl bg-[var(--layout-surface-panel-bg)] border-l border-white/10 h-full max-h-screen overflow-y-auto p-4 sm:p-6 md:p-8 flex flex-col justify-between shadow-2xl relative">
             <div>
               {/* Header Title info */}
               <div className="flex justify-between items-start mb-6">
@@ -1039,7 +1034,7 @@ export default function Dashboard() {
 
       {/* Calendar Event Scheduler Modal Overlay */}
       {calendarModalApp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-lg bg-zinc-950 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 font-sans text-left">
             <div className="flex justify-between items-center pb-3 border-b border-white/5">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
@@ -1164,3 +1159,4 @@ export default function Dashboard() {
     </div>
   );
 }
+
