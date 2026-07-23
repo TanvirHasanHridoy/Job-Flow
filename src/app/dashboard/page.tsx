@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -386,7 +386,7 @@ export default function Dashboard() {
               : 'bg-white/5 text-zinc-400 hover:text-white'
             }`}
         >
-          ðŸ“‹ Kanban Board
+          📋 Kanban Board
         </button>
         <button
           onClick={() => setCurrentView('spreadsheet')}
@@ -395,7 +395,7 @@ export default function Dashboard() {
               : 'bg-white/5 text-zinc-400 hover:text-white'
             }`}
         >
-          ðŸ“Š Spreadsheet View
+          📊 Spreadsheet View
         </button>
         <button
           onClick={() => setCurrentView('calendar')}
@@ -404,7 +404,7 @@ export default function Dashboard() {
               : 'bg-white/5 text-zinc-400 hover:text-white'
             }`}
         >
-          ðŸ“… Calendar View
+          📅 Calendar View
         </button>
       </div>
 
@@ -442,7 +442,7 @@ export default function Dashboard() {
                           <div className="flex items-center justify-between">
                             <span className="inline-flex items-center gap-1 text-[9px] font-bold text-zinc-500 font-sans">
                               <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-zinc-300">
-                                {app.targetLanguage === 'DE' ? 'ðŸ‡©ðŸ‡ª DE' : 'ðŸ‡¬ðŸ‡§ EN'}
+                                {app.targetLanguage === 'DE' ? '🇩🇪 DE' : '🇬🇧 EN'}
                               </span>
                             </span>
 
@@ -675,7 +675,7 @@ export default function Dashboard() {
               applications.forEach((app) => {
                 const createdDate = new Date(app.createdAt).toISOString().split('T')[0];
                 if (createdDate === dateString) {
-                  events.push({ app, type: 'ðŸ› ï¸ Tailored', color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' });
+                  events.push({ app, type: '🛠️ Tailored', color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' });
                 }
 
                 if (app.statusHistory) {
@@ -685,16 +685,16 @@ export default function Dashboard() {
                       let label = `Status: ${hist.toStatus}`;
                       let color = 'bg-zinc-800 text-zinc-300 border-zinc-700/50';
                       if (hist.toStatus === 'APPLIED') {
-                        label = 'ðŸ“© Applied';
+                        label = '📬 Applied';
                         color = 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30';
                       } else if (hist.toStatus === 'INTERVIEWING') {
-                        label = 'ðŸ“… Interview';
+                        label = '📅 Interview';
                         color = 'bg-purple-500/15 text-purple-300 border-purple-500/30';
                       } else if (hist.toStatus === 'OFFER') {
-                        label = 'ðŸŽ‰ Offer';
+                        label = '🎉 Offer';
                         color = 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
                       } else if (hist.toStatus === 'REJECTED') {
-                        label = 'âŒ Rejected';
+                        label = '❌ Rejected';
                         color = 'bg-rose-500/10 text-rose-400 border-rose-500/20';
                       }
                       events.push({ app, type: label, color });
@@ -709,7 +709,7 @@ export default function Dashboard() {
               <>
                 <div className="flex justify-between items-center mb-6 no-print">
                   <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-1.5 font-sans">
-                    ðŸ“… Job Application Calendar Timeline
+                    📅 Job Application Calendar Timeline
                   </h3>
                   <div className="flex items-center gap-3">
                     <button
@@ -787,7 +787,7 @@ export default function Dashboard() {
                 <div>
                   <div className="flex items-center gap-2 mb-1.5">
                     <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300 text-[10px] font-bold font-sans">
-                      {selectedApp.targetLanguage === 'DE' ? 'ðŸ‡©ðŸ‡ª GERMAN APPLICATION' : 'ðŸ‡¬ðŸ‡§ ENGLISH APPLICATION'}
+                      {selectedApp.targetLanguage === 'DE' ? '🇩🇪 GERMAN APPLICATION' : '🇬🇧 ENGLISH APPLICATION'}
                     </span>
                     <span className="px-2.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] font-bold uppercase tracking-wider">
                       {selectedApp.status}
@@ -1038,7 +1038,7 @@ export default function Dashboard() {
           <div className="w-full max-w-lg bg-zinc-950 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 font-sans text-left">
             <div className="flex justify-between items-center pb-3 border-b border-white/5">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                ðŸ“… Add application Event to Calendar
+                📅 Add application Event to Calendar
               </h3>
               <button
                 onClick={() => setCalendarModalApp(null)}
