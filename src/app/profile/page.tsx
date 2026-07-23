@@ -1264,8 +1264,9 @@ export default function ProfileVault() {
                       placeholder="e.g. Developed core backend services using Node.js, reducing query response times by 30%."
                     />
                     <button
+                      type="button"
                       onClick={addExpBullet}
-                      className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold cursor-pointer"
+                      className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold cursor-pointer shrink-0"
                     >
                       Add Bullet
                     </button>

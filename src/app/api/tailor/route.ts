@@ -40,7 +40,8 @@ export async function POST(req: Request) {
       matchStrategy = 'TACTICAL_PIVOT',
       applicationId = null,
       roleName = 'Professional',
-      selectedProjects = []
+      selectedProjects = [],
+      isNudgeEnabled = true
     } = await req.json();
 
     if (!jobDescription || !profile) {
@@ -163,7 +164,17 @@ The user has requested a specific overarching theme for this generation: "${them
 - STRICT CONSTRAINT: This theme DOES NOT override the JSON formatting rules. You must still output the exact required JSON schema without any conversational filler.
 ` : '';
 
+    const nudgeDirective = isNudgeEnabled ? `
+[AI DESCRIPTION NUDGING DIRECTIVE]
+The user has enabled AI Description Nudging.
+- Actively adapt, rephrase, and align work experience bullet points and project descriptions towards the technical verbs, key skills, and core responsibilities of the target Job Description.
+- Adapt the phrasing and emphasis of existing candidate achievements so they directly highlight relevance and fit for this target position.
+` : '';
+
     const systemPrompt = `You are an elite recruitment expert and ATS optimization engine. Your goal is to write a flawless, professional CV/Resume and Cover Letter based on the user's profile and the target job description.
+
+${nudgeDirective}
+${themeInjection}
 
 CV TARGET LANGUAGE: Write the tailored CV (summary, roles, bullets, skills) entirely in ${cvLanguage === 'DE' ? 'German' : 'English'}.
 COVER LETTER TARGET LANGUAGE: Write the tailored Cover Letter entirely in ${clLanguage === 'DE' ? 'German' : 'English'}.

@@ -52,7 +52,7 @@ export default function RootLayout({
             <AppHeader />
 
             {/* Content Shell */}
-            <main className="flex-1 flex flex-col relative z-10">
+            <main className="flex-1 flex flex-col relative z-10 w-full min-w-0">
               {children}
             </main>
           </AlertModalProvider>

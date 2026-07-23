@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     }
 
     // Deduct tokens
-    const tokenAmount = mode === 'bullet' || mode === 'cl-paragraph' ? TOKEN_PRICING.POLISH_BULLET : TOKEN_PRICING.REGENERATE_SECTION;
+    const tokenAmount = mode === 'bullet' || mode === 'cl-paragraph' || mode === 'project' ? TOKEN_PRICING.POLISH_BULLET : TOKEN_PRICING.REGENERATE_SECTION;
     const deduction = await deductTokens(userId, tokenAmount);
     if (!deduction.success) {
       return NextResponse.json(
@@ -87,6 +87,26 @@ Respond strictly with a raw JSON object matching this schema:
   "variations": {
     "persuasive": "<string>",
     "formal": "<string>",
+    "concise": "<string>"
+  }
+}`;
+    } else if (mode === 'project') {
+      systemPrompt = `You are an expert technical resume writer. Polish and re-write a single project description into 3 distinct variations tailored to the Target Job Description.
+
+TARGET LANGUAGE: Write entirely in ${targetLanguage === 'DE' ? 'German' : 'English'}.
+
+CRITICAL CONSTRAINTS:
+1. Rely ONLY on factual project background provided. Do NOT invent fake URLs or non-existent tech stacks.
+2. Formulate 3 distinct variations:
+   - "ats": High ATS keyword alignment matching target Job Description requirements and technical verbs.
+   - "impact": Metrics & tech-stack driven phrasing highlighting architectural impact and deliverables.
+   - "concise": Short, punchy, high-density project description (1-2 lines).
+
+Respond strictly with a raw JSON object matching this schema:
+{
+  "variations": {
+    "ats": "<string>",
+    "impact": "<string>",
     "concise": "<string>"
   }
 }`;
