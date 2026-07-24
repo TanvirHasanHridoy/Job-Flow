@@ -86,7 +86,7 @@ Please parse and return the JSON object.`;
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+        model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: promptContent }
