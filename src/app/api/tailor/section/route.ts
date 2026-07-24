@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
-import { deductTokens, TOKEN_PRICING } from '@/lib/tokens';
+import { getUserTokens, deductTokens, TOKEN_PRICING } from '@/lib/tokens';
+import { aiResponseCache, generateCacheKey } from '@/lib/cache';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
@@ -27,7 +28,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing required parameters: sectionKey or jobDescription' }, { status: 400 });
     }
 
-    // Deduct tokens
+    // Response Cache check before token deduction
+    const cacheKey = generateCacheKey({
+      route: 'section',
+      userId,
+      sectionKey,
+      mode,
+      targetLanguage,
+      jobDescription,
+      currentContent,
+      userInstruction,
+      tone,
+      bulletStyle,
+      signingLocation,
+      profileUpdatedAt: profile?.updatedAt || profile?.id || ''
+    });
+
+    const cachedData = aiResponseCache.get(cacheKey);
+    if (cachedData) {
+      const userTokens = await getUserTokens(userId);
+      return NextResponse.json({ success: true, data: cachedData, cached: true, remainingTokens: userTokens });
+    }
+
+    // Deduct tokens on cache miss
     const tokenAmount = mode === 'bullet' || mode === 'cl-paragraph' || mode === 'project' ? TOKEN_PRICING.POLISH_BULLET : TOKEN_PRICING.REGENERATE_SECTION;
     const deduction = await deductTokens(userId, tokenAmount);
     if (!deduction.success) {
@@ -245,6 +268,7 @@ ${JSON.stringify(profile || {}, null, 2)}`
 
     try {
       const parsedData = JSON.parse(contentStr);
+      aiResponseCache.set(cacheKey, parsedData);
       return NextResponse.json({ success: true, data: parsedData, remainingTokens: deduction.tokens });
     } catch (parseErr) {
       console.error('Failed to parse AI section output:', contentStr);

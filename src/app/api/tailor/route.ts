@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUserId } from '@/lib/auth';
 import { classifySkillCategory } from '@/lib/skills';
-import { deductTokens, TOKEN_PRICING } from '@/lib/tokens';
+import { getUserTokens, deductTokens, TOKEN_PRICING } from '@/lib/tokens';
+import { aiResponseCache, generateCacheKey } from '@/lib/cache';
 
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
@@ -11,15 +12,6 @@ export async function POST(req: Request) {
     const auth = await getAuthUserId();
     if ('error' in auth) return auth.error;
     const { userId } = auth;
-
-    // Deduct tokens
-    const deduction = await deductTokens(userId, TOKEN_PRICING.TAILOR);
-    if (!deduction.success) {
-      return NextResponse.json(
-        { error: 'Insufficient tokens. Please top up your account.' },
-        { status: 403 }
-      );
-    }
 
     const {
       jobDescription,
@@ -46,6 +38,45 @@ export async function POST(req: Request) {
 
     if (!jobDescription || !profile) {
       return NextResponse.json({ error: 'Missing required inputs: jobDescription or profile' }, { status: 400 });
+    }
+
+    // Response Cache check before token deduction
+    const cacheKey = generateCacheKey({
+      route: 'tailor',
+      userId,
+      jobDescription,
+      cvLanguage,
+      clLanguage,
+      tone,
+      lengthTarget,
+      bulletStyle,
+      clLength,
+      skillsFocus,
+      salaryExpectation,
+      noticePeriod,
+      signingLocation,
+      customNotes,
+      themeDirective,
+      matchStrategy,
+      roleName,
+      selectedProjects,
+      isNudgeEnabled,
+      profileUpdatedAt: profile.updatedAt || profile.id || ''
+    });
+
+    const cachedData = aiResponseCache.get(cacheKey);
+    if (cachedData) {
+      const userTokens = await getUserTokens(userId);
+      return NextResponse.json({ ...cachedData, cached: true, remainingTokens: userTokens });
+    }
+
+    // Deduct tokens on cache miss
+    const deduction = await deductTokens(userId, TOKEN_PRICING.TAILOR);
+    if (!deduction.success) {
+      return NextResponse.json(
+        { error: 'Insufficient tokens. Please top up your account.' },
+        { status: 403 }
+      );
     }
 
     const apiKey = process.env.DEEPSEEK_API_KEY;
@@ -530,6 +561,7 @@ ${contextStr}`
       console.error('Failed to create diagnostic log entry:', logError);
     }
 
+    aiResponseCache.set(cacheKey, tailoredResult);
     return NextResponse.json(tailoredResult);
   } catch (error: any) {
     console.error('Tailoring API Error:', error);
