@@ -101,6 +101,7 @@ interface TailorResponse {
     jobType: string;
     location: string;
     remoteOrPhysical: string;
+    rawJobDescription?: string;
   };
 }
 
@@ -769,7 +770,7 @@ export default function TailorWorkspace() {
           sectionKey: regenModal.sectionKey,
           mode: 'section',
           targetLanguage: previewTab === 'coverLetter' ? clLanguage : cvLanguage,
-          jobDescription,
+          jobDescription: jobDescription || result?.jobMetadata?.rawJobDescription || '',
           profile,
           currentContent: regenModal.currentContent,
           userInstruction: instruction,
