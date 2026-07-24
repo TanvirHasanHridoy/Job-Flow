@@ -213,6 +213,7 @@ User Profile Context:
 ${JSON.stringify(profile || {}, null, 2)}`
         }
       ],
+      response_format: { type: 'json_object' },
       temperature: 0.3
     };
 
@@ -228,7 +229,12 @@ ${JSON.stringify(profile || {}, null, 2)}`
     if (!apiRes.ok) {
       const errText = await apiRes.text();
       console.error('DeepSeek Section API Error:', errText);
-      return NextResponse.json({ error: 'Failed to communicate with AI model' }, { status: 500 });
+      let errMsg = 'Failed to communicate with AI model';
+      try {
+        const errJson = JSON.parse(errText);
+        errMsg = errJson.error?.message || errJson.message || errMsg;
+      } catch { }
+      return NextResponse.json({ error: errMsg }, { status: apiRes.status });
     }
 
     const resJson = await apiRes.json();
