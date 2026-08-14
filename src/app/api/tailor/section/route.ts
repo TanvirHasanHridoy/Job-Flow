@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { getUserTokens, deductTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
+import { getAiConfig } from '@/lib/ai';
 
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
+// === DeepSeek API Configuration (Preserved / Commented as requested) ===
+// const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
 export async function POST(req: Request) {
   try {
@@ -60,10 +62,16 @@ export async function POST(req: Request) {
       );
     }
 
-    const apiKey = process.env.DEEPSEEK_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: 'DeepSeek API Key is not configured' }, { status: 500 });
+    const aiConfig = getAiConfig();
+    if (!aiConfig.apiKey) {
+      return NextResponse.json({ error: `${aiConfig.provider} API Key is not configured in environment variables` }, { status: 500 });
     }
+
+    // === DEEPSEEK API KEY (Preserved / Commented as requested) ===
+    // const apiKey = process.env.DEEPSEEK_API_KEY;
+    // if (!apiKey) {
+    //   return NextResponse.json({ error: 'DeepSeek API Key is not configured' }, { status: 500 });
+    // }
 
     const today = new Date();
     const formattedCurrentDateEN = today.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -221,7 +229,7 @@ ${schemaGuide}`;
     }
 
     const payload = {
-      model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro',
+      model: aiConfig.model,
       messages: [
         { role: 'system', content: systemPrompt },
         {
@@ -240,18 +248,28 @@ ${JSON.stringify(profile || {}, null, 2)}`
       temperature: 0.3
     };
 
-    const apiRes = await fetch(DEEPSEEK_API_URL, {
+    // === DEEPSEEK Section Fetch (Commented) ===
+    // const apiRes = await fetch(DEEPSEEK_API_URL, {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //     'Authorization': `Bearer ${apiKey}`
+    //   },
+    //   body: JSON.stringify({ model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro', ...payload })
+    // });
+
+    const apiRes = await fetch(aiConfig.apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${aiConfig.apiKey}`
       },
       body: JSON.stringify(payload)
     });
 
     if (!apiRes.ok) {
       const errText = await apiRes.text();
-      console.error('DeepSeek Section API Error:', errText);
+      console.error(`${aiConfig.provider} Section API Error:`, errText);
       let errMsg = 'Failed to communicate with AI model';
       try {
         const errJson = JSON.parse(errText);
@@ -268,6 +286,23 @@ ${JSON.stringify(profile || {}, null, 2)}`
 
     try {
       const parsedData = JSON.parse(contentStr);
+      if (sectionKey === 'coverLetter' && parsedData.tailoredCoverLetter) {
+        let senderAddr = parsedData.tailoredCoverLetter.senderAddress || '';
+        if (!senderAddr || !senderAddr.includes('\n')) {
+          const lines: string[] = [];
+          if (profile?.fullName) lines.push(profile.fullName);
+          if (profile?.address) {
+            profile.address.split(/[\n,]+/).map((s: string) => s.trim()).filter(Boolean).forEach((part: string) => {
+              lines.push(part);
+            });
+          }
+          if (profile?.phone) lines.push(profile.phone);
+          if (profile?.email) lines.push(profile.email);
+          if (lines.length > 0) {
+            parsedData.tailoredCoverLetter.senderAddress = lines.join('\n');
+          }
+        }
+      }
       aiResponseCache.set(cacheKey, parsedData);
       return NextResponse.json({ success: true, data: parsedData, remainingTokens: deduction.tokens });
     } catch (parseErr) {

@@ -4,8 +4,10 @@ import { getAuthUserId } from '@/lib/auth';
 import { classifySkillCategory } from '@/lib/skills';
 import { getUserTokens, deductTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
+import { getAiConfig } from '@/lib/ai';
 
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
+// === DeepSeek API Configuration (Preserved / Commented as requested) ===
+// const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
 export async function POST(req: Request) {
   try {
@@ -79,10 +81,16 @@ export async function POST(req: Request) {
       );
     }
 
-    const apiKey = process.env.DEEPSEEK_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: 'DeepSeek API Key is not configured in environment variables' }, { status: 500 });
+    const aiConfig = getAiConfig();
+    if (!aiConfig.apiKey) {
+      return NextResponse.json({ error: `${aiConfig.provider} API Key is not configured in environment variables` }, { status: 500 });
     }
+
+    // === DEEPSEEK API KEY (Preserved / Commented as requested) ===
+    // const apiKey = process.env.DEEPSEEK_API_KEY;
+    // if (!apiKey) {
+    //   return NextResponse.json({ error: 'DeepSeek API Key is not configured in environment variables' }, { status: 500 });
+    // }
 
     // Parse profile details
     const parsedWorkExp = typeof profile.workExperience === 'string' ? JSON.parse(profile.workExperience) : profile.workExperience;
@@ -134,7 +142,7 @@ export async function POST(req: Request) {
       if (commonGermanWords.test(jobDescription)) {
         try {
           const translationPayload = {
-            model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro',
+            model: aiConfig.model,
             messages: [
               {
                 role: 'system',
@@ -145,11 +153,18 @@ export async function POST(req: Request) {
             temperature: 0.1
           };
 
-          const translationRes = await fetch(DEEPSEEK_API_URL, {
+          // === DEEPSEEK Translation Fetch (Commented) ===
+          // const translationRes = await fetch(DEEPSEEK_API_URL, {
+          //   method: 'POST',
+          //   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          //   body: JSON.stringify({ model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro', ...translationPayload })
+          // });
+
+          const translationRes = await fetch(aiConfig.apiUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${apiKey}`
+              'Authorization': `Bearer ${aiConfig.apiKey}`
             },
             body: JSON.stringify(translationPayload)
           });
@@ -332,7 +347,7 @@ You must respond with a raw JSON object containing these exact keys:
 }`;
 
     const payload = {
-      model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro',
+      model: aiConfig.model,
       messages: [
         { role: 'system', content: systemPrompt },
         {
@@ -351,19 +366,29 @@ ${contextStr}`
       temperature: 0.1
     };
 
-    const response = await fetch(DEEPSEEK_API_URL, {
+    // === DEEPSEEK Main Fetch (Commented) ===
+    // const response = await fetch(DEEPSEEK_API_URL, {
+    //   method: 'POST',
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //     'Authorization': `Bearer ${apiKey}`
+    //   },
+    //   body: JSON.stringify({ model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro', ...payload })
+    // });
+
+    const response = await fetch(aiConfig.apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${aiConfig.apiKey}`
       },
       body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('DeepSeek API Error response:', errorText);
-      return NextResponse.json({ error: `DeepSeek API returned status ${response.status}: ${errorText}` }, { status: 502 });
+      console.error(`${aiConfig.provider} API Error response:`, errorText);
+      return NextResponse.json({ error: `${aiConfig.provider} API returned status ${response.status}: ${errorText}` }, { status: 502 });
     }
 
     const resJson = await response.json();
@@ -500,6 +525,23 @@ ${contextStr}`
 
     if (tailoredResult.tailoredCoverLetter) {
       tailoredResult.tailoredCoverLetter.paragraphs = paragraphs || { short: [], detailed: [] };
+
+      // Ensure senderAddress has clean newline formatting (Name, Address, Phone, Email)
+      let senderAddr = tailoredResult.tailoredCoverLetter.senderAddress || '';
+      if (!senderAddr || !senderAddr.includes('\n')) {
+        const lines: string[] = [];
+        if (profile.fullName) lines.push(profile.fullName);
+        if (profile.address) {
+          profile.address.split(/[\n,]+/).map((s: string) => s.trim()).filter(Boolean).forEach((part: string) => {
+            lines.push(part);
+          });
+        }
+        if (profile.phone) lines.push(profile.phone);
+        if (profile.email) lines.push(profile.email);
+        if (lines.length > 0) {
+          tailoredResult.tailoredCoverLetter.senderAddress = lines.join('\n');
+        }
+      }
     }
 
     const mergedSkills = (tailoredResult.tailoredCv?.skills || []).map((skill: any) => {

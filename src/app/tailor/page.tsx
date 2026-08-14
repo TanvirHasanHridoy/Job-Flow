@@ -2444,12 +2444,13 @@ export default function TailorWorkspace() {
             marginTop: `${signatureSpacing}px`
           }}
         >
-          <div className="mb-2 h-[32px] flex items-end">
+          <div className="mb-2 h-[32px] flex items-end select-none" aria-hidden="true">
             {showSignatureImage && (
               result.tailoredCv.personalDetails.signature ? (
                 <img
                   src={result.tailoredCv.personalDetails.signature}
-                  alt="Signature"
+                  alt=""
+                  aria-hidden="true"
                   className="max-h-full max-w-[120px] object-contain"
                 />
               ) : (
@@ -2459,6 +2460,7 @@ export default function TailorWorkspace() {
                   viewBox="0 0 80 32"
                   fill="none"
                   xmlns="http://www.w3.org/2000/svg"
+                  aria-hidden="true"
                   className="text-gray-800"
                 >
                   <path
@@ -2904,72 +2906,321 @@ export default function TailorWorkspace() {
     }
   };
 
-  const handleExportPdf = (type: 'cv' | 'cl') => {
+  const extractCleanLines = (element: Element | null, fallbackText?: string): string[] => {
+    let lines: string[] = [];
+
+    // 1. If element is provided, convert HTML line breaks (<br>, <div>, <p>, etc.) to newlines
+    if (element) {
+      const html = element.innerHTML || '';
+      const converted = html
+        .replace(/<br\s*[\/]?>/gi, '\n')
+        .replace(/<\/div>/gi, '\n')
+        .replace(/<\/p>/gi, '\n')
+        .replace(/<\/li>/gi, '\n')
+        .replace(/<\/tr>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\u00A0/g, ' ');
+
+      lines = converted
+        .split(/\r?\n/)
+        .map(l => l.trim())
+        .filter(Boolean);
+    }
+
+    // 2. If fallbackText has more lines or was passed, consider it
+    if (fallbackText) {
+      const fbLines = fallbackText.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      if (fbLines.length > lines.length) {
+        lines = fbLines;
+      }
+    }
+
+    // 3. If everything ended up on 1 line, split heuristically (e.g. Phone:, Email:, or commas with +/phone/email)
+    if (lines.length === 1) {
+      const raw = lines[0];
+      if (raw.includes('Phone:') || raw.includes('Email:') || raw.includes('Tel:') || raw.includes('@') || raw.includes(',')) {
+        const parts = raw
+          .replace(/(Phone:|Tel:|Mobil:|Email:|E-Mail:)/gi, '\n$1')
+          .replace(/(\+?\d[\d\s-]{6,}\d)/g, '\n$1')
+          .replace(/,\s*/g, '\n')
+          .split(/\r?\n/)
+          .map(l => l.trim())
+          .filter(Boolean);
+        if (parts.length > 1) {
+          lines = parts;
+        }
+      }
+    }
+
+    return lines;
+  };
+
+  const preparePrintClone = (element: HTMLElement, docType: 'cv' | 'cl' = 'cv'): HTMLElement => {
+    const clone = element.cloneNode(true) as HTMLElement;
+
+    // 1. Remove all elements with .no-print class (toolbars, AI polish buttons, guide lines, page badges)
+    clone.querySelectorAll('.no-print').forEach(el => el.remove());
+
+    // 2. Remove any interactive buttons or input fields
+    clone.querySelectorAll('button, input, textarea, select, [role="button"]').forEach(el => el.remove());
+
+    // 3. For Cover Letter: Format address blocks & enclosures into pristine paragraph stacks BEFORE stripping attributes
+    if (docType === 'cl') {
+      // 3a. Sender Address
+      const senderEl = clone.querySelector('[data-cl-field="senderAddress"]') || clone.querySelector('pre');
+      if (senderEl) {
+        const senderLines = extractCleanLines(senderEl, result?.tailoredCoverLetter?.senderAddress);
+        const isRight = !isAtsMode;
+        const div = clone.ownerDocument.createElement('div');
+        div.setAttribute('style', `
+          text-align: ${isRight ? 'right' : 'left'} !important;
+          font-size: 11.5px !important;
+          line-height: 1.7 !important;
+          font-family: inherit !important;
+          color: #1A1A1A !important;
+          display: block !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        `);
+
+        senderLines.forEach(line => {
+          const p = clone.ownerDocument.createElement('p');
+          p.setAttribute('style', `
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 1.7 !important;
+            font-size: 11.5px !important;
+            color: inherit !important;
+            display: block !important;
+          `);
+          p.textContent = line;
+          div.appendChild(p);
+        });
+
+        senderEl.parentNode?.replaceChild(div, senderEl);
+      }
+
+      // 3b. Recipient Address
+      const recipientEl = clone.querySelector('[data-cl-field="recipientAddress"]');
+      if (recipientEl) {
+        const recipientLines = extractCleanLines(recipientEl, result?.tailoredCoverLetter?.recipientAddress);
+        const div = clone.ownerDocument.createElement('div');
+        div.setAttribute('style', `
+          text-align: left !important;
+          font-size: 11.5px !important;
+          line-height: 1.7 !important;
+          font-family: inherit !important;
+          color: #1A1A1A !important;
+          display: block !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        `);
+
+        recipientLines.forEach(line => {
+          const p = clone.ownerDocument.createElement('p');
+          p.setAttribute('style', `
+            margin: 0 !important;
+            padding: 0 !important;
+            line-height: 1.7 !important;
+            font-size: 11.5px !important;
+            color: inherit !important;
+            display: block !important;
+          `);
+          p.textContent = line;
+          div.appendChild(p);
+        });
+
+        recipientEl.parentNode?.replaceChild(div, recipientEl);
+      }
+
+      // 3c. Enclosures
+      const enclosureEl = clone.querySelector('[data-cl-field="enclosure"]');
+      if (enclosureEl) {
+        const encLines = extractCleanLines(enclosureEl, result?.tailoredCoverLetter?.enclosure || "- Curriculum Vitae\n- Bachelor Degree Diploma\n- Reference letter from previous employers");
+        const div = clone.ownerDocument.createElement('div');
+        div.setAttribute('style', `
+          margin-left: 16px !important;
+          margin-top: 4px !important;
+          font-size: 11.5px !important;
+          line-height: 1.7 !important;
+          color: #1A1A1A !important;
+          display: block !important;
+        `);
+
+        encLines.forEach(line => {
+          const p = clone.ownerDocument.createElement('p');
+          p.setAttribute('style', `
+            margin: 2px 0 !important;
+            padding: 0 !important;
+            line-height: 1.7 !important;
+            font-size: 11.5px !important;
+            color: inherit !important;
+            display: block !important;
+          `);
+          p.textContent = line.startsWith('-') ? line : `- ${line}`;
+          div.appendChild(p);
+        });
+
+        enclosureEl.parentNode?.replaceChild(div, enclosureEl);
+      }
+    }
+
+    // 4. Strip all contenteditable and interactive attributes, and strip positioning classes / inline position
+    const allDescendants = clone.querySelectorAll('*');
+    allDescendants.forEach(el => {
+      el.removeAttribute('contenteditable');
+      el.removeAttribute('suppresscontenteditablewarning');
+      el.removeAttribute('spellcheck');
+      el.removeAttribute('tabindex');
+      el.removeAttribute('role');
+      el.removeAttribute('aria-multiline');
+      el.removeAttribute('data-block-id');
+      el.removeAttribute('data-section');
+      el.removeAttribute('data-index');
+      el.removeAttribute('data-cl-field');
+
+      if (el instanceof HTMLElement) {
+        el.style.outline = 'none';
+        el.style.boxShadow = 'none';
+        // Strip relative, absolute, fixed, sticky classes to prevent stacking context inversions
+        el.classList.remove('relative', 'absolute', 'fixed', 'sticky');
+        if (el !== clone) {
+          el.style.position = 'static';
+          el.style.zIndex = 'auto';
+        }
+      }
+    });
+
+    // 5. Unwrap all inline highlight marks while preserving text content
+    clone.querySelectorAll('mark').forEach(el => {
+      while (el.firstChild) {
+        el.parentNode?.insertBefore(el.firstChild, el);
+      }
+      el.remove();
+    });
+
+    // 6. Clean up bullet lists for native PDF list rendering
+    clone.querySelectorAll('li').forEach(li => {
+      Array.from(li.childNodes).forEach(child => {
+        if (child.nodeType === Node.ELEMENT_NODE && (child as HTMLElement).textContent?.trim() === '•') {
+          child.remove();
+        }
+      });
+      li.style.display = 'list-item';
+      li.style.listStyleType = 'disc';
+      li.style.listStylePosition = 'outside';
+      li.style.marginLeft = '18px';
+      li.style.paddingLeft = '4px';
+      li.style.lineHeight = '1.55';
+    });
+    clone.querySelectorAll('ul').forEach(ul => {
+      ul.style.listStyleType = 'disc';
+      ul.style.paddingLeft = '0';
+      ul.style.marginLeft = '0';
+    });
+
+    // 7. Replace non-breaking spaces with standard ASCII space
+    const walker = clone.ownerDocument.createTreeWalker(clone, NodeFilter.SHOW_TEXT);
+    let textNodeItem: Text | null;
+    while ((textNodeItem = walker.nextNode() as Text | null)) {
+      if (textNodeItem.nodeValue) {
+        textNodeItem.nodeValue = textNodeItem.nodeValue.replace(/\u00A0/g, ' ');
+      }
+    }
+
+    // 8. Merge contiguous text nodes so sentences are fully unified with standard space characters
+    clone.normalize();
+
+    return clone;
+  };
+
+  const getExportFileName = (type: 'cv' | 'cl', ext?: string) => {
+    // 1. Resolve Company Name: from companyName state or extracted from CL recipient / job
+    let rawCompany = companyName.trim();
+    if (!rawCompany && result?.tailoredCoverLetter?.recipientAddress) {
+      const firstLine = result.tailoredCoverLetter.recipientAddress.split(/\r?\n/)[0]?.trim();
+      if (firstLine && !firstLine.toLowerCase().includes('hiring') && !firstLine.toLowerCase().includes('personal') && !firstLine.toLowerCase().includes('recruiting')) {
+        rawCompany = firstLine;
+      }
+    }
+    const cleanCompany = (rawCompany || 'Company')
+      .replace(/[\\/:*?"<>|]/g, '')
+      .replace(/\s+/g, '_');
+
+    // 2. Resolve Position: from roleName state or tailoredCv occupation
+    let rawPosition = roleName.trim();
+    if (!rawPosition && result?.tailoredCv?.personalDetails?.occupation) {
+      rawPosition = result.tailoredCv.personalDetails.occupation.trim();
+    }
+    const cleanPosition = (rawPosition || 'Position')
+      .replace(/[\\/:*?"<>|]/g, '')
+      .replace(/\s+/g, '_');
+
+    // 3. Document Label
+    const docLabel = type === 'cv' ? 'CV' : 'CL';
+
+    // 4. Construct format: company_name-Position-(CV/CL)
+    const baseName = `${cleanCompany}-${cleanPosition}-(${docLabel})`;
+    return ext ? `${baseName}.${ext}` : baseName;
+  };
+
+  const handleExportPdf = async (type: 'cv' | 'cl') => {
     const isCv = type === 'cv';
     let pagesHtml = '';
 
-    const cleanCompany = (companyName || 'Company').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-    const cleanPosition = (roleName || 'Position').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-    const docLabel = type === 'cv' ? 'CV' : 'CL';
-    const fileName = `${cleanCompany}_${cleanPosition}_${docLabel}`;
+    const fileName = getExportFileName(type);
 
     if (isCv) {
       const pageElements = document.querySelectorAll('.cv-page-box');
       pageElements.forEach((pageEl, pageIdx) => {
         const isLastPage = pageIdx === pageElements.length - 1;
-        const clone = pageEl.cloneNode(true) as HTMLElement;
-        clone.querySelectorAll('.no-print').forEach(el => el.remove());
+        const clone = preparePrintClone(pageEl as HTMLElement, 'cv');
 
         // Apply CV page styles directly in style attribute (without scaling)
         clone.setAttribute('style', `
           width: 210mm !important;
-          height: 296mm !important;
-          min-height: 296mm !important;
-          max-height: 296mm !important;
+          min-height: 297mm !important;
           padding: ${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm !important;
           box-sizing: border-box !important;
           page-break-inside: avoid !important;
           break-inside: avoid !important;
           page-break-after: ${isLastPage ? 'avoid' : 'always'} !important;
+          break-after: ${isLastPage ? 'auto' : 'page'} !important;
           background-color: #FFFFFF !important;
           position: relative !important;
-          font-family: "Inter", "Calibri", "Segoe UI", system-ui, sans-serif !important;
+          font-family: "Inter", "Calibri", "Segoe UI", Arial, sans-serif !important;
           font-size: ${fontSize}px !important;
           line-height: 1.55 !important;
           color: #1F2937 !important;
-          overflow: hidden !important;
-          display: flex !important;
-          flex-direction: column !important;
-          justify-content: flex-start !important;
+          display: block !important;
         `);
         pagesHtml += clone.outerHTML;
       });
     } else {
       const clSheet = document.getElementById('cl-sheet');
       if (clSheet) {
-        const clone = clSheet.cloneNode(true) as HTMLElement;
-        clone.querySelectorAll('.no-print').forEach(el => el.remove());
+        const clone = preparePrintClone(clSheet as HTMLElement, 'cl');
 
         clone.setAttribute('style', `
           width: 210mm !important;
-          height: 296mm !important;
-          min-height: 296mm !important;
-          max-height: 296mm !important;
+          min-height: 297mm !important;
           padding: 32mm 28mm 24mm 28mm !important;
           box-sizing: border-box !important;
           page-break-inside: avoid !important;
           break-inside: avoid !important;
           page-break-after: avoid !important;
+          break-after: auto !important;
           background-color: #FFFFFF !important;
           position: relative !important;
-          font-family: "Inter", "Calibri", "Segoe UI", system-ui, sans-serif !important;
+          font-family: "Inter", "Calibri", "Segoe UI", Arial, sans-serif !important;
           font-size: 11.5px !important;
           line-height: 1.65 !important;
           color: #1A1A1A !important;
-          overflow: hidden !important;
-          display: flex !important;
-          flex-direction: column !important;
-          justify-content: space-between !important;
+          display: block !important;
         `);
         pagesHtml += clone.outerHTML;
       }
@@ -2977,8 +3228,110 @@ export default function TailorWorkspace() {
 
     if (!pagesHtml) return;
 
+    // Extract all compiled CSS rules directly from document.styleSheets
+    let allCssText = '';
     try {
-      // Create temporary iframe
+      Array.from(document.styleSheets).forEach(sheet => {
+        try {
+          if (sheet.cssRules) {
+            Array.from(sheet.cssRules).forEach(rule => {
+              allCssText += rule.cssText + '\n';
+            });
+          }
+        } catch (e) {
+          if (sheet.href) {
+            allCssText += `@import url("${sheet.href}");\n`;
+          }
+        }
+      });
+    } catch (e) {
+      console.warn('Could not extract all CSS rules:', e);
+    }
+
+    // Also copy any standalone link stylesheets
+    let externalLinksHtml = '';
+    document.querySelectorAll('link[rel="stylesheet"]').forEach(el => {
+      externalLinksHtml += el.outerHTML;
+    });
+
+    const fullHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${fileName}</title>
+        <meta charset="utf-8">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+        ${externalLinksHtml}
+        <style>
+          ${allCssText}
+        </style>
+        <style>
+          @page {
+            size: A4 portrait;
+            margin: 0 !important;
+          }
+          *, *::before, *::after {
+            box-sizing: border-box !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background-color: #FFFFFF !important;
+            width: 210mm !important;
+            font-family: "Inter", "Calibri", "Segoe UI", Arial, sans-serif !important;
+          }
+          .cv-page-box {
+            width: 210mm !important;
+            min-height: 297mm !important;
+            box-sizing: border-box !important;
+            display: block !important;
+          }
+          #cl-sheet {
+            width: 210mm !important;
+            min-height: 297mm !important;
+            box-sizing: border-box !important;
+            display: block !important;
+          }
+          li {
+            list-style-type: disc !important;
+            display: list-item !important;
+          }
+        </style>
+      </head>
+      <body>${pagesHtml}</body>
+      </html>
+    `;
+
+    // 1. Primary: Server-Side Pristine Binary PDF Download (Instant & Pixel-Perfect)
+    try {
+      const res = await fetch('/api/export-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ html: fullHtml, fileName })
+      });
+
+      if (res.ok) {
+        const blob = await res.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `${fileName}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+        return;
+      }
+    } catch (err) {
+      console.warn('Server PDF export failed, falling back to client print iframe:', err);
+    }
+
+    // 2. Fallback: Client Iframe Print
+    try {
       const iframe = document.createElement('iframe');
       iframe.style.position = 'fixed';
       iframe.style.right = '0';
@@ -2990,73 +3343,53 @@ export default function TailorWorkspace() {
       iframe.style.pointerEvents = 'none';
       document.body.appendChild(iframe);
 
-      // Copy stylesheet and font links from parent
-      let stylesHtml = '';
-      document.querySelectorAll('style, link[rel="stylesheet"]').forEach(el => {
-        stylesHtml += el.outerHTML;
-      });
-
       const iframeDoc = iframe.contentWindow?.document || iframe.contentDocument;
       if (!iframeDoc) return;
 
       iframeDoc.open();
-      iframeDoc.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>${fileName}</title>
-          <meta charset="utf-8">
-          <link rel="preconnect" href="https://fonts.googleapis.com">
-          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-          ${stylesHtml}
-          <style>
-            * {
-              box-sizing: border-box;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-              -webkit-user-select: text !important;
-              user-select: text !important;
-            }
-            body {
-              margin: 0 !important;
-              padding: 0 !important;
-              background-color: #FFFFFF !important;
-            }
-            .print-page:last-child {
-              page-break-after: avoid !important;
-            }
-            @page {
-              size: A4;
-              margin: 0 !important;
-            }
-          </style>
-          <script>
-            window.onload = function() {
-              if (document.fonts && document.fonts.ready) {
-                document.fonts.ready.then(function() {
-                  setTimeout(function() {
-                    window.focus();
-                    window.print();
-                  }, 350);
-                });
-              } else {
-                setTimeout(function() {
-                  window.focus();
-                  window.print();
-                }, 500);
-              }
-            };
-          </script>
-        </head>
-        <body>${pagesHtml}</body>
-        </html>
-      `);
+      iframeDoc.write(fullHtml);
       iframeDoc.close();
+
+      // Transfer decoded FontFace objects from main window into iframe
+      if (document.fonts && iframe.contentWindow?.document?.fonts) {
+        document.fonts.forEach(font => {
+          try {
+            iframe.contentWindow?.document.fonts.add(font);
+          } catch (e) {}
+        });
+      }
+
+      // Temporarily update document.title on window so the browser print dialog names the file after fileName!
+      const originalTitle = document.title;
+      document.title = fileName;
+
+      const restoreTitle = () => {
+        setTimeout(() => {
+          document.title = originalTitle;
+        }, 8000);
+      };
+
+      const triggerPrint = () => {
+        setTimeout(() => {
+          if (iframe.contentWindow) {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+            restoreTitle();
+          }
+        }, 300);
+      };
+
+      if (iframe.contentWindow?.document?.fonts?.ready) {
+        iframe.contentWindow.document.fonts.ready.then(triggerPrint).catch(triggerPrint);
+      } else {
+        setTimeout(triggerPrint, 500);
+      }
 
       // Clean up after print triggers
       setTimeout(() => {
-        document.body.removeChild(iframe);
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
       }, 60000);
     } catch (err: any) {
       console.error(err);
@@ -3074,7 +3407,7 @@ export default function TailorWorkspace() {
     if (!element) return;
 
     // Clean up contentEditable attributes and guide lines using DOM cloning
-    const tempElement = element.cloneNode(true) as HTMLElement;
+    const tempElement = preparePrintClone(element);
     tempElement.querySelectorAll('.no-print').forEach(el => el.remove());
 
     // Flatten CV pages to flow naturally in Word without fixed-height constraints
@@ -3211,10 +3544,7 @@ export default function TailorWorkspace() {
     const blob = new Blob(['\ufeff' + docContent], { type: 'application/msword' });
     const url = URL.createObjectURL(blob);
 
-    const cleanCompany = (companyName || 'Company').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-    const cleanPosition = (roleName || 'Position').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-    const docLabel = type === 'cv' ? 'CV' : 'CL';
-    const fileName = `${cleanCompany}_${cleanPosition}_${docLabel}.doc`;
+    const fileName = getExportFileName(type, 'doc');
 
     const a = document.createElement('a');
     a.href = url;
@@ -3336,10 +3666,7 @@ export default function TailorWorkspace() {
     const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
 
-    const cleanCompany = (companyName || 'Company').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-    const cleanPosition = (roleName || 'Position').trim().replace(/[^a-zA-Z0-9\s-]/g, '').replace(/\s+/g, '_');
-    const docLabel = type === 'cv' ? 'CV' : 'CL';
-    const fileName = `${cleanCompany}_${cleanPosition}_${docLabel}.txt`;
+    const fileName = getExportFileName(type, 'txt');
 
     const a = document.createElement('a');
     a.href = url;
@@ -5170,7 +5497,7 @@ export default function TailorWorkspace() {
                   {result && previewTab === 'cv' && (
                     <div
                       id="cv-measurement-root"
-                      className="absolute left-[-9999px] top-[-9999px] flex flex-col bg-white text-gray-800"
+                      className="absolute left-[-9999px] top-[-9999px] flex flex-col bg-white text-gray-800 no-print"
                       style={{
                         width: '794px',
                         padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,
@@ -5293,6 +5620,7 @@ export default function TailorWorkspace() {
                             <div className={`${isAtsMode ? 'text-left' : 'text-right'} text-[11.5px] leading-[1.7]`}>
                               <ContentEditable
                                 tagName="pre"
+                                data-cl-field="senderAddress"
                                 value={result.tailoredCoverLetter.senderAddress}
                                 onChange={(val) => handleClChange('senderAddress', val, true)}
                                 onBlur={(e: any) => handleClChange('senderAddress', e.target.innerText, false)}
@@ -5307,6 +5635,7 @@ export default function TailorWorkspace() {
                               <div>
                                 <ContentEditable
                                   tagName="pre"
+                                  data-cl-field="recipientAddress"
                                   value={result.tailoredCoverLetter.recipientAddress}
                                   onChange={(val) => handleClChange('recipientAddress', val, true)}
                                   onBlur={(e: any) => handleClChange('recipientAddress', e.target.innerText, false)}
@@ -5388,11 +5717,12 @@ export default function TailorWorkspace() {
                             />
 
                             {/* Signature */}
-                            <div className="mt-3 h-[32px] flex items-end">
+                            <div className="mt-3 h-[32px] flex items-end select-none" aria-hidden="true">
                               {result.tailoredCv.personalDetails.signature ? (
                                 <img
                                   src={result.tailoredCv.personalDetails.signature}
-                                  alt="Signature"
+                                  alt=""
+                                  aria-hidden="true"
                                   className="max-h-full max-w-[120px] object-contain"
                                 />
                               ) : (
@@ -5402,6 +5732,7 @@ export default function TailorWorkspace() {
                                   viewBox="0 0 80 32"
                                   fill="none"
                                   xmlns="http://www.w3.org/2000/svg"
+                                  aria-hidden="true"
                                   className="text-[#1a1a1a]"
                                 >
                                   <path
@@ -5431,6 +5762,7 @@ export default function TailorWorkspace() {
                               <p>Enclosure:</p>
                               <ContentEditable
                                 tagName="div"
+                                data-cl-field="enclosure"
                                 value={
                                   result.tailoredCoverLetter.enclosure !== undefined
                                     ? result.tailoredCoverLetter.enclosure
