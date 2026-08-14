@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { deductTokens, TOKEN_PRICING } from '@/lib/tokens';
+import { getAiConfig } from '@/lib/ai';
 
-const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
+// === DeepSeek API Configuration (Preserved / Commented as requested) ===
+// const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
 export async function POST(req: Request) {
   try {
@@ -28,13 +30,22 @@ export async function POST(req: Request) {
       );
     }
 
-    const apiKey = process.env.DEEPSEEK_API_KEY;
-    if (!apiKey) {
+    const aiConfig = getAiConfig();
+    if (!aiConfig.apiKey) {
       return NextResponse.json(
-        { error: 'DeepSeek API Key is not configured in environment variables.' },
+        { error: `${aiConfig.provider} API Key is not configured in environment variables.` },
         { status: 500 }
       );
     }
+
+    // === DEEPSEEK API KEY (Preserved / Commented as requested) ===
+    // const apiKey = process.env.DEEPSEEK_API_KEY;
+    // if (!apiKey) {
+    //   return NextResponse.json(
+    //     { error: 'DeepSeek API Key is not configured in environment variables.' },
+    //     { status: 500 }
+    //   );
+    // }
 
     let githubData: any = null;
 
@@ -147,14 +158,26 @@ ${linkedinText ? `--- LINKEDIN / RESUME RAW TEXT ---\n${linkedinText}\n` : ''}
 
 Please parse and structure this data into the specified JSON format.`;
 
-    const response = await fetch(DEEPSEEK_API_URL, {
+    // === DEEPSEEK Import Fetch (Commented) ===
+    // const response = await fetch(DEEPSEEK_API_URL, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    //   body: JSON.stringify({
+    //     model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro',
+    //     messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: promptContent }],
+    //     response_format: { type: 'json_object' },
+    //     temperature: 0.1
+    //   })
+    // });
+
+    const response = await fetch(aiConfig.apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${aiConfig.apiKey}`
       },
       body: JSON.stringify({
-        model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro',
+        model: aiConfig.model,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: promptContent }
@@ -166,9 +189,9 @@ Please parse and structure this data into the specified JSON format.`;
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('DeepSeek API Error during import parsing:', errorText);
+      console.error(`${aiConfig.provider} API Error during import parsing:`, errorText);
       return NextResponse.json(
-        { error: `DeepSeek API returned status ${response.status}: ${errorText}` },
+        { error: `${aiConfig.provider} API returned status ${response.status}: ${errorText}` },
         { status: 502 }
       );
     }
