@@ -6,7 +6,7 @@ import {
   Sparkles, FileText, Download, Briefcase, Award, CheckCircle2, AlertTriangle, Languages, Save, Check,
   List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Palette, Highlighter, RotateCcw, Sliders, Coins, Plus, FolderGit,
   ChevronUp, ChevronDown, Eye, EyeOff, Wand2, RefreshCw, Target, X, GitCompare, Loader2, Layers, Trash2, Tag, ArrowUp, ArrowDown,
-  Settings, CheckSquare, Square, PenTool, ChevronRight, SlidersHorizontal, PlusCircle, ExternalLink
+  Settings, CheckSquare, Square, PenTool, ChevronRight, SlidersHorizontal, PlusCircle, ExternalLink, Bookmark
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { groupSkillsByCategory } from '@/lib/skills';
@@ -5578,16 +5578,36 @@ export default function TailorWorkspace() {
                   )}
 
                   {result && (
-                    <div className="flex items-center gap-1.5 relative no-print font-sans z-50">
-                      {/* <button
-                      type="button"
-                      onClick={handleCopyAtsPlainText}
-                      className="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
-                      title="Copy clean ASCII plain-text directly to clipboard for job portals"
-                    >
-                      <FileText className="w-3.5 h-3.5 text-indigo-400" />
-                      <span className="hidden sm:inline">Copy ATS Text</span>
-                    </button> */}
+                    <div className="flex items-center gap-2 relative no-print font-sans z-50">
+                      {/* Save/Update to Applications Tracker */}
+                      <button
+                        type="button"
+                        onClick={saveToApplicationsTracker}
+                        disabled={isSaving}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-md transition-all cursor-pointer flex items-center gap-1.5 ${
+                          saveSuccess
+                            ? 'bg-emerald-600 text-white shadow-emerald-500/20'
+                            : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-white/10 hover:text-white hover:border-indigo-500/40'
+                        }`}
+                        title={editingAppId ? 'Update this application in your Kanban tracker' : 'Save tailored application into your Kanban tracker'}
+                      >
+                        {isSaving ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                            <span>Saving...</span>
+                          </>
+                        ) : saveSuccess ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-300" />
+                            <span>{editingAppId ? 'Updated in Tracker!' : 'Saved to Tracker!'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Bookmark className="w-3.5 h-3.5 text-indigo-400" />
+                            <span>{editingAppId ? 'Update Tracker' : 'Add to Tracker'}</span>
+                          </>
+                        )}
+                      </button>
 
                       <div className="relative">
                         <button
