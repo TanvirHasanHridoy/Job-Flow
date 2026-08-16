@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  Plus, Calendar, MapPin, DollarSign, Clock, FileText, Trash2, Eye, ChevronRight, ChevronLeft, Award, Sparkles, LayoutGrid, CheckCircle2, TrendingUp, Building, User, Mail, Globe, Loader2
+  Plus, Calendar, MapPin, DollarSign, Clock, FileText, Trash2, Eye, ChevronRight, ChevronLeft, Award, Sparkles, LayoutGrid, CheckCircle2, TrendingUp, Building, User, Mail, Globe, Loader2,
+  HelpCircle, BookOpen, Layers, Target, Palette, Send, X
 } from 'lucide-react';
 
 interface GeneratedDocument {
@@ -163,6 +164,7 @@ export default function Dashboard() {
   const [updatingStatusAppId, setUpdatingStatusAppId] = useState<string | null>(null);
 
   // Follow-Up Assistant modal states
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
   const [followUpModalApp, setFollowUpModalApp] = useState<JobApplication | null>(null);
   const [followUpType, setFollowUpType] = useState<'status-check' | 'thank-you' | 'offer-inquiry'>('status-check');
   const [followUpSubject, setFollowUpSubject] = useState('');
@@ -511,6 +513,24 @@ export default function Dashboard() {
           <p className="text-zinc-400 text-xs sm:text-sm">
             Track custom resume revisions, interviews, and offers in one centralized, multi-language hub.
           </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setIsGuideModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+          >
+            <BookOpen className="w-4 h-4 text-indigo-400" />
+            <span>Workflow Guide</span>
+          </button>
+          <Link
+            href="/tailor"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 flex items-center gap-1.5 transition-all cursor-pointer hover:scale-105"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Application</span>
+          </Link>
         </div>
       </div>
 
@@ -1563,6 +1583,137 @@ export default function Dashboard() {
                 className="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-center text-xs font-bold border border-white/5 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
                 Download (.ics) file
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📖 Application Mastery Workflow Guide Modal */}
+      {isGuideModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-3xl bg-zinc-950 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-6 font-sans text-left max-h-[90vh] overflow-y-auto custom-scrollbar">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center pb-4 border-b border-white/10 sticky top-0 bg-zinc-950 z-10">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Application Mastery Workflow Guide</h3>
+                  <p className="text-[11px] text-zinc-400">Step-by-step master walkthrough & power user strategies</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsGuideModalOpen(false)}
+                className="p-1.5 rounded-lg bg-zinc-900 border border-white/10 text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 4-Step Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              {/* Step 1 */}
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-indigo-400 flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center text-[10px] font-black">1</span>
+                    Persona Vault Setup
+                  </span>
+                  <span className="text-[9px] px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 font-semibold uppercase">Profile Hub</span>
+                </div>
+                <p className="text-zinc-300 text-[11px] leading-relaxed">
+                  Go to <strong className="text-white">Profile</strong> and configure your Master Vault or create specialized personas (e.g. <em>Frontend Specialist</em>, <em>Full-Stack Lead</em>).
+                </p>
+                <div className="p-2 rounded-lg bg-zinc-900/60 border border-white/5 text-[10px] text-zinc-400">
+                  💡 <strong className="text-zinc-200">Pro Tip:</strong> When tailoring, you can switch personas in 1 click to seed the AI with targeted work experience.
+                </div>
+              </div>
+
+              {/* Step 2 */}
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center text-[10px] font-black">2</span>
+                    Targeting & Strategy
+                  </span>
+                  <span className="text-[9px] px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 font-semibold uppercase">Tailor Form</span>
+                </div>
+                <p className="text-zinc-300 text-[11px] leading-relaxed">
+                  Paste the target Job Description, URL, or upload a PDF. Choose strict 1-page limits, tone, STAR bullet styles, and DIN 5008 German or International layout.
+                </p>
+                <div className="p-2 rounded-lg bg-zinc-900/60 border border-white/5 text-[10px] text-zinc-400">
+                  🎯 <strong className="text-zinc-200">Gap Analysis:</strong> Check matching vs missing keywords and deterministic match score before applying.
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[10px] font-black">3</span>
+                    Live Polish & Layouts
+                  </span>
+                  <span className="text-[9px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 font-semibold uppercase">Live Canvas</span>
+                </div>
+                <p className="text-zinc-300 text-[11px] leading-relaxed">
+                  Click any bullet point to get instant STAR/Punchy variations. Select curated color palettes (Oxford, Emerald, Slate) and modern typography (Swiss Minimalist, Monospace).
+                </p>
+                <div className="p-2 rounded-lg bg-zinc-900/60 border border-white/5 text-[10px] text-zinc-400">
+                  🎨 <strong className="text-zinc-200">Spacing Sliders:</strong> Use the Customization side panel to tweak global gaps so your CV fits neatly on 1 page.
+                </div>
+              </div>
+
+              {/* Step 4 */}
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-[10px] font-black">4</span>
+                    Outreach, Prep & Track
+                  </span>
+                  <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-semibold uppercase">Career Suite</span>
+                </div>
+                <p className="text-zinc-300 text-[11px] leading-relaxed">
+                  Download crisp Vector PDF or Word (.docx). Use the <strong className="text-white">Outreach</strong> tab for LinkedIn InMails and <strong className="text-white">Interview Prep</strong> for STAR cheat-sheets.
+                </p>
+                <div className="p-2 rounded-lg bg-zinc-900/60 border border-white/5 text-[10px] text-zinc-400">
+                  ⏰ <strong className="text-zinc-200">Kanban Automation:</strong> Watch for aging pulse badges (7d applied / 2d interview) to send 1-click follow-up drafts.
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Reference Highlights */}
+            <div className="p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/20 space-y-2 text-xs">
+              <span className="font-bold text-indigo-300 text-[11px] uppercase tracking-wider block">
+                ⚡ Power User Shortcuts & Capabilities
+              </span>
+              <ul className="space-y-1.5 text-[11px] text-zinc-300">
+                <li className="flex items-start gap-2">
+                  <span className="text-indigo-400">•</span>
+                  <span><strong className="text-white">On-Demand AI Tokens:</strong> Tailoring generates CV + CL; outreach and interview prep are generated on-demand to save your token quota.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-indigo-400">•</span>
+                  <span><strong className="text-white">Word (.docx) & Vector PDF:</strong> Both formats dynamically inherit your chosen color theme and font family.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-indigo-400">•</span>
+                  <span><strong className="text-white">DIN 5008 German Lebenslauf:</strong> Supports German date formats, birthplace, nationality, and drawn/uploaded signatures.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-white/10 flex justify-between items-center">
+              <span className="text-[10px] text-zinc-500">JobFlow AI Precision Career Suite</span>
+              <button
+                type="button"
+                onClick={() => setIsGuideModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors cursor-pointer shadow-md shadow-indigo-500/25"
+              >
+                Got It, Let's Tailor
               </button>
             </div>
           </div>
