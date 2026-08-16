@@ -49,12 +49,106 @@ interface JobApplication {
 }
 
 const COLUMNS = [
-  { id: 'TAILORED', name: 'Tailored', color: 'border-indigo-500/30 bg-indigo-500/5 text-indigo-300' },
+  { id: 'TAILORED', name: 'Saved / Tailored', color: 'border-indigo-500/30 bg-indigo-500/5 text-indigo-300' },
   { id: 'APPLIED', name: 'Applied', color: 'border-cyan-500/30 bg-cyan-500/5 text-cyan-300' },
   { id: 'INTERVIEWING', name: 'Interviewing', color: 'border-purple-500/30 bg-purple-500/5 text-purple-300' },
   { id: 'OFFER', name: 'Offer Received', color: 'border-emerald-500/30 bg-emerald-500/5 text-emerald-300' },
   { id: 'REJECTED', name: 'Rejected', color: 'border-red-400 bg-zinc-900/40 text-red-900' }
 ];
+
+export function getAgingStatus(app: JobApplication): {
+  days: number;
+  label: string;
+  isStale: boolean;
+  type: 'applied-stale' | 'interview-stale' | 'tailored-stale' | 'normal';
+} {
+  const created = new Date(app.createdAt).getTime();
+  let lastStatusDate = created;
+  if (app.statusHistory && app.statusHistory.length > 0) {
+    const latest = app.statusHistory[app.statusHistory.length - 1];
+    lastStatusDate = new Date(latest.createdAt).getTime();
+  }
+  const diffDays = Math.max(0, Math.floor((Date.now() - lastStatusDate) / (1000 * 60 * 60 * 24)));
+
+  if (app.status === 'APPLIED' && diffDays >= 7) {
+    return {
+      days: diffDays,
+      label: `Applied ${diffDays}d ago — Follow-up recommended`,
+      isStale: true,
+      type: 'applied-stale'
+    };
+  }
+  if (app.status === 'INTERVIEWING' && diffDays >= 2) {
+    return {
+      days: diffDays,
+      label: `Interviewed ${diffDays}d ago — Send thank-you note`,
+      isStale: true,
+      type: 'interview-stale'
+    };
+  }
+  if (app.status === 'TAILORED' && diffDays >= 5) {
+    return {
+      days: diffDays,
+      label: `Tailored ${diffDays}d ago — Ready to submit`,
+      isStale: true,
+      type: 'tailored-stale'
+    };
+  }
+  return {
+    days: diffDays,
+    label: `${diffDays}d ago`,
+    isStale: false,
+    type: 'normal'
+  };
+}
+
+export function generateFollowUpDraft(app: JobApplication, templateType: 'status-check' | 'thank-you' | 'offer-inquiry') {
+  const isDe = app.targetLanguage === 'DE';
+  const recruiter = app.recruiterName || (isDe ? 'Sehr geehrtes Hiring Team' : 'Hiring Team');
+  const role = app.role;
+  const company = app.company;
+
+  if (templateType === 'status-check') {
+    if (isDe) {
+      return {
+        subject: `Nachfrage zum Bewerbungsstatus – Position: ${role}`,
+        body: `Sehr geehrte/r ${recruiter},\n\nich hoffe, es geht Ihnen gut.\n\nVor knapp einer Woche habe ich mich für die Stelle als ${role} bei ${company} beworben. Da ich nach wie vor großes Interesse an der Position und einer Zusammenarbeit mit Ihrem Team habe, möchte ich mich kurz nach dem aktuellen Stand des Auswahlprozesses erkundigen.\n\nSollten Sie weitere Unterlagen oder Informationen von mir benötigen, stehe ich Ihnen jederzeit gerne zur Verfügung.\n\nIch freue mich auf Ihre Rückmeldung und wünsche Ihnen eine erfolgreiche Woche.\n\nMit freundlichen Grüßen,\n[Ihr Name]`
+      };
+    } else {
+      return {
+        subject: `Following up on application – ${role} at ${company}`,
+        body: `Dear ${recruiter},\n\nI hope you're having a great week.\n\nI am writing to briefly follow up on my application for the ${role} position at ${company}, submitted last week. I remain very enthusiastic about the opportunity to contribute to ${company}.\n\nPlease let me know if you need any additional information or work samples from my side. I look forward to hearing about the next steps in the process.\n\nBest regards,\n[Your Name]`
+      };
+    }
+  }
+
+  if (templateType === 'thank-you') {
+    if (isDe) {
+      return {
+        subject: `Vielen Dank für das angenehme Gespräch – ${role}`,
+        body: `Sehr geehrte/r ${recruiter},\n\nvielen Dank für das aufschlussreiche und angenehme Gespräch über die Position als ${role} bei ${company}.\n\nUnsere Diskussion über die anstehenden Projekte hat mein Interesse an der Rolle nochmals bestärkt. Ich bin überzeugt, dass ich mit meinen Kenntnissen einen wertvollen Beitrag zu Ihren Teamzielen leisten kann.\n\nIch freue mich auf die nächsten Schritte und stehe für Rückfragen jederzeit gerne bereit.\n\nBeste Grüße,\n[Ihr Name]`
+      };
+    } else {
+      return {
+        subject: `Thank you for the conversation – ${role} at ${company}`,
+        body: `Dear ${recruiter},\n\nThank you so much for taking the time to speak with me about the ${role} position at ${company}.\n\nI really enjoyed learning more about the team's upcoming initiatives and challenges. Our conversation reinforced my excitement about the role and how my background aligns with your goals.\n\nPlease don't hesitate to reach out if you need any further details. I look forward to the next steps.\n\nBest regards,\n[Your Name]`
+      };
+    }
+  }
+
+  // offer-inquiry
+  if (isDe) {
+    return {
+      subject: `Rückfrage zum Angebot – ${role} bei ${company}`,
+      body: `Sehr geehrte/r ${recruiter},\n\nvielen Dank für das Angebot und das damit verbundene Vertrauen. Ich freue mich sehr über diese Chance.\n\nBevor ich meine endgültige Entscheidung treffe, hätte ich noch ein bis zwei kurze Rückfragen zu den Vertragsdetails. Wäre ein kurzes 10-minütiges Telefonat diese Woche möglich?\n\nVielen Dank im Voraus.\n\nMit freundlichen Grüßen,\n[Ihr Name]`
+    };
+  } else {
+    return {
+      subject: `Inquiry regarding offer – ${role} at ${company}`,
+      body: `Dear ${recruiter},\n\nThank you very much for offering me the ${role} position at ${company}. I am thrilled about the opportunity to join your team.\n\nBefore making a final decision, I have a couple of quick questions regarding the details of the offer. Would you have 10 minutes for a brief call sometime this week?\n\nThank you again for your time and consideration.\n\nBest regards,\n[Your Name]`
+    };
+  }
+}
 
 export default function Dashboard() {
   const [applications, setApplications] = useState<JobApplication[]>([]);
@@ -67,6 +161,33 @@ export default function Dashboard() {
   const [draggingAppId, setDraggingAppId] = useState<string | null>(null);
   const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
   const [updatingStatusAppId, setUpdatingStatusAppId] = useState<string | null>(null);
+
+  // Follow-Up Assistant modal states
+  const [followUpModalApp, setFollowUpModalApp] = useState<JobApplication | null>(null);
+  const [followUpType, setFollowUpType] = useState<'status-check' | 'thank-you' | 'offer-inquiry'>('status-check');
+  const [followUpSubject, setFollowUpSubject] = useState('');
+  const [followUpBody, setFollowUpBody] = useState('');
+  const [followUpCopied, setFollowUpCopied] = useState(false);
+
+  const openFollowUpModal = (app: JobApplication, initialType?: 'status-check' | 'thank-you' | 'offer-inquiry') => {
+    const defaultType = initialType || (app.status === 'INTERVIEWING' ? 'thank-you' : app.status === 'OFFER' ? 'offer-inquiry' : 'status-check');
+    setFollowUpType(defaultType);
+    const draft = generateFollowUpDraft(app, defaultType);
+    setFollowUpSubject(draft.subject);
+    setFollowUpBody(draft.body);
+    setFollowUpModalApp(app);
+    setFollowUpCopied(false);
+  };
+
+  const handleFollowUpTypeChange = (type: 'status-check' | 'thank-you' | 'offer-inquiry') => {
+    setFollowUpType(type);
+    if (followUpModalApp) {
+      const draft = generateFollowUpDraft(followUpModalApp, type);
+      setFollowUpSubject(draft.subject);
+      setFollowUpBody(draft.body);
+      setFollowUpCopied(false);
+    }
+  };
 
   // Scheduler state variables
   const [calendarModalApp, setCalendarModalApp] = useState<JobApplication | null>(null);
@@ -565,6 +686,37 @@ export default function Dashboard() {
                               <p className="text-[11px] text-zinc-400 truncate">{app.company}</p>
                             </div>
 
+                            {/* Aging Status & Follow-Up Reminder Alert */}
+                            {(() => {
+                              const aging = getAgingStatus(app);
+                              if (!aging.isStale) return null;
+                              return (
+                                <div
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openFollowUpModal(app);
+                                  }}
+                                  className={`p-2 rounded-lg border text-[10px] font-sans flex items-center justify-between gap-1.5 transition-all cursor-pointer shadow-sm ${
+                                    aging.type === 'applied-stale'
+                                      ? 'bg-amber-500/15 border-amber-500/30 text-amber-300 hover:bg-amber-500/25'
+                                      : aging.type === 'interview-stale'
+                                      ? 'bg-blue-500/15 border-blue-500/30 text-blue-300 hover:bg-blue-500/25'
+                                      : 'bg-indigo-500/15 border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25'
+                                  }`}
+                                  title="Click to generate customized follow-up email draft"
+                                >
+                                  <div className="flex items-center gap-1.5 truncate font-semibold">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0 animate-ping"></span>
+                                    <span className="truncate">{aging.label}</span>
+                                  </div>
+                                  <span className="px-1.5 py-0.5 rounded bg-white/10 text-[9px] font-bold shrink-0 text-white flex items-center gap-1">
+                                    <Mail className="w-2.5 h-2.5" />
+                                    Draft
+                                  </span>
+                                </div>
+                              );
+                            })()}
+
                             {/* Card metadata indicators */}
                             <div className="flex justify-between items-center pt-2.5 border-t border-white/5 text-[10px] text-zinc-500">
                               <span className="flex items-center gap-1 font-sans">
@@ -572,8 +724,18 @@ export default function Dashboard() {
                                 {new Date(app.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                               </span>
 
-                              {/* Trash indicator on hover */}
+                              {/* Action buttons */}
                               <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openFollowUpModal(app);
+                                  }}
+                                  className="p-1 hover:text-indigo-300 rounded transition-colors text-zinc-500 hover:bg-white/5 cursor-pointer"
+                                  title="Open Follow-Up Assistant"
+                                >
+                                  <Mail className="w-3.5 h-3.5" />
+                                </button>
                                 <button
                                   onClick={(e) => deleteApplication(app.id, e)}
                                   className="p-1 hover:text-rose-400 rounded transition-colors text-zinc-600 hover:bg-white/5 cursor-pointer"
@@ -710,6 +872,13 @@ export default function Dashboard() {
                           title="View application details"
                         >
                           <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => openFollowUpModal(app)}
+                          className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 hover:text-indigo-400 transition-colors cursor-pointer"
+                          title="Follow-Up Assistant"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
                         </button>
                         <Link
                           href={`/tailor?appId=${app.id}`}
@@ -1119,7 +1288,7 @@ export default function Dashboard() {
             </div>
 
             {/* Document Action triggers */}
-            <div className="mt-8 pt-6 border-t border-white/10 flex gap-3">
+            <div className="mt-8 pt-6 border-t border-white/10 flex flex-wrap gap-3">
               <Link
                 href={`/tailor?appId=${selectedApp.id}`}
                 className="flex-1 py-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-center text-xs font-bold border border-white/5 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
@@ -1128,12 +1297,148 @@ export default function Dashboard() {
                 Open in Tailoring Workspace
               </Link>
               <button
+                onClick={() => openFollowUpModal(selectedApp)}
+                className="py-3 px-4 bg-purple-600/20 hover:bg-purple-600/30 text-purple-200 border border-purple-500/30 rounded-xl text-center text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                Follow-Up Draft
+              </button>
+              <button
                 onClick={() => setCalendarModalApp(selectedApp)}
                 className="py-3 px-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-center text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Calendar className="w-3.5 h-3.5" />
                 Add to Calendar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Follow-Up Automation Modal Overlay */}
+      {followUpModalApp && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-xl bg-zinc-950 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 font-sans text-left">
+            <div className="flex justify-between items-center pb-3 border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">
+                    Automated Follow-Up Assistant
+                  </h3>
+                  <p className="text-[11px] text-zinc-400">
+                    {followUpModalApp.role} @ {followUpModalApp.company}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setFollowUpModalApp(null)}
+                className="text-zinc-500 hover:text-white transition-colors cursor-pointer text-xs font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Template Type Selector */}
+            <div className="space-y-1.5">
+              <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">
+                Select Follow-Up Objective
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleFollowUpTypeChange('status-check')}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    followUpType === 'status-check'
+                      ? 'border-indigo-500 bg-indigo-500/10 text-white shadow-sm'
+                      : 'border-white/5 bg-white/[0.02] text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  <span className="block text-xs font-bold">1. Status Check</span>
+                  <span className="text-[10px] text-zinc-500 font-normal">7+ days post-apply</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleFollowUpTypeChange('thank-you')}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    followUpType === 'thank-you'
+                      ? 'border-indigo-500 bg-indigo-500/10 text-white shadow-sm'
+                      : 'border-white/5 bg-white/[0.02] text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  <span className="block text-xs font-bold">2. Thank-You</span>
+                  <span className="text-[10px] text-zinc-500 font-normal">Post-interview note</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleFollowUpTypeChange('offer-inquiry')}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    followUpType === 'offer-inquiry'
+                      ? 'border-indigo-500 bg-indigo-500/10 text-white shadow-sm'
+                      : 'border-white/5 bg-white/[0.02] text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  <span className="block text-xs font-bold">3. Offer Clarify</span>
+                  <span className="text-[10px] text-zinc-500 font-normal">Questions on terms</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Recruiter Email Target & Subject */}
+            <div className="space-y-3 pt-1 text-xs">
+              <div className="flex flex-col gap-1">
+                <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Subject Line</label>
+                <input
+                  type="text"
+                  value={followUpSubject}
+                  onChange={(e) => setFollowUpSubject(e.target.value)}
+                  className="bg-zinc-900 border border-white/10 text-white rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Email Body (Editable Draft)</label>
+                <textarea
+                  value={followUpBody}
+                  onChange={(e) => setFollowUpBody(e.target.value)}
+                  rows={8}
+                  className="bg-zinc-900 border border-white/10 text-white rounded-lg p-3 text-xs focus:outline-none focus:border-indigo-500 font-sans leading-relaxed resize-y"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-white/5 flex flex-col sm:flex-row gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(`Subject: ${followUpSubject}\n\n${followUpBody}`);
+                  setFollowUpCopied(true);
+                  setTimeout(() => setFollowUpCopied(false), 3000);
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold border border-white/10 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                {followUpCopied ? (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Copied to Clipboard!</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Copy Subject &amp; Draft</span>
+                  </>
+                )}
+              </button>
+
+              <a
+                href={`mailto:${followUpModalApp.contactInfo && followUpModalApp.contactInfo.includes('@') ? followUpModalApp.contactInfo : ''}?subject=${encodeURIComponent(followUpSubject)}&body=${encodeURIComponent(followUpBody)}`}
+                className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-center shadow-md shadow-indigo-500/20"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                <span>Open in Email Client (mailto:)</span>
+              </a>
             </div>
           </div>
         </div>
