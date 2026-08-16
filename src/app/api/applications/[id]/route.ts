@@ -78,20 +78,23 @@ export async function PATCH(
         });
       }
 
-      // 4. Update documents if provided
+      // 4. Update documents if provided — upsert by type, never wipe unrelated docs
       if (body.documents !== undefined) {
-        await tx.generatedDocument.deleteMany({
-          where: { applicationId: id }
-        });
-        
         for (const doc of body.documents) {
-          await tx.generatedDocument.create({
-            data: {
-              applicationId: id,
-              type: doc.type,
-              content: typeof doc.content === 'string' ? doc.content : JSON.stringify(doc.content)
-            }
+          const existing = await tx.generatedDocument.findFirst({
+            where: { applicationId: id, type: doc.type }
           });
+          const content = typeof doc.content === 'string' ? doc.content : JSON.stringify(doc.content);
+          if (existing) {
+            await tx.generatedDocument.update({
+              where: { id: existing.id },
+              data: { content }
+            });
+          } else {
+            await tx.generatedDocument.create({
+              data: { applicationId: id, type: doc.type, content }
+            });
+          }
         }
       }
 

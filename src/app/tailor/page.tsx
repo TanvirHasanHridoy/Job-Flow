@@ -3265,6 +3265,8 @@ export default function TailorWorkspace() {
         // Locate matching documents
         const cvDoc = app.documents.find((d: any) => d.type === 'CV');
         const clDoc = app.documents.find((d: any) => d.type === 'COVER_LETTER');
+        const interviewDoc = app.documents.find((d: any) => d.type === 'INTERVIEW_PREP');
+        const outreachDoc = app.documents.find((d: any) => d.type === 'OUTREACH');
 
         if (cvDoc && clDoc) {
           const parsedCv = JSON.parse(cvDoc.content);
@@ -3291,6 +3293,14 @@ export default function TailorWorkspace() {
           if (parsedCv.projects && parsedCv.projects.length > 0) {
             setSelectedProjects(parsedCv.projects.map((p: any) => p.name));
           }
+        }
+
+        // Restore interview prep and outreach if previously saved
+        if (interviewDoc) {
+          try { setInterviewPrepData(JSON.parse(interviewDoc.content)); } catch {}
+        }
+        if (outreachDoc) {
+          try { setOutreachData(JSON.parse(outreachDoc.content)); } catch {}
         }
       }
     } catch (err) {
@@ -4364,7 +4374,9 @@ export default function TailorWorkspace() {
       remoteOrPhysical: result.jobMetadata?.remoteOrPhysical || '',
       documents: [
         { type: 'CV', content: JSON.stringify({ ...result.tailoredCv, sectionOrder }) },
-        { type: 'COVER_LETTER', content: JSON.stringify(result.tailoredCoverLetter) }
+        { type: 'COVER_LETTER', content: JSON.stringify(result.tailoredCoverLetter) },
+        ...(interviewPrepData ? [{ type: 'INTERVIEW_PREP', content: JSON.stringify(interviewPrepData) }] : []),
+        ...(outreachData ? [{ type: 'OUTREACH', content: JSON.stringify(outreachData) }] : [])
       ]
     };
 
@@ -5960,6 +5972,11 @@ export default function TailorWorkspace() {
                       <div className="flex items-center gap-2">
                         <Sparkles className="w-5 h-5 text-indigo-400" />
                         <h3 className="text-base font-bold text-white">AI Recruiter Outreach &amp; InMail Engine</h3>
+                        {outreachData && editingAppId && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
+                            <Check className="w-3 h-3" /> Saved
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-zinc-400 mt-1">
                         Generate 3 hyper-targeted outreach variations tailored specifically to {companyName || 'the target company'} and {roleName || 'the position'}.
@@ -6199,6 +6216,11 @@ export default function TailorWorkspace() {
                       <div className="flex items-center gap-2">
                         <Target className="w-5 h-5 text-indigo-400" />
                         <h3 className="text-base font-bold text-white">AI Interview Prep Cheat-Sheet Copilot</h3>
+                        {interviewPrepData && editingAppId && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
+                            <Check className="w-3 h-3" /> Saved
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-zinc-400 mt-1">
                         Predicted technical &amp; behavioral questions with STAR talking points, high-signal reverse questions, and 30-second elevator pitch.
