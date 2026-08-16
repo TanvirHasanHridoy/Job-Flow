@@ -1730,7 +1730,7 @@ export default function TailorWorkspace() {
           <div
             key={blockId}
             data-block-id={blockId}
-            className="w-full text-left font-sans flex flex-col"
+            className="w-full text-left font-sans flex flex-col group/workitem relative"
             style={{ marginBottom: `${bulletSpacing * 1.5}px` }}
           >
             <p
@@ -2624,6 +2624,26 @@ export default function TailorWorkspace() {
                 </li>
               ))}
             </ul>
+          )}
+          {sec.type === 'bullet-list' && !isMeasurement && (
+            <div className="no-print font-sans pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const updated = customSections.map(c => {
+                    if (c.id !== sec.id) return c;
+                    const bullets = [...(c.bullets || []), 'New key achievement or detail...'];
+                    return { ...c, bullets };
+                  });
+                  setCustomSections(updated);
+                }}
+                className="opacity-0 group-hover:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 inline-flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
+                title="Add new bullet point"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Add Bullet Point</span>
+              </button>
+            </div>
           )}
 
           {sec.type === 'paragraph' && (
