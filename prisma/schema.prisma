@@ -33,6 +33,7 @@ model UserProfile {
   skills         String   @default("[]")
   languages      String   @default("[]")
   projects       String   @default("[]")
+  customSections String   @default("[]")
   
   updatedAt      DateTime @updatedAt
 

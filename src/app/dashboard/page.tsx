@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  Plus, Calendar, MapPin, DollarSign, Clock, FileText, Trash2, Eye, ChevronRight, ChevronLeft, Award, Sparkles, LayoutGrid, CheckCircle2, TrendingUp, Building, User, Mail, Globe
+  Plus, Calendar, MapPin, DollarSign, Clock, FileText, Trash2, Eye, ChevronRight, ChevronLeft, Award, Sparkles, LayoutGrid, CheckCircle2, TrendingUp, Building, User, Mail, Globe, Loader2
 } from 'lucide-react';
 
 interface GeneratedDocument {
@@ -62,6 +62,11 @@ export default function Dashboard() {
   const [selectedApp, setSelectedApp] = useState<JobApplication | null>(null);
   const [currentView, setCurrentView] = useState<'kanban' | 'spreadsheet' | 'calendar'>('kanban');
   const [calendarDate, setCalendarDate] = useState(new Date());
+
+  // Drag and Drop & Processing States
+  const [draggingAppId, setDraggingAppId] = useState<string | null>(null);
+  const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
+  const [updatingStatusAppId, setUpdatingStatusAppId] = useState<string | null>(null);
 
   // Scheduler state variables
   const [calendarModalApp, setCalendarModalApp] = useState<JobApplication | null>(null);
@@ -261,6 +266,10 @@ export default function Dashboard() {
   };
 
   const updateAppStatus = async (id: string, newStatus: string) => {
+    const currentApp = applications.find(a => a.id === id);
+    if (currentApp && currentApp.status === newStatus) return;
+
+    setUpdatingStatusAppId(id);
     try {
       const res = await fetch(`/api/applications/${id}`, {
         method: 'PATCH',
@@ -279,6 +288,8 @@ export default function Dashboard() {
       }
     } catch (err) {
       console.error('Failed to update status:', err);
+    } finally {
+      setUpdatingStatusAppId(null);
     }
   };
 
@@ -310,9 +321,57 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="w-12 h-12 rounded-full border-4 border-indigo-500/30 border-t-indigo-500 animate-spin mb-4"></div>
-        <p className="text-zinc-400 text-sm animate-pulse">Loading tracker pipeline...</p>
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 min-w-0 flex-1 flex flex-col space-y-8 animate-pulse">
+        {/* Header Skeleton */}
+        <div className="space-y-2">
+          <div className="h-8 w-64 bg-white/5 rounded-xl"></div>
+          <div className="h-4 w-96 bg-white/5 rounded-lg"></div>
+        </div>
+
+        {/* 4 Scorecard Skeletons */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 w-full">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="glass-panel p-5 rounded-2xl flex items-center gap-4 border border-white/5 bg-zinc-950/40">
+              <div className="w-12 h-12 rounded-xl bg-white/5"></div>
+              <div className="space-y-2 flex-1">
+                <div className="h-3 w-20 bg-white/5 rounded"></div>
+                <div className="h-6 w-12 bg-white/10 rounded"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Tabs Skeleton */}
+        <div className="flex gap-2 border-b border-white/5 pb-4">
+          <div className="h-8 w-32 bg-white/5 rounded-xl"></div>
+          <div className="h-8 w-36 bg-white/5 rounded-xl"></div>
+          <div className="h-8 w-32 bg-white/5 rounded-xl"></div>
+        </div>
+
+        {/* Kanban Board Columns Skeleton */}
+        <div className="flex gap-4 overflow-hidden h-[calc(100vh-380px)]">
+          {[1, 2, 3, 4, 5].map(colIdx => (
+            <div key={colIdx} className="flex-1 flex flex-col rounded-2xl border border-white/5 bg-zinc-950/20 p-4 space-y-4">
+              <div className="flex justify-between items-center pb-2 border-b border-white/5">
+                <div className="h-4 w-20 bg-white/5 rounded"></div>
+                <div className="h-4 w-6 bg-white/5 rounded"></div>
+              </div>
+              <div className="space-y-3 flex-1">
+                {[1, 2].map(cardIdx => (
+                  <div key={cardIdx} className="glass-panel p-4 rounded-xl space-y-3 border border-white/5 bg-zinc-900/30">
+                    <div className="flex justify-between">
+                      <div className="h-3 w-12 bg-white/5 rounded"></div>
+                      <div className="h-3 w-16 bg-white/10 rounded"></div>
+                    </div>
+                    <div className="h-4 w-3/4 bg-white/10 rounded"></div>
+                    <div className="h-3 w-1/2 bg-white/5 rounded"></div>
+                    <div className="h-3 w-1/3 bg-white/5 rounded pt-2"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
@@ -414,10 +473,34 @@ export default function Dashboard() {
           <div className="flex gap-4 min-w-[1000px] h-[calc(100vh-340px)]">
             {COLUMNS.map(col => {
               const columnApps = applications.filter(app => app.status === col.id);
+              const isOver = dragOverColumnId === col.id;
               return (
                 <div
                   key={col.id}
-                  className="flex-1 flex flex-col rounded-2xl border border-white/5 bg-zinc-950/20 backdrop-blur-sm p-4 w-[280px]"
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (dragOverColumnId !== col.id) {
+                      setDragOverColumnId(col.id);
+                    }
+                  }}
+                  onDragLeave={(e) => {
+                    if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                    setDragOverColumnId(null);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOverColumnId(null);
+                    const appId = e.dataTransfer.getData('text/plain') || draggingAppId;
+                    if (appId) {
+                      updateAppStatus(appId, col.id);
+                    }
+                  }}
+                  className={`flex-1 flex flex-col rounded-2xl border transition-all duration-200 p-4 w-[280px] ${
+                    isOver
+                      ? 'border-indigo-500/80 bg-indigo-500/10 shadow-lg shadow-indigo-500/10 scale-[1.01]'
+                      : 'border-white/5 bg-zinc-950/20 backdrop-blur-sm'
+                  }`}
                 >
                   {/* Column Header */}
                   <div className="flex justify-between items-center mb-4 pb-2 border-b border-white/5">
@@ -432,89 +515,113 @@ export default function Dashboard() {
                   {/* Column Cards Container */}
                   <div className="flex-grow overflow-y-auto space-y-3 pr-1">
                     {columnApps.length > 0 ? (
-                      columnApps.map(app => (
-                        <div
-                          key={app.id}
-                          onClick={() => setSelectedApp(app)}
-                          className="glass-panel glass-panel-hover p-4 rounded-xl cursor-pointer select-none space-y-3 relative group"
-                        >
-                          {/* Match & Lang tags */}
-                          <div className="flex items-center justify-between">
-                            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-zinc-500 font-sans">
-                              <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-zinc-300">
-                                {app.targetLanguage === 'DE' ? '🇩🇪 DE' : '🇬🇧 EN'}
+                      columnApps.map(app => {
+                        const isDragging = draggingAppId === app.id;
+                        const isUpdating = updatingStatusAppId === app.id;
+                        return (
+                          <div
+                            key={app.id}
+                            draggable={!isUpdating}
+                            onDragStart={(e) => {
+                              e.dataTransfer.setData('text/plain', app.id);
+                              setDraggingAppId(app.id);
+                            }}
+                            onDragEnd={() => {
+                              setDraggingAppId(null);
+                            }}
+                            onClick={() => setSelectedApp(app)}
+                            className={`glass-panel glass-panel-hover p-4 rounded-xl cursor-grab active:cursor-grabbing select-none space-y-3 relative group transition-all duration-200 ${
+                              isDragging ? 'opacity-40 scale-95 border-indigo-500/50' : ''
+                            } ${isUpdating ? 'pointer-events-none ring-1 ring-indigo-500/40 bg-indigo-500/5' : ''}`}
+                          >
+                            {/* Processing Spinner Overlay */}
+                            {isUpdating && (
+                              <div className="absolute inset-0 bg-zinc-950/70 backdrop-blur-[1px] rounded-xl flex items-center justify-center gap-2 z-20 text-indigo-300 text-xs font-bold animate-in fade-in duration-150">
+                                <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
+                                <span>Updating...</span>
+                              </div>
+                            )}
+
+                            {/* Match & Lang tags */}
+                            <div className="flex items-center justify-between">
+                              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-zinc-500 font-sans">
+                                <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-zinc-300">
+                                  {app.targetLanguage === 'DE' ? '🇩🇪 DE' : '🇬🇧 EN'}
+                                </span>
                               </span>
-                            </span>
 
-                            <span className={`inline-flex items-center gap-1 text-xs font-bold ${app.matchScore >= 80 ? 'text-emerald-400' : app.matchScore >= 60 ? 'text-amber-400' : 'text-zinc-400'
-                              }`}>
-                              <Award className="w-3.5 h-3.5" />
-                              {app.matchScore}% Match
-                            </span>
-                          </div>
+                              <span className={`inline-flex items-center gap-1 text-xs font-bold ${app.matchScore >= 80 ? 'text-emerald-400' : app.matchScore >= 60 ? 'text-amber-400' : 'text-zinc-400'
+                                }`}>
+                                <Award className="w-3.5 h-3.5" />
+                                {app.matchScore}% Match
+                              </span>
+                            </div>
 
-                          {/* Title details */}
-                          <div>
-                            <h3 className="font-bold text-white text-sm line-clamp-1 group-hover:text-indigo-400 transition-colors">
-                              {app.role}
-                            </h3>
-                            <p className="text-[11px] text-zinc-400 truncate">{app.company}</p>
-                          </div>
+                            {/* Title details */}
+                            <div>
+                              <h3 className="font-bold text-white text-sm line-clamp-1 group-hover:text-indigo-400 transition-colors">
+                                {app.role}
+                              </h3>
+                              <p className="text-[11px] text-zinc-400 truncate">{app.company}</p>
+                            </div>
 
-                          {/* Card metadata indicators */}
-                          <div className="flex justify-between items-center pt-2.5 border-t border-white/5 text-[10px] text-zinc-500">
-                            <span className="flex items-center gap-1 font-sans">
-                              <Calendar className="w-3 h-3" />
-                              {new Date(app.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                            </span>
+                            {/* Card metadata indicators */}
+                            <div className="flex justify-between items-center pt-2.5 border-t border-white/5 text-[10px] text-zinc-500">
+                              <span className="flex items-center gap-1 font-sans">
+                                <Calendar className="w-3 h-3" />
+                                {new Date(app.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                              </span>
 
-                            {/* Trash indicator on hover */}
-                            <div className="flex items-center gap-1.5">
+                              {/* Trash indicator on hover */}
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={(e) => deleteApplication(app.id, e)}
+                                  className="p-1 hover:text-rose-400 rounded transition-colors text-zinc-600 hover:bg-white/5 cursor-pointer"
+                                  title="Delete application log"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Simple arrows to quick move status */}
+                            <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
                               <button
-                                onClick={(e) => deleteApplication(app.id, e)}
-                                className="p-1 hover:text-rose-400 rounded transition-colors text-zinc-600 hover:bg-white/5 cursor-pointer"
-                                title="Delete application log"
+                                disabled={app.status === 'TAILORED' || isUpdating}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const idx = COLUMNS.findIndex(c => c.id === app.status);
+                                  if (idx > 0) updateAppStatus(app.id, COLUMNS[idx - 1].id);
+                                }}
+                                className="p-1 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:text-zinc-500 rounded cursor-pointer"
+                                title="Move left"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <ChevronLeft className="w-4 h-4" />
+                              </button>
+
+                              <span className="text-[9px] uppercase tracking-wider text-zinc-600 font-semibold font-sans">Move Status</span>
+
+                              <button
+                                disabled={app.status === 'REJECTED' || isUpdating}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const idx = COLUMNS.findIndex(c => c.id === app.status);
+                                  if (idx < COLUMNS.length - 1) updateAppStatus(app.id, COLUMNS[idx + 1].id);
+                                }}
+                                className="p-1 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:text-zinc-500 rounded cursor-pointer"
+                                title="Move right"
+                              >
+                                <ChevronRight className="w-4 h-4" />
                               </button>
                             </div>
                           </div>
-
-                          {/* Simple arrows to quick move status */}
-                          <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
-                            <button
-                              disabled={app.status === 'TAILORED'}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const idx = COLUMNS.findIndex(c => c.id === app.status);
-                                if (idx > 0) updateAppStatus(app.id, COLUMNS[idx - 1].id);
-                              }}
-                              className="p-1 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:text-zinc-500 rounded cursor-pointer"
-                              title="Move left"
-                            >
-                              <ChevronLeft className="w-4 h-4" />
-                            </button>
-
-                            <span className="text-[9px] uppercase tracking-wider text-zinc-600 font-semibold font-sans">Move Status</span>
-
-                            <button
-                              disabled={app.status === 'REJECTED'}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const idx = COLUMNS.findIndex(c => c.id === app.status);
-                                if (idx < COLUMNS.length - 1) updateAppStatus(app.id, COLUMNS[idx + 1].id);
-                              }}
-                              className="p-1 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:text-zinc-500 rounded cursor-pointer"
-                              title="Move right"
-                            >
-                              <ChevronRight className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))
+                        );
+                      })
                     ) : (
-                      <div className="h-full min-h-[120px] border border-dashed border-white/5 rounded-xl flex items-center justify-center text-center text-zinc-600 text-xs p-4">
-                        No jobs in this stage.
+                      <div className={`h-full min-h-[120px] border border-dashed rounded-xl flex items-center justify-center text-center text-xs p-4 transition-colors ${
+                        isOver ? 'border-indigo-500/50 text-indigo-300 bg-indigo-500/5' : 'border-white/5 text-zinc-600'
+                      }`}>
+                        {isOver ? 'Drop to move here' : 'No jobs in this stage.'}
                       </div>
                     )}
                   </div>

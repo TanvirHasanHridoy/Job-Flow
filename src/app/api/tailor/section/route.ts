@@ -3,6 +3,7 @@ import { getAuthUserId } from '@/lib/auth';
 import { getUserTokens, deductTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
 import { getAiConfig } from '@/lib/ai';
+import { formatCityCountry } from '@/lib/customSections';
 
 // === DeepSeek API Configuration (Preserved / Commented as requested) ===
 // const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
@@ -292,9 +293,8 @@ ${JSON.stringify(profile || {}, null, 2)}`
           const lines: string[] = [];
           if (profile?.fullName) lines.push(profile.fullName);
           if (profile?.address) {
-            profile.address.split(/[\n,]+/).map((s: string) => s.trim()).filter(Boolean).forEach((part: string) => {
-              lines.push(part);
-            });
+            const cityCountry = formatCityCountry(profile.address);
+            if (cityCountry) lines.push(cityCountry);
           }
           if (profile?.phone) lines.push(profile.phone);
           if (profile?.email) lines.push(profile.email);

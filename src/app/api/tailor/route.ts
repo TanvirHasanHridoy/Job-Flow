@@ -5,6 +5,7 @@ import { classifySkillCategory } from '@/lib/skills';
 import { getUserTokens, deductTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
 import { getAiConfig } from '@/lib/ai';
+import { formatCityCountry } from '@/lib/customSections';
 
 // === DeepSeek API Configuration (Preserved / Commented as requested) ===
 // const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
@@ -110,7 +111,7 @@ export async function POST(req: Request) {
       website: profile.website || '',
       github: profile.github || '',
       linkedin: profile.linkedin || '',
-      address: profile.address || '',
+      address: formatCityCountry(profile.address) || '',
       dateOfBirth: profile.dateOfBirth || '',
       birthplace: profile.birthplace || '',
       nationality: profile.nationality || '',
@@ -532,9 +533,8 @@ ${contextStr}`
         const lines: string[] = [];
         if (profile.fullName) lines.push(profile.fullName);
         if (profile.address) {
-          profile.address.split(/[\n,]+/).map((s: string) => s.trim()).filter(Boolean).forEach((part: string) => {
-            lines.push(part);
-          });
+          const cityCountry = formatCityCountry(profile.address);
+          if (cityCountry) lines.push(cityCountry);
         }
         if (profile.phone) lines.push(profile.phone);
         if (profile.email) lines.push(profile.email);

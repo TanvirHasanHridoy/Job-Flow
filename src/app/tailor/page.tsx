@@ -5,12 +5,15 @@ import Link from 'next/link';
 import {
   Sparkles, FileText, Download, Briefcase, Award, CheckCircle2, AlertTriangle, Languages, Save, Check,
   List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Palette, Highlighter, RotateCcw, Sliders, Coins, Plus, FolderGit,
-  ChevronUp, ChevronDown, Eye, EyeOff, Wand2, RefreshCw, Target, X, GitCompare, Loader2
+  ChevronUp, ChevronDown, Eye, EyeOff, Wand2, RefreshCw, Target, X, GitCompare, Loader2, Layers, Trash2, Tag, ArrowUp, ArrowDown,
+  Settings, CheckSquare, Square, PenTool, ChevronRight, SlidersHorizontal, PlusCircle, ExternalLink
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { groupSkillsByCategory } from '@/lib/skills';
+import { CustomSection, CustomSectionType, CustomSectionItem, CustomSectionSubgroup, createDefaultCustomSection, formatCityCountry } from '@/lib/customSections';
 import { useTokens } from '@/context/TokenContext';
 import { useAlertModal } from '@/context/AlertModalContext';
+import SectionControlsPanel from './components/SectionControlsPanel';
 
 interface WorkExperience {
   company: string;
@@ -64,6 +67,7 @@ interface TailoredCv {
   skills: TailoredSkill[];
   languages: Language[];
   projects?: any[];
+  customSections?: CustomSection[];
   signingLine?: string;
 }
 
@@ -448,6 +452,48 @@ export default function TailorWorkspace() {
   const [isAdjustSpacingOpen, setIsAdjustSpacingOpen] = useState<boolean>(false);
   const { tokens, setIsTokenModalOpen, fetchTokens } = useTokens();
   const { showAlert } = useAlertModal();
+
+  // Navigation Sub-tab inside Left Side Panel: Generation, ATS Intelligence, Customization & Spacing
+  const [sidePanelTab, setSidePanelTab] = useState<'generation' | 'ats' | 'customization'>('generation');
+
+  // Section Margins & Custom Sections State
+  const [customSections, setCustomSections] = useState<CustomSection[]>([]);
+  const [sectionMargins, setSectionMargins] = useState<Record<string, { top: number; bottom: number }>>({});
+  const [showSignatureSection, setShowSignatureSection] = useState<boolean>(false);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    summary: true,
+    work: true,
+    education: false,
+    projects: false,
+    skills: false,
+    signature: false
+  });
+
+  // Modals for Adding Items & Custom Sections
+  const [isAddCustomSecModalOpen, setIsAddCustomSecModalOpen] = useState(false);
+  const [newCustomSecTitle, setNewCustomSecTitle] = useState('');
+  const [newCustomSecType, setNewCustomSecType] = useState<CustomSectionType>('bullet-list');
+  const [isAddWorkModalOpen, setIsAddWorkModalOpen] = useState(false);
+  const [newWorkRole, setNewWorkRole] = useState('');
+  const [newWorkCompany, setNewWorkCompany] = useState('');
+  const [newWorkLocation, setNewWorkLocation] = useState('');
+  const [newWorkPeriod, setNewWorkPeriod] = useState('');
+  const [newWorkBullets, setNewWorkBullets] = useState('');
+  const [isAddEduModalOpen, setIsAddEduModalOpen] = useState(false);
+  const [newEduInstitution, setNewEduInstitution] = useState('');
+  const [newEduDegree, setNewEduDegree] = useState('');
+  const [newEduLocation, setNewEduLocation] = useState('');
+  const [newEduPeriod, setNewEduPeriod] = useState('');
+  const [isAddProjModalOpen, setIsAddProjModalOpen] = useState(false);
+  const [newProjName, setNewProjName] = useState('');
+  const [newProjDesc, setNewProjDesc] = useState('');
+  const [newProjTech, setNewProjTech] = useState('');
+  const [newProjUrl, setNewProjUrl] = useState('');
+  const [isAddSkillModalOpen, setIsAddSkillModalOpen] = useState(false);
+  const [newSkillName, setNewSkillName] = useState('');
+  const [newSkillLevel, setNewSkillLevel] = useState('Intermediate');
+  const [newSkillCategory, setNewSkillCategory] = useState('Tools');
+  const [saveToVaultOnAdd, setSaveToVaultOnAdd] = useState(false);
 
   // Form states
   const [jobDescription, setJobDescription] = useState('');
@@ -967,7 +1013,7 @@ export default function TailorWorkspace() {
   const [bulletStyle, setBulletStyle] = useState<string>('STAR Method');
   const [clLength, setClLength] = useState<string>('Short & Punchy (under 300 words)');
   const [skillsFocus, setSkillsFocus] = useState<string>('Tech-Heavy Focus');
-  const [skillsLayout, setSkillsLayout] = useState<'level' | 'category'>('level');
+  const [skillsLayout, setSkillsLayout] = useState<'level' | 'category'>('category');
   const [themeDirective, setThemeDirective] = useState('');
 
   // Visual Customization States
@@ -1212,9 +1258,19 @@ export default function TailorWorkspace() {
       else if (section === 'languages' && result.tailoredCv.languages && result.tailoredCv.languages.length > 0) {
         orderedBlocks.push('languages');
       }
+      else if (section.startsWith('custom-')) {
+        const customId = section.replace('custom-', '');
+        const cSec = (customSections || []).find(c => c.id === customId || `custom-${c.id}` === section) ||
+          (result.tailoredCv?.customSections || []).find((c: any) => c.id === customId || `custom-${c.id}` === section);
+        if (cSec) {
+          orderedBlocks.push(`custom-sec-${cSec.id}`);
+        }
+      }
     });
 
-    orderedBlocks.push('signature');
+    if (showSignatureSection && !hiddenSections.includes('signature')) {
+      orderedBlocks.push('signature');
+    }
     return orderedBlocks;
   };
 
@@ -1228,6 +1284,7 @@ export default function TailorWorkspace() {
       if (section === 'projects' && result.tailoredCv.projects && result.tailoredCv.projects.length > 0) return 'projects-header';
       if (section === 'skills' && result.tailoredCv.skills && result.tailoredCv.skills.length > 0) return 'skills';
       if (section === 'languages' && result.tailoredCv.languages && result.tailoredCv.languages.length > 0) return 'languages';
+      if (section.startsWith('custom-')) return `custom-sec-${section.replace('custom-', '')}`;
     }
     return '';
   };
@@ -1237,14 +1294,14 @@ export default function TailorWorkspace() {
     const isHidden = hiddenSections.includes(sectionKey);
 
     return (
-      <div className="absolute left-0 -top-7 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-all duration-200 flex items-center gap-1 bg-zinc-900/95 border border-zinc-700/80 rounded-lg p-1 text-[11px] shadow-xl backdrop-blur-md z-30 font-sans">
+      <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-all duration-200 flex items-center gap-1 bg-zinc-900/95 border border-zinc-700/80 rounded-lg p-1 text-[11px] shadow-xl backdrop-blur-md z-30 font-sans no-print">
         <button
           disabled={idx <= 0}
           onClick={(e) => {
             e.stopPropagation();
             handleMoveSection(sectionKey, 'up');
           }}
-          className="p-1 hover:bg-zinc-800 rounded text-zinc-300 hover:text-white disabled:opacity-30 cursor-pointer"
+          className="p-1 hover:bg-zinc-800 rounded text-zinc-300 hover:text-white disabled:opacity-30 cursor-pointer transition-colors"
           title="Move Section Up"
         >
           <ChevronUp className="w-3.5 h-3.5" />
@@ -1256,7 +1313,7 @@ export default function TailorWorkspace() {
             e.stopPropagation();
             handleMoveSection(sectionKey, 'down');
           }}
-          className="p-1 hover:bg-zinc-800 rounded text-zinc-300 hover:text-white disabled:opacity-30 cursor-pointer"
+          className="p-1 hover:bg-zinc-800 rounded text-zinc-300 hover:text-white disabled:opacity-30 cursor-pointer transition-colors"
           title="Move Section Down"
         >
           <ChevronDown className="w-3.5 h-3.5" />
@@ -1267,7 +1324,7 @@ export default function TailorWorkspace() {
             e.stopPropagation();
             handleToggleHideSection(sectionKey);
           }}
-          className="p-1 hover:bg-zinc-800 rounded text-zinc-300 hover:text-white cursor-pointer"
+          className="p-1 hover:bg-zinc-800 rounded text-zinc-300 hover:text-white cursor-pointer transition-colors"
           title={isHidden ? "Unhide Section" : "Hide Section"}
         >
           {isHidden ? <EyeOff className="w-3.5 h-3.5 text-amber-400" /> : <Eye className="w-3.5 h-3.5 text-zinc-300" />}
@@ -1383,7 +1440,7 @@ export default function TailorWorkspace() {
             <span className="font-semibold font-sans">Address:</span>{' '}
             <ContentEditable
               tagName="span"
-              value={result.tailoredCv.personalDetails.address || ''}
+              value={formatCityCountry(result.tailoredCv.personalDetails.address || '')}
               onChange={(val) => handleCvDetailsChange('address', val, true)}
               onBlur={(e: any) => handleCvDetailsChange('address', e.target.innerText, false)}
               useInnerText={true}
@@ -1391,7 +1448,7 @@ export default function TailorWorkspace() {
               className="focus:outline-none"
             />
           </p>
-          <p>
+          <p className="flex items-center gap-1.5 overflow-hidden">
             <span className="font-semibold font-sans">Phone:</span>{' '}
             <ContentEditable
               tagName="span"
@@ -1400,10 +1457,19 @@ export default function TailorWorkspace() {
               onBlur={(e: any) => handleCvDetailsChange('phone', e.target.innerText, false)}
               useInnerText={true}
               isMeasurement={isMeasurement}
-              className="focus:outline-none"
+              className="focus:outline-none truncate"
             />
+            {!isMeasurement && result.tailoredCv.personalDetails.phone && (
+              <a
+                href={`tel:${(result.tailoredCv.personalDetails.phone || '').replace(/\s+/g, '')}`}
+                className="text-gray-400 hover:text-indigo-600 no-print transition-colors shrink-0"
+                title="Call Phone Number"
+              >
+                <ExternalLink className="w-2.5 h-2.5" />
+              </a>
+            )}
           </p>
-          <p>
+          <p className="flex items-center gap-1.5 overflow-hidden">
             <span className="font-semibold font-sans">Email:</span>{' '}
             <ContentEditable
               tagName="span"
@@ -1412,8 +1478,17 @@ export default function TailorWorkspace() {
               onBlur={(e: any) => handleCvDetailsChange('email', e.target.innerText, false)}
               useInnerText={true}
               isMeasurement={isMeasurement}
-              className="focus:outline-none"
+              className="focus:outline-none truncate"
             />
+            {!isMeasurement && result.tailoredCv.personalDetails.email && (
+              <a
+                href={`mailto:${result.tailoredCv.personalDetails.email}`}
+                className="text-gray-400 hover:text-indigo-600 no-print transition-colors shrink-0"
+                title="Send Email"
+              >
+                <ExternalLink className="w-2.5 h-2.5" />
+              </a>
+            )}
           </p>
 
           {cvLanguage === 'DE' ? (
@@ -1495,7 +1570,7 @@ export default function TailorWorkspace() {
           )}
 
           {result.tailoredCv.personalDetails.linkedin && (
-            <p>
+            <p className="flex items-center gap-1.5 overflow-hidden">
               <span className="font-semibold font-sans">LinkedIn:</span>{' '}
               <ContentEditable
                 tagName="span"
@@ -1504,12 +1579,23 @@ export default function TailorWorkspace() {
                 onBlur={(e: any) => handleCvDetailsChange('linkedin', e.target.innerText, false)}
                 useInnerText={true}
                 isMeasurement={isMeasurement}
-                className="focus:outline-none"
+                className="focus:outline-none truncate"
               />
+              {!isMeasurement && (
+                <a
+                  href={result.tailoredCv.personalDetails.linkedin.startsWith('http') ? result.tailoredCv.personalDetails.linkedin : `https://${result.tailoredCv.personalDetails.linkedin}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-indigo-600 no-print transition-colors shrink-0"
+                  title="Open LinkedIn Profile"
+                >
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </a>
+              )}
             </p>
           )}
           {result.tailoredCv.personalDetails.website && (
-            <p>
+            <p className="flex items-center gap-1.5 overflow-hidden">
               <span className="font-semibold font-sans">Website:</span>{' '}
               <ContentEditable
                 tagName="span"
@@ -1518,12 +1604,23 @@ export default function TailorWorkspace() {
                 onBlur={(e: any) => handleCvDetailsChange('website', e.target.innerText, false)}
                 useInnerText={true}
                 isMeasurement={isMeasurement}
-                className="focus:outline-none"
+                className="focus:outline-none truncate"
               />
+              {!isMeasurement && (
+                <a
+                  href={result.tailoredCv.personalDetails.website.startsWith('http') ? result.tailoredCv.personalDetails.website : `https://${result.tailoredCv.personalDetails.website}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-indigo-600 no-print transition-colors shrink-0"
+                  title="Open Personal Website"
+                >
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </a>
+              )}
             </p>
           )}
           {result.tailoredCv.personalDetails.github && (
-            <p>
+            <p className="flex items-center gap-1.5 overflow-hidden">
               <span className="font-semibold font-sans">Github:</span>{' '}
               <ContentEditable
                 tagName="span"
@@ -1532,8 +1629,19 @@ export default function TailorWorkspace() {
                 onBlur={(e: any) => handleCvDetailsChange('github', e.target.innerText, false)}
                 useInnerText={true}
                 isMeasurement={isMeasurement}
-                className="focus:outline-none"
+                className="focus:outline-none truncate"
               />
+              {!isMeasurement && (
+                <a
+                  href={result.tailoredCv.personalDetails.github.startsWith('http') ? result.tailoredCv.personalDetails.github : `https://${result.tailoredCv.personalDetails.github}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-indigo-600 no-print transition-colors shrink-0"
+                  title="Open GitHub Profile"
+                >
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </a>
+              )}
             </p>
           )}
         </div>
@@ -1728,11 +1836,11 @@ export default function TailorWorkspace() {
               ))}
             </ul>
             {!isMeasurement && (
-              <div className="relative h-0 no-print font-sans">
+              <div className="no-print font-sans pt-1">
                 <button
                   type="button"
                   onClick={() => handleAddWorkExperienceBullet(idx)}
-                  className="absolute left-0 top-1 z-10 opacity-100 sm:opacity-0 sm:group-hover/workitem:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
+                  className="opacity-0 group-hover/workitem:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 inline-flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
                   title="Add new bullet point to this work experience entry"
                 >
                   <Plus className="w-3 h-3" />
@@ -1865,11 +1973,11 @@ export default function TailorWorkspace() {
                     ))}
                   </ul>
                   {!isMeasurement && (
-                    <div className="relative h-0 no-print font-sans">
+                    <div className="no-print font-sans pt-1">
                       <button
                         type="button"
                         onClick={() => handleAddWorkExperienceBullet(idx)}
-                        className="absolute left-0 top-1 z-10 opacity-100 sm:opacity-0 sm:group-hover/workitem:opacity-100 focus:opacity-100 px-2.5 py-1 rounded-md text-[10px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm font-sans"
+                        className="opacity-0 group-hover/workitem:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 inline-flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
                         title="Add new bullet point to this work experience entry"
                       >
                         <Plus className="w-3 h-3 text-indigo-600" />
@@ -2434,6 +2542,155 @@ export default function TailorWorkspace() {
       );
     }
 
+    if (blockId.startsWith('custom-sec-')) {
+      const customSecId = blockId.replace('custom-sec-', '');
+      const sec = (customSections || []).find(c => c.id === customSecId) ||
+        (result.tailoredCv?.customSections || []).find((c: any) => c.id === customSecId);
+      if (!sec) return null;
+
+      const topMargin = sectionMargins[`custom-${sec.id}`]?.top || 0;
+      const bottomMargin = sectionMargins[`custom-${sec.id}`]?.bottom || 0;
+
+      return (
+        <div
+          key={blockId}
+          data-block-id={blockId}
+          className="text-left w-full font-sans group relative"
+          style={{
+            marginTop: `${(isFirstSection ? 0 : sectionSpacing) + topMargin}px`,
+            marginBottom: `${bottomMargin}px`
+          }}
+        >
+          {!isMeasurement && renderSectionHeaderControls(`custom-${sec.id}`, sec.title, sec)}
+          {(() => {
+            const title = sec.title || 'Custom Section';
+            const idx = title.indexOf(' ');
+            const first = idx === -1 ? title : title.slice(0, idx);
+            const rest = idx === -1 ? '' : title.slice(idx + 1);
+            return (
+              <div
+                className="text-left animate-none"
+                style={{
+                  marginTop: `${(isFirstSection ? 0 : sectionSpacing * 0.4) + topMargin}px`,
+                  marginBottom: `${(sectionSpacing * 0.3) + bottomMargin}px`
+                }}
+              >
+                <h2 className="text-[15px] font-bold uppercase">
+                  <span className="text-gray-800">{first}</span>
+                  {rest && <span className="text-[#2980B9]">&nbsp;{rest}</span>}
+                </h2>
+                <div className="border-b border-[#CBD5E1] mt-1" />
+              </div>
+            );
+          })()}
+
+          {sec.type === 'bullet-list' && (
+            <ul className="list-none pl-0">
+              {(sec.bullets || []).map((b: string, bIdx: number) => (
+                <li
+                  key={bIdx}
+                  className="flex items-start gap-1.5 text-gray-700 leading-[1.55]"
+                  style={{
+                    fontSize: `${fontSize}px`,
+                    marginTop: `${bulletSpacing}px`
+                  }}
+                >
+                  <span className="text-gray-500 leading-none mt-[2px] shrink-0 font-sans">•</span>
+                  <ContentEditable
+                    tagName="span"
+                    value={b}
+                    onChange={(val) => {
+                      const updated = customSections.map(c => {
+                        if (c.id !== sec.id) return c;
+                        const bullets = [...(c.bullets || [])];
+                        bullets[bIdx] = val;
+                        return { ...c, bullets };
+                      });
+                      setCustomSections(updated);
+                    }}
+                    onBlur={(e: any) => {
+                      const updated = customSections.map(c => {
+                        if (c.id !== sec.id) return c;
+                        const bullets = [...(c.bullets || [])];
+                        bullets[bIdx] = e.target.innerText;
+                        return { ...c, bullets };
+                      });
+                      setCustomSections(updated);
+                    }}
+                    useInnerText={true}
+                    isMeasurement={isMeasurement}
+                    className="focus:outline-none flex-1"
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {sec.type === 'paragraph' && (
+            <div style={{ marginTop: `${bulletSpacing * 0.5}px` }}>
+              <ContentEditable
+                tagName="p"
+                value={sec.content || ''}
+                onChange={(val) => {
+                  const updated = customSections.map(c => c.id === sec.id ? { ...c, content: val } : c);
+                  setCustomSections(updated);
+                }}
+                onBlur={(e: any) => {
+                  const updated = customSections.map(c => c.id === sec.id ? { ...c, content: e.target.innerText } : c);
+                  setCustomSections(updated);
+                }}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="text-gray-700 leading-relaxed focus:outline-none"
+                style={{ fontSize: `${fontSize}px` }}
+              />
+            </div>
+          )}
+
+          {(sec.type === 'subgroup-chips' || sec.type === 'subgroup-items') && (
+            <div className="space-y-2" style={{ marginTop: `${bulletSpacing * 0.5}px` }}>
+              {(sec.subgroups || []).map((sub, sIdx) => (
+                <div key={sub.id || sIdx} className="flex flex-wrap items-baseline gap-x-2 gap-y-1.5">
+                  <span className="font-semibold text-gray-800" style={{ fontSize: `${fontSize}px` }}>{sub.name}:</span>
+                  <div className="flex flex-wrap gap-1.5 items-center">
+                    {sub.items.map((item, iIdx) => (
+                      <span key={iIdx} className="px-2 py-0.5 rounded text-gray-800 bg-gray-100 border border-gray-200" style={{ fontSize: `${fontSize - 0.5}px` }}>
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {sec.type === 'structured-items' && (
+            <div className="space-y-2" style={{ marginTop: `${bulletSpacing * 0.5}px` }}>
+              {(sec.items || []).map((item, iIdx) => (
+                <div key={iIdx} className="w-full text-left font-sans">
+                  <div className="flex justify-between items-baseline">
+                    <span className="font-bold text-gray-800" style={{ fontSize: `${fontSize}px` }}>{item.title}</span>
+                    {item.dateOrLocation && <span className="text-gray-500" style={{ fontSize: `${fontSize - 1}px` }}>{item.dateOrLocation}</span>}
+                  </div>
+                  {item.subtitle && <p className="text-gray-600 font-medium" style={{ fontSize: `${fontSize - 0.5}px` }}>{item.subtitle}</p>}
+                  {item.bullets && item.bullets.length > 0 && (
+                    <ul className="list-none pl-0 mt-1">
+                      {item.bullets.map((b, bIdx) => (
+                        <li key={bIdx} className="flex items-start gap-1.5 text-gray-700 leading-[1.5]" style={{ fontSize: `${fontSize}px` }}>
+                          <span className="text-gray-500 mt-[2px]">•</span>
+                          <span>{b}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     if (blockId === 'signature') {
       return (
         <div
@@ -2633,7 +2890,7 @@ export default function TailorWorkspace() {
         }
       };
     }
-  }, [result, fontSize, sectionSpacing, pagePaddingTop, pagePaddingBottom, pagePaddingSide, bulletSpacing, signatureSpacing, photoHeight, headerSpacing, bulletStyle, lengthTarget, previewTab, showSignatureImage, sectionOrder, selectedProjects, isAtsHighlightEnabled]);
+  }, [result, fontSize, sectionSpacing, pagePaddingTop, pagePaddingBottom, pagePaddingSide, bulletSpacing, signatureSpacing, photoHeight, headerSpacing, bulletStyle, lengthTarget, previewTab, showSignatureImage, showSignatureSection, sectionOrder, selectedProjects, isAtsHighlightEnabled, hiddenSections, customSections, sectionMargins]);
 
 
   const fetchProfile = async () => {
@@ -2648,11 +2905,23 @@ export default function TailorWorkspace() {
           if (data.projects && data.projects.length > 0) {
             setSelectedProjects(data.projects.map((p: any) => p.name));
           }
+          // Load custom sections from master profile
+          if (data.customSections && Array.isArray(data.customSections)) {
+            setCustomSections(data.customSections);
+            setSectionOrder(prev => {
+              const existing = new Set(prev);
+              const toAdd = data.customSections
+                .map((cs: any) => `custom-${cs.id}`)
+                .filter((k: string) => !existing.has(k));
+              return [...prev, ...toAdd];
+            });
+          }
           // Set default signing location based on profile address
           if (data.address && !signingLocation) {
-            const parts = data.address.split(',');
-            const city = parts[parts.length - 1] || parts[0];
-            setSigningLocation(city.trim().replace(/\d+/g, '').trim());
+            const cityCountry = formatCityCountry(data.address);
+            if (cityCountry) {
+              setSigningLocation(cityCountry.split(',')[0]?.trim() || cityCountry);
+            }
           }
         }
       }
@@ -2846,6 +3115,10 @@ export default function TailorWorkspace() {
     setLoading(true);
     setResult(null);
     try {
+      const allProjects = profile?.projects && Array.isArray(profile.projects) && profile.projects.length > 0
+        ? profile.projects.map((p: any) => p.name)
+        : selectedProjects;
+
       const res = await fetch('/api/tailor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2867,7 +3140,7 @@ export default function TailorWorkspace() {
           matchStrategy,
           applicationId: editingAppId,
           roleName,
-          selectedProjects,
+          selectedProjects: allProjects,
           isNudgeEnabled
         })
       });
@@ -2885,6 +3158,13 @@ export default function TailorWorkspace() {
       const data = (await res.json()) as TailorResponse;
       setResult(data);
       fetchTokens();
+
+      if (data.tailoredCv?.projects && Array.isArray(data.tailoredCv.projects)) {
+        setSelectedProjects(data.tailoredCv.projects.map((p: any) => p.name));
+      }
+
+      // Switch to ATS tab automatically after generation so user sees match score
+      setSidePanelTab('ats');
 
       // Trigger celebrate confetti if match score is high
       if (data.matchScore >= 70) {
@@ -3123,7 +3403,49 @@ export default function TailorWorkspace() {
       ul.style.marginLeft = '0';
     });
 
-    // 7. Replace non-breaking spaces with standard ASCII space
+    // 7. Ensure contact details and project URLs are clickable <a> links in PDF output
+    if (docType === 'cv' && result?.tailoredCv?.personalDetails) {
+      const details = result.tailoredCv.personalDetails;
+      clone.querySelectorAll('p, span').forEach(el => {
+        const text = el.textContent?.trim() || '';
+        if (details.email && text === details.email && el.tagName.toLowerCase() !== 'a') {
+          const a = clone.ownerDocument.createElement('a');
+          a.href = `mailto:${details.email}`;
+          a.textContent = details.email;
+          a.setAttribute('style', 'color: inherit !important; text-decoration: none !important; font-weight: inherit !important;');
+          el.parentNode?.replaceChild(a, el);
+        } else if (details.phone && text === details.phone && el.tagName.toLowerCase() !== 'a') {
+          const a = clone.ownerDocument.createElement('a');
+          a.href = `tel:${details.phone.replace(/\s+/g, '')}`;
+          a.textContent = details.phone;
+          a.setAttribute('style', 'color: inherit !important; text-decoration: none !important; font-weight: inherit !important;');
+          el.parentNode?.replaceChild(a, el);
+        } else if (details.linkedin && (text === details.linkedin || text.includes('linkedin.com')) && el.tagName.toLowerCase() !== 'a') {
+          const a = clone.ownerDocument.createElement('a');
+          const href = details.linkedin.startsWith('http') ? details.linkedin : `https://${details.linkedin}`;
+          a.href = href;
+          a.textContent = text;
+          a.setAttribute('style', 'color: #2980B9 !important; text-decoration: none !important; font-weight: inherit !important;');
+          el.parentNode?.replaceChild(a, el);
+        } else if (details.github && (text === details.github || text.includes('github.com')) && el.tagName.toLowerCase() !== 'a') {
+          const a = clone.ownerDocument.createElement('a');
+          const href = details.github.startsWith('http') ? details.github : `https://${details.github}`;
+          a.href = href;
+          a.textContent = text;
+          a.setAttribute('style', 'color: #2980B9 !important; text-decoration: none !important; font-weight: inherit !important;');
+          el.parentNode?.replaceChild(a, el);
+        } else if (details.website && (text === details.website || text.startsWith('http') || text.includes('www.')) && el.tagName.toLowerCase() !== 'a') {
+          const a = clone.ownerDocument.createElement('a');
+          const href = details.website.startsWith('http') ? details.website : `https://${details.website}`;
+          a.href = href;
+          a.textContent = text;
+          a.setAttribute('style', 'color: #2980B9 !important; text-decoration: none !important; font-weight: inherit !important;');
+          el.parentNode?.replaceChild(a, el);
+        }
+      });
+    }
+
+    // 8. Replace non-breaking spaces with standard ASCII space
     const walker = clone.ownerDocument.createTreeWalker(clone, NodeFilter.SHOW_TEXT);
     let textNodeItem: Text | null;
     while ((textNodeItem = walker.nextNode() as Text | null)) {
@@ -3132,7 +3454,7 @@ export default function TailorWorkspace() {
       }
     }
 
-    // 8. Merge contiguous text nodes so sentences are fully unified with standard space characters
+    // 9. Merge contiguous text nodes so sentences are fully unified with standard space characters
     clone.normalize();
 
     return clone;
@@ -3355,7 +3677,7 @@ export default function TailorWorkspace() {
         document.fonts.forEach(font => {
           try {
             iframe.contentWindow?.document.fonts.add(font);
-          } catch (e) {}
+          } catch (e) { }
         });
       }
 
@@ -4210,913 +4532,710 @@ export default function TailorWorkspace() {
             </div>
           )}
 
-          {/* Form Inputs */}
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Company Name</label>
-                <input
-                  type="text"
-                  value={companyName}
-                  onChange={e => setCompanyName(e.target.value)}
-                  placeholder="e.g. BMW Group"
-                  className="glass-input px-3.5 py-2.5 text-xs"
-                />
-              </div>
+          {/* 3-Tab Switcher Header */}
+          <div className="flex bg-zinc-900 border border-white/10 rounded-xl p-1 gap-1">
+            <button
+              type="button"
+              onClick={() => setSidePanelTab('generation')}
+              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${sidePanelTab === 'generation'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Generation</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidePanelTab('ats')}
+              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer relative ${sidePanelTab === 'ats'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                }`}
+            >
+              <Award className="w-3.5 h-3.5" />
+              <span>ATS &amp; Insights</span>
+              {result?.matchScore !== undefined && (
+                <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                  {result.matchScore}%
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSidePanelTab('customization')}
+              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${sidePanelTab === 'customization'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Customization</span>
+            </button>
+          </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Role Name</label>
-                <input
-                  type="text"
-                  value={roleName}
-                  onChange={e => setRoleName(e.target.value)}
-                  placeholder="e.g. Senior Cloud Engineer"
-                  className="glass-input px-3.5 py-2.5 text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">CV Language</label>
-                <div className="grid grid-cols-2 gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
-                  <button
-                    type="button"
-                    onClick={() => setCvLanguage('EN')}
-                    className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'EN'
-                      ? 'bg-indigo-600 text-white shadow'
-                      : 'text-zinc-400 hover:text-white'
-                      }`}
-                  >
-                    EN
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCvLanguage('DE')}
-                    className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'DE'
-                      ? 'bg-indigo-600 text-white shadow'
-                      : 'text-zinc-400 hover:text-white'
-                      }`}
-                  >
-                    DE
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Cover Letter Language</label>
-                <div className="grid grid-cols-2 gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
-                  <button
-                    type="button"
-                    onClick={() => setClLanguage('EN')}
-                    className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'EN'
-                      ? 'bg-indigo-600 text-white shadow'
-                      : 'text-zinc-400 hover:text-white'
-                      }`}
-                  >
-                    EN
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setClLanguage('DE')}
-                    className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'DE'
-                      ? 'bg-indigo-600 text-white shadow'
-                      : 'text-zinc-400 hover:text-white'
-                      }`}
-                  >
-                    DE
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Prompt Customization Options */}
-            <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                Tailoring Customizations
-              </h3>
-
-              <div className="grid grid-cols-2 gap-3">
+          {/* TAB 1: GENERATION & STRATEGY */}
+          {sidePanelTab === 'generation' && (
+            <div className="space-y-4 animate-in fade-in duration-200">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Tone</label>
-                  <select
-                    value={tone}
-                    onChange={e => setTone(e.target.value)}
-                    className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                  >
-                    <option value="Bold & Action-oriented">Bold & Action-oriented</option>
-                    <option value="Academic & Technical">Academic & Technical</option>
-                    <option value="Executive & High-level">Executive & High-level</option>
-                    <option value="Humble & Fact-driven">Humble & Fact-driven</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Length Target</label>
-                  <select
-                    value={lengthTarget}
-                    onChange={e => setLengthTarget(e.target.value)}
-                    className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                  >
-                    <option value="Strict 1-Page (concise)">Strict 1-Page</option>
-                    <option value="Standard 2-Page (detailed)">Standard 2-Page</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">CL Length</label>
-                  <select
-                    value={clLength}
-                    onChange={e => setClLength(e.target.value)}
-                    className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                  >
-                    <option value="Short & Punchy (under 300 words)">Short & Punchy</option>
-                    <option value="Detailed & Elaborate">Detailed & Elaborate</option>
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Skills Highlight Mode</label>
-                  <select
-                    value={skillsFocus}
-                    onChange={e => setSkillsFocus(e.target.value)}
-                    className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                  >
-                    <option value="Tech-Heavy Focus">Tech-Heavy Focus</option>
-                    <option value="Soft Skills & Leadership focus">Soft Skills & Leadership Focus</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 mt-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Skills Layout</label>
-                  <select
-                    value={skillsLayout}
-                    onChange={e => setSkillsLayout(e.target.value as any)}
-                    className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                  >
-                    <option value="level">By Level</option>
-                    <option value="category">By Category</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* AI Description Nudging Toggle Switch */}
-              <div className="pt-3 mt-3 border-t border-white/5 flex items-center justify-between gap-3 font-sans">
-                <div className="flex flex-col text-left">
-                  <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
-                    AI Description Nudging
-                  </span>
-                  <span className="text-[10px] text-zinc-400 leading-tight">
-                    Adapts project & work descriptions towards target Job Description
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsNudgeEnabled(prev => !prev)}
-                  className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer shrink-0 ${isNudgeEnabled ? 'bg-indigo-600' : 'bg-zinc-800 border border-white/10'
-                    }`}
-                  title="Toggle AI Description Nudging"
-                >
-                  <div
-                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${isNudgeEnabled ? 'translate-x-5' : 'translate-x-0'
-                      }`}
+                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Company Name</label>
+                  <input
+                    type="text"
+                    value={companyName}
+                    onChange={e => setCompanyName(e.target.value)}
+                    placeholder="e.g. BMW Group"
+                    className="glass-input px-3.5 py-2.5 text-xs"
                   />
-                </button>
-              </div>
-            </div>
+                </div>
 
-            {/* Selected Projects */}
-            {profile && profile.projects && profile.projects.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Role Name</label>
+                  <input
+                    type="text"
+                    value={roleName}
+                    onChange={e => setRoleName(e.target.value)}
+                    placeholder="e.g. Senior Cloud Engineer"
+                    className="glass-input px-3.5 py-2.5 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">CV Language</label>
+                  <div className="grid grid-cols-2 gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => setCvLanguage('EN')}
+                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'EN'
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'text-zinc-400 hover:text-white'
+                        }`}
+                    >
+                      EN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCvLanguage('DE')}
+                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'DE'
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'text-zinc-400 hover:text-white'
+                        }`}
+                    >
+                      DE
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Cover Letter Language</label>
+                  <div className="grid grid-cols-2 gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => setClLanguage('EN')}
+                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'EN'
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'text-zinc-400 hover:text-white'
+                        }`}
+                    >
+                      EN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClLanguage('DE')}
+                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'DE'
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'text-zinc-400 hover:text-white'
+                        }`}
+                    >
+                      DE
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Prompt Customization Options */}
               <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3">
-                <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5 justify-between">
-                  <span className="flex items-center gap-1.5 font-sans">
-                    <FolderGit className="w-3.5 h-3.5 text-indigo-400" />
-                    Include Project Works
-                  </span>
-                  <span className="text-[9px] text-zinc-500 font-normal font-sans">Optional</span>
+                <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                  Tailoring Customizations
                 </h3>
 
-                {lengthTarget.includes('1-Page') && (
-                  <div className="p-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-[10px] text-amber-300 leading-relaxed font-sans">
-                    ⚠️ <strong>Strict 1-Page Constraint:</strong> Adding projects may exceed the single-page height. Consider selecting at most 1 project, or changing length target to <strong>Standard 2-Page</strong>.
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Tone</label>
+                    <select
+                      value={tone}
+                      onChange={e => setTone(e.target.value)}
+                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                    >
+                      <option value="Bold & Action-oriented">Bold & Action-oriented</option>
+                      <option value="Academic & Technical">Academic & Technical</option>
+                      <option value="Executive & High-level">Executive & High-level</option>
+                      <option value="Humble & Fact-driven">Humble & Fact-driven</option>
+                    </select>
                   </div>
-                )}
 
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-1 font-sans">
-                  {profile.projects.map((proj: any, idx: number) => {
-                    const isChecked = selectedProjects.includes(proj.name);
-                    return (
-                      <label key={idx} className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-white/5 cursor-pointer transition-all border border-transparent hover:border-white/5">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={e => {
-                            if (e.target.checked) {
-                              setSelectedProjects(prev => [...prev, proj.name]);
-                            } else {
-                              setSelectedProjects(prev => prev.filter(name => name !== proj.name));
-                            }
-                          }}
-                          className="mt-0.5 w-3.5 h-3.5 text-indigo-600 bg-zinc-950 border-zinc-800 rounded focus:ring-indigo-500 focus:ring-2 accent-indigo-500 cursor-pointer"
-                        />
-                        <div className="text-left">
-                          <span className="text-xs font-semibold text-zinc-200 block">{proj.name}</span>
-                          <span className="text-[10px] text-zinc-400 line-clamp-1">{proj.description}</span>
-                        </div>
-                      </label>
-                    );
-                  })}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Length Target</label>
+                    <select
+                      value={lengthTarget}
+                      onChange={e => setLengthTarget(e.target.value)}
+                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                    >
+                      <option value="Strict 1-Page (concise)">Strict 1-Page</option>
+                      <option value="Standard 2-Page (detailed)">Standard 2-Page</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
-            )}
 
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">CL Length</label>
+                    <select
+                      value={clLength}
+                      onChange={e => setClLength(e.target.value)}
+                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                    >
+                      <option value="Short & Punchy (under 300 words)">Short & Punchy</option>
+                      <option value="Detailed & Elaborate">Detailed & Elaborate</option>
+                    </select>
+                  </div>
 
-            {/* Visual Spacing Fine-Tuning Sidebar Panel */}
-            {result && previewTab === 'cv' && (
-              <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3">
-                <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5 justify-between">
-                  <span className="flex items-center gap-1.5 font-sans">
-                    <Sliders className="w-3.5 h-3.5 text-indigo-400" />
-                    Visual Spacing Adjuster
-                  </span>
-                  <span className="text-[9px] text-zinc-500 font-normal font-sans">Fine-tune gaps</span>
-                </h3>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Skills Highlight Mode</label>
+                    <select
+                      value={skillsFocus}
+                      onChange={e => setSkillsFocus(e.target.value)}
+                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                    >
+                      <option value="Tech-Heavy Focus">Tech-Heavy Focus</option>
+                      <option value="Soft Skills & Leadership focus">Soft Skills & Leadership Focus</option>
+                    </select>
+                  </div>
+                </div>
 
-                {/* Presets Row */}
-                <div className="grid grid-cols-3 gap-1.5 p-1 bg-white/5 rounded-lg border border-white/5 font-sans">
+                {/* AI Description Nudging Toggle Switch */}
+                <div className="pt-3 mt-3 border-t border-white/5 flex items-center justify-between gap-3 font-sans">
+                  <div className="flex flex-col text-left">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                      AI Description Nudging
+                    </span>
+                    <span className="text-[10px] text-zinc-400 leading-tight">
+                      Adapts project & work descriptions towards target Job Description
+                    </span>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => applyPreset('default')}
-                    className="py-1 text-[10px] font-bold rounded text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
+                    onClick={() => setIsNudgeEnabled(prev => !prev)}
+                    className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer shrink-0 ${isNudgeEnabled ? 'bg-indigo-600' : 'bg-zinc-800 border border-white/10'
+                      }`}
+                    title="Toggle AI Description Nudging"
                   >
-                    Default
+                    <div
+                      className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${isNudgeEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Match Strategy Selection */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Match Strategy</label>
+                  <span className="text-[9px] text-zinc-500 font-medium">Selects AI prompt logic</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => setMatchStrategy('TACTICAL_PIVOT')}
+                    className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${matchStrategy === 'TACTICAL_PIVOT'
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
+                  >
+                    Tactical Pivot
                   </button>
                   <button
                     type="button"
-                    onClick={() => applyPreset('compact')}
-                    className="py-1 text-[10px] font-bold rounded text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
+                    onClick={() => setMatchStrategy('AGGRESIVE_BRIDGING')}
+                    className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${matchStrategy === 'AGGRESIVE_BRIDGING'
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
                   >
-                    Compact
+                    Aggressive Bridging
+                  </button>
+                </div>
+              </div>
+
+              {/* Intake Method Toggle & Inputs */}
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Job Intake Method</label>
+                <div className="grid grid-cols-3 gap-1.5 p-1 bg-white/5 rounded-xl border border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => setIntakeMethod('text')}
+                    className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${intakeMethod === 'text'
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
+                  >
+                    Text Paste
                   </button>
                   <button
                     type="button"
-                    onClick={() => applyPreset('tight')}
-                    className="py-1 text-[10px] font-bold rounded text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
+                    onClick={() => setIntakeMethod('url')}
+                    className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${intakeMethod === 'url'
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
                   >
-                    Ultra-Tight
+                    Job URL
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIntakeMethod('pdf')}
+                    className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${intakeMethod === 'pdf'
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
+                  >
+                    Job PDF
                   </button>
                 </div>
-
-                {/* Sliders */}
-                <div className="space-y-2.5 pt-1 text-xs font-sans">
-                  {/* Font Size */}
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-[10px] text-zinc-400">
-                      <span>Base Font Size</span>
-                      <span className="font-semibold text-white">{fontSize}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="9.5"
-                      max="13"
-                      step="0.1"
-                      value={fontSize}
-                      onChange={e => setFontSize(parseFloat(e.target.value))}
-                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                    />
-                  </div>
-
-                  {/* Section Spacing */}
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-[10px] text-zinc-400">
-                      <span>Section Gaps</span>
-                      <span className="font-semibold text-white">{sectionSpacing}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="4"
-                      max="36"
-                      step="1"
-                      value={sectionSpacing}
-                      onChange={e => setSectionSpacing(parseInt(e.target.value))}
-                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                    />
-                  </div>
-
-                  {/* Header Spacing (Gap between Occupation and Contact info) */}
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-[10px] text-zinc-400">
-                      <span>Header Gap</span>
-                      <span className="font-semibold text-white">{headerSpacing}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="2"
-                      max="32"
-                      step="1"
-                      value={headerSpacing}
-                      onChange={e => setHeaderSpacing(parseInt(e.target.value))}
-                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                    />
-                  </div>
-
-                  {/* Page Padding Top */}
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-[10px] text-zinc-400">
-                      <span>Top Margins</span>
-                      <span className="font-semibold text-white">{pagePaddingTop}mm</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="10"
-                      max="40"
-                      step="1"
-                      value={pagePaddingTop}
-                      onChange={e => setPagePaddingTop(parseInt(e.target.value))}
-                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                    />
-                  </div>
-
-                  {/* Page Padding Bottom */}
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-[10px] text-zinc-400">
-                      <span>Bottom Margins</span>
-                      <span className="font-semibold text-white">{pagePaddingBottom}mm</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="10"
-                      max="35"
-                      step="1"
-                      value={pagePaddingBottom}
-                      onChange={e => setPagePaddingBottom(parseInt(e.target.value))}
-                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                    />
-                  </div>
-
-                  {/* Page Padding Side */}
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-[10px] text-zinc-400">
-                      <span>Side Margins</span>
-                      <span className="font-semibold text-white">{pagePaddingSide}mm</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="10"
-                      max="35"
-                      step="1"
-                      value={pagePaddingSide}
-                      onChange={e => setPagePaddingSide(parseInt(e.target.value))}
-                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                    />
-                  </div>
-
-                  {/* Bullet Spacing */}
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-[10px] text-zinc-400">
-                      <span>Bullet Spacing</span>
-                      <span className="font-semibold text-white">{bulletSpacing}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0"
-                      max="12"
-                      step="0.5"
-                      value={bulletSpacing}
-                      onChange={e => setBulletSpacing(parseFloat(e.target.value))}
-                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                    />
-                  </div>
-
-                  {/* Signature Spacing */}
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between text-[10px] text-zinc-400">
-                      <span>Signature Space</span>
-                      <span className="font-semibold text-white">{signatureSpacing}px</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="4"
-                      max="60"
-                      step="1"
-                      value={signatureSpacing}
-                      onChange={e => setSignatureSpacing(parseInt(e.target.value))}
-                      className="w-full h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                    />
-                  </div>
-
-                  {/* Show Signature Toggle */}
-                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-zinc-800/50">
-                    <input
-                      type="checkbox"
-                      id="show-signature-toggle"
-                      checked={showSignatureImage}
-                      onChange={e => setShowSignatureImage(e.target.checked)}
-                      className="w-3.5 h-3.5 text-indigo-600 bg-zinc-950 border-zinc-800 rounded focus:ring-indigo-500 focus:ring-2 accent-indigo-500 cursor-pointer"
-                    />
-                    <label htmlFor="show-signature-toggle" className="text-[10px] font-semibold text-zinc-300 select-none cursor-pointer">
-                      Show Signature Image
-                    </label>
-                  </div>
-                </div>
               </div>
-            )}
 
-            {/* Match Strategy Selection */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Match Strategy</label>
-                <span className="text-[9px] text-zinc-500 font-medium">Selects AI prompt logic</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
-                <button
-                  type="button"
-                  onClick={() => setMatchStrategy('TACTICAL_PIVOT')}
-                  className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${matchStrategy === 'TACTICAL_PIVOT'
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'text-zinc-400 hover:text-white'
-                    }`}
-                  title="Explain skill gaps constructively in the cover letter"
-                >
-                  Tactical Pivot
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMatchStrategy('AGGRESIVE_BRIDGING')}
-                  className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${matchStrategy === 'AGGRESIVE_BRIDGING'
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'text-zinc-400 hover:text-white'
-                    }`}
-                  title="Optimize terminology aggressively to align with ATS filters"
-                >
-                  Aggressive Bridging
-                </button>
-              </div>
-            </div>
-
-
-
-            {/* Intake Method Tabs */}
-            <div className="flex flex-col gap-1.5 text-left">
-              <label className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">Job Intake Method</label>
-              <div className="grid grid-cols-3 gap-1 bg-white/5 p-1 rounded-xl border border-white/5 font-sans">
-                <button
-                  type="button"
-                  onClick={() => setIntakeMethod('text')}
-                  className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${intakeMethod === 'text'
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'text-zinc-400 hover:text-white'
-                    }`}
-                >
-                  Text Paste
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIntakeMethod('url')}
-                  className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${intakeMethod === 'url'
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'text-zinc-400 hover:text-white'
-                    }`}
-                >
-                  Job URL
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIntakeMethod('pdf')}
-                  className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${intakeMethod === 'pdf'
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'text-zinc-400 hover:text-white'
-                    }`}
-                >
-                  Job PDF
-                </button>
-              </div>
-            </div>
-
-            {/* Conditional Intake Content */}
-            {intakeMethod === 'url' && (
-              <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] space-y-3 text-left">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Job Posting URL</label>
+              {intakeMethod === 'url' && (
+                <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] space-y-3 text-left">
+                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Target Job Posting URL</label>
                   <div className="flex gap-2">
                     <input
                       type="url"
                       value={jobUrl}
                       onChange={e => setJobUrl(e.target.value)}
-                      placeholder="https://example.com/jobs/123"
+                      placeholder="https://linkedin.com/jobs/view/... or any job posting URL"
                       className="glass-input px-3 py-2 text-xs flex-1"
-                      disabled={scraping}
                     />
                     <button
                       type="button"
                       onClick={handleUrlScrape}
-                      disabled={scraping}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shrink-0"
+                      disabled={scraping || !jobUrl.trim()}
+                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer disabled:opacity-50 flex items-center gap-1.5 transition-all shadow-md shrink-0"
                     >
                       {scraping ? (
                         <>
-                          <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          Scraping...
+                          <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          <span>Scraping...</span>
                         </>
                       ) : (
-                        'Scrape URL (5 tokens)'
+                        <span>Scrape (5 tokens)</span>
                       )}
                     </button>
                   </div>
+                  {scrapeWarning && (
+                    <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span>{scrapeWarning}</span>
+                    </div>
+                  )}
+                  {scrapeError && (
+                    <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span>{scrapeError}</span>
+                    </div>
+                  )}
                 </div>
-                {scrapeWarning && (
-                  <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                    <span>{scrapeWarning}</span>
+              )}
+
+              {intakeMethod === 'pdf' && (
+                <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] space-y-3 text-left">
+                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Upload Job Advertisement PDF</label>
+                  <div className="relative group">
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) handleJobPdfUpload(file);
+                      }}
+                      className="hidden"
+                      id="job-pdf-upload"
+                      disabled={scraping}
+                    />
+                    <label
+                      htmlFor="job-pdf-upload"
+                      className="flex flex-col items-center justify-center border border-dashed border-zinc-700/50 bg-white/[0.02] hover:bg-white/[0.04] transition-all rounded-xl p-5 text-center cursor-pointer"
+                      onDragOver={e => e.preventDefault()}
+                      onDrop={e => {
+                        e.preventDefault();
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) handleJobPdfUpload(file);
+                      }}
+                    >
+                      <FileText className="w-8 h-8 text-indigo-400 mb-2 group-hover:scale-110 transition-transform duration-300" />
+                      {scraping ? (
+                        <div className="flex items-center gap-1.5 font-sans">
+                          <div className="w-3.5 h-3.5 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin"></div>
+                          <span className="text-[11px] text-zinc-400">Parsing PDF job description...</span>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="text-xs text-white font-medium">Select JD PDF (5 tokens)</span>
+                          <span className="text-[10px] text-zinc-500 mt-1">Drag and drop here</span>
+                        </>
+                      )}
+                    </label>
                   </div>
-                )}
-                {scrapeError && (
-                  <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                    <span>{scrapeError}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {intakeMethod === 'pdf' && (
-              <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] space-y-3 text-left">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Upload Job Advertisement PDF</label>
-                <div className="relative group">
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    onChange={e => {
-                      const file = e.target.files?.[0];
-                      if (file) handleJobPdfUpload(file);
-                    }}
-                    className="hidden"
-                    id="job-pdf-upload"
-                    disabled={scraping}
-                  />
-                  <label
-                    htmlFor="job-pdf-upload"
-                    className="flex flex-col items-center justify-center border border-dashed border-zinc-700/50 bg-white/[0.02] hover:bg-white/[0.04] transition-all rounded-xl p-5 text-center cursor-pointer"
-                    onDragOver={e => e.preventDefault()}
-                    onDrop={e => {
-                      e.preventDefault();
-                      const file = e.dataTransfer.files?.[0];
-                      if (file) handleJobPdfUpload(file);
-                    }}
-                  >
-                    <FileText className="w-8 h-8 text-indigo-400 mb-2 group-hover:scale-110 transition-transform duration-300" />
-                    {scraping ? (
-                      <div className="flex items-center gap-1.5 font-sans">
-                        <div className="w-3.5 h-3.5 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin"></div>
-                        <span className="text-[11px] text-zinc-400">Parsing PDF job description...</span>
-                      </div>
-                    ) : (
-                      <>
-                        <span className="text-xs text-white font-medium">Select JD PDF (5 tokens)</span>
-                        <span className="text-[10px] text-zinc-500 mt-1">Drag and drop here</span>
-                      </>
-                    )}
-                  </label>
+                  {scrapeError && (
+                    <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span>{scrapeError}</span>
+                    </div>
+                  )}
                 </div>
-                {scrapeError && (
-                  <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                    <span>{scrapeError}</span>
-                  </div>
-                )}
-              </div>
-            )}
+              )}
 
-            <div className="flex flex-col gap-1 text-left">
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Job Description (Raw Text)</label>
-              <textarea
-                value={jobDescription}
-                onChange={e => setJobDescription(e.target.value)}
-                placeholder="Paste the target job description or requirements here..."
-                rows={6}
-                className="glass-input p-3 text-xs font-mono w-full resize-none"
-              />
-            </div>
-
-            {/* Context Panel Toggle */}
-            <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3">
-              <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5">
-                <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
-                Additional Details / Overrides
-              </h3>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Salary Expectation</label>
-                  <input
-                    type="text"
-                    value={salaryExpectation}
-                    onChange={e => setSalaryExpectation(e.target.value)}
-                    placeholder="e.g. €85,000 / year"
-                    className="glass-input px-3 py-2 text-xs"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Notice Period / Availability</label>
-                  <input
-                    type="text"
-                    value={noticePeriod}
-                    onChange={e => setNoticePeriod(e.target.value)}
-                    placeholder="e.g. 2 months notice"
-                    className="glass-input px-3 py-2 text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Signing Location</label>
-                  <input
-                    type="text"
-                    value={signingLocation}
-                    onChange={e => setSigningLocation(e.target.value)}
-                    placeholder="e.g. Munich"
-                    className="glass-input px-3 py-2 text-xs"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Custom Focus Notes</label>
-                  <input
-                    type="text"
-                    value={customNotes}
-                    onChange={e => setCustomNotes(e.target.value)}
-                    placeholder="e.g. Highlight AWS, omit old PHP"
-                    className="glass-input px-3 py-2 text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1 mt-3">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase text-left">Overarching Theme / Directive (Optional)</label>
+              <div className="flex flex-col gap-1 text-left">
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Job Description (Raw Text)</label>
                 <textarea
-                  value={themeDirective}
-                  onChange={e => setThemeDirective(e.target.value)}
-                  placeholder="e.g. Focus heavily on my leadership experience and crisis management in the cover letter..."
-                  rows={3}
-                  className="glass-input px-3 py-2 text-xs w-full resize-none"
+                  value={jobDescription}
+                  onChange={e => setJobDescription(e.target.value)}
+                  placeholder="Paste the target job description or requirements here..."
+                  rows={6}
+                  className="glass-input p-3 text-xs font-mono w-full resize-none"
                 />
               </div>
-            </div>
 
-            {/* Missing Assets Prompt */}
-            {profile && (!profile.photo || !profile.signature) && (
-              <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-xl text-xs space-y-1 text-left">
-                <div className="flex items-center gap-1.5 font-bold">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  Missing Profile Assets
-                </div>
-                <p className="text-zinc-400 leading-relaxed">
-                  {!profile.photo && !profile.signature ? (
-                    <>Your profile is missing a <strong>photo</strong> and a <strong>signature</strong> image. Default placeholders will be used on the documents. You can upload them in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
-                  ) : !profile.photo ? (
-                    <>Your profile is missing a <strong>photo</strong>. A placeholder silhouette will be used. You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
-                  ) : (
-                    <>Your profile is missing a <strong>signature</strong>. A demo cursive signature will be used. You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
-                  )}
-                </p>
-              </div>
-            )}
+              {/* Context Panel Toggle */}
+              <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
+                  Additional Details / Overrides
+                </h3>
 
-            <button
-              onClick={handleTailor}
-              disabled={loading}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 disabled:opacity-50"
-            >
-              {loading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  Analyzing Job & Tailoring Documents...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 animate-pulse" />
-                  Tailor CV & Cover Letter (20 tokens)
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Scorecard and Analysis Result */}
-          {result && (
-            <div className="pt-6 border-t border-white/5 space-y-5">
-              <div>
-                <h2 className="text-md font-bold text-white mb-2 flex items-center gap-1.5">
-                  <Award className="w-4 h-4 text-emerald-400" />
-                  AI Match Scorecard & Insights
-                </h2>
-                <div className="flex items-center gap-4 bg-white/[0.02] p-4 rounded-xl border border-white/5">
-                  <div className="relative w-16 h-16 flex items-center justify-center rounded-full border-4 border-zinc-800">
-                    <div className="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin-slow"></div>
-                    <span className="font-extrabold text-white text-lg">{result.matchScore}%</span>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-white text-sm">Keyword/Skill Alignment</h4>
-                    <p className="text-xs text-zinc-400">Based on factual CV entries parsed against target requirements.</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div
-                  className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const skill = e.dataTransfer.getData('text/plain');
-                    handleAddSkillInteractive(skill, true);
-                  }}
-                >
-                  <h4 className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
-                    <Check className="w-3 h-3" /> Matching Keywords
-                  </h4>
-                  <div className="flex flex-wrap gap-1 min-h-[40px] border border-dashed border-emerald-500/10 rounded p-1 items-center">
-                    {result.gapAnalysis.matchingKeywords.map((k, i) => (
-                      <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 flex items-center gap-1.5">
-                        {k}
-                        <button
-                          onClick={() => handleRemoveSkillInteractive(k)}
-                          className="hover:text-rose-450 hover:bg-white/10 rounded-full w-3.5 h-3.5 flex items-center justify-center transition-colors cursor-pointer text-[9px] font-bold"
-                          title={`Remove ${k} from CV`}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
-
-                    {isAddingCustomSkill ? (
-                      <input
-                        type="text"
-                        value={customSkillInput}
-                        onChange={(e) => setCustomSkillInput(e.target.value)}
-                        onBlur={() => {
-                          const val = customSkillInput.trim();
-                          if (val) {
-                            setSkillModal({
-                              isOpen: true,
-                              skillName: val,
-                              isGap: false,
-                              alsoSaveToProfile: true
-                            });
-                          }
-                          setIsAddingCustomSkill(false);
-                          setCustomSkillInput('');
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            const val = customSkillInput.trim();
-                            if (val) {
-                              setSkillModal({
-                                isOpen: true,
-                                skillName: val,
-                                isGap: false,
-                                alsoSaveToProfile: true
-                              });
-                            }
-                            setIsAddingCustomSkill(false);
-                            setCustomSkillInput('');
-                          } else if (e.key === 'Escape') {
-                            setIsAddingCustomSkill(false);
-                            setCustomSkillInput('');
-                          }
-                        }}
-                        autoFocus
-                        placeholder="Type skill..."
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-white w-20 focus:outline-none focus:border-indigo-500"
-                      />
-                    ) : (
-                      <button
-                        onClick={() => setIsAddingCustomSkill(true)}
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/5 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 flex items-center gap-0.5 transition-colors cursor-pointer"
-                        title="Add custom skill"
-                      >
-                        <Plus className="w-2.5 h-2.5" />
-                        Add Skill
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
-                  <h4 className="text-[10px] text-amber-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" /> Missing / Skill Gaps
-                  </h4>
-                  <div className="flex flex-wrap gap-1 min-h-[40px]">
-                    {result.gapAnalysis.missingSkills.length > 0 ? (
-                      result.gapAnalysis.missingSkills.map((s, i) => (
-                        <span
-                          key={i}
-                          draggable={true}
-                          onDragStart={(e) => e.dataTransfer.setData('text/plain', s)}
-                          onClick={() => handleAddSkillInteractive(s, false)}
-                          className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 cursor-pointer hover:bg-amber-500/20 active:scale-95 transition-all select-none"
-                          title="Click or drag to add this skill to your profile"
-                        >
-                          {s}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-[10px] text-zinc-500">Perfect keyword alignment!</span>
-                    )}
-                  </div>
-                  {result.gapAnalysis.missingSkills.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const missing = [...result.gapAnalysis.missingSkills];
-                        missing.forEach(s => handleAddSkillInteractive(s, true));
-                      }}
-                      className="mt-2 w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-amber-500/30 hover:border-amber-500/50"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      Add All Missing Keywords ({result.gapAnalysis.missingSkills.length})
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-xl text-xs space-y-3">
-                <h4 className="font-bold text-indigo-300 border-b border-indigo-500/10 pb-1.5 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                  <Award className="w-4 h-4 text-indigo-400" />
-                  AI Placement Recommendation
-                </h4>
-                {renderRecommendation(result.gapAnalysis.recommendations)}
-              </div>
-
-              {/* Editable Fields Box */}
-              <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] space-y-3">
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider">Quick Inline Editor</h3>
-                <p className="text-[10px] text-zinc-500">Edit details below. The live preview on the right will update in real-time.</p>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400">Personal Contact Detail Header</label>
-                  <input
-                    type="text"
-                    value={result.tailoredCv.personalDetails.fullName}
-                    onChange={e => handleCvDetailsChange('fullName', e.target.value)}
-                    className="glass-input px-3 py-1.5 text-xs"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400">CV Professional Summary</label>
-                  <textarea
-                    value={result.tailoredCv.summary}
-                    onChange={e => handleCvSummaryChange(e.target.value)}
-                    rows={4}
-                    className="glass-input p-2 text-xs resize-none"
-                  />
-                </div>
-
-                {previewTab === 'coverLetter' && getRenderedParagraphs(result.tailoredCoverLetter, clLength).map((para: string, pIdx: number) => (
-                  <div key={pIdx} className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400">Cover Letter Paragraph {pIdx + 1}</label>
-                    <textarea
-                      value={para}
-                      onChange={e => handleClParagraphChange(pIdx, e.target.value)}
-                      rows={4}
-                      className="glass-input p-2 text-xs resize-none"
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Salary Expectation</label>
+                    <input
+                      type="text"
+                      value={salaryExpectation}
+                      onChange={e => setSalaryExpectation(e.target.value)}
+                      placeholder="e.g. €85,000 / year"
+                      className="glass-input px-3 py-2 text-xs"
                     />
                   </div>
-                ))}
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Notice Period / Availability</label>
+                    <input
+                      type="text"
+                      value={noticePeriod}
+                      onChange={e => setNoticePeriod(e.target.value)}
+                      placeholder="e.g. 2 months notice"
+                      className="glass-input px-3 py-2 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Signing Location</label>
+                    <input
+                      type="text"
+                      value={signingLocation}
+                      onChange={e => setSigningLocation(e.target.value)}
+                      placeholder="e.g. Munich"
+                      className="glass-input px-3 py-2 text-xs"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Custom Focus Notes</label>
+                    <input
+                      type="text"
+                      value={customNotes}
+                      onChange={e => setCustomNotes(e.target.value)}
+                      placeholder="e.g. Highlight AWS, omit old PHP"
+                      className="glass-input px-3 py-2 text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1 mt-3">
+                  <label className="text-[10px] text-zinc-400 font-semibold uppercase text-left">Overarching Theme / Directive (Optional)</label>
+                  <textarea
+                    value={themeDirective}
+                    onChange={e => setThemeDirective(e.target.value)}
+                    placeholder="e.g. Focus heavily on my leadership experience and crisis management in the cover letter..."
+                    rows={3}
+                    className="glass-input px-3 py-2 text-xs w-full resize-none"
+                  />
+                </div>
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={saveToApplicationsTracker}
-                  disabled={isSaving}
-                  className="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  {isSaving ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      {editingAppId ? 'Updating...' : 'Saving...'}
-                    </>
-                  ) : saveSuccess ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      {editingAppId ? 'Updated in Tracker!' : 'Saved to Tracker!'}
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-3.5 h-3.5" />
-                      {editingAppId ? 'Update Tracked Application' : 'Save Application Tracker'}
-                    </>
-                  )}
-                </button>
-              </div>
+              {/* Missing Assets Prompt */}
+              {profile && (!profile.photo || !profile.signature) && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-xl text-xs space-y-1 text-left">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    Missing Profile Assets
+                  </div>
+                  <p className="text-zinc-400 leading-relaxed">
+                    {!profile.photo && !profile.signature ? (
+                      <>Your profile is missing a <strong>photo</strong> and a <strong>signature</strong> image. Default placeholders will be used on the documents. You can upload them in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
+                    ) : !profile.photo ? (
+                      <>Your profile is missing a <strong>photo</strong>. A placeholder silhouette will be used. You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
+                    ) : (
+                      <>Your profile is missing a <strong>signature</strong>. A demo cursive signature will be used. You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
+                    )}
+                  </p>
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleTailor}
+                disabled={loading}
+                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    Analyzing Job &amp; Tailoring Documents...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 animate-pulse" />
+                    Tailor CV &amp; Cover Letter (20 tokens)
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* TAB 2: ATS SCORES & INTELLIGENCE */}
+          {sidePanelTab === 'ats' && (
+            <div className="space-y-5 animate-in fade-in duration-200">
+              {!result ? (
+                <div className="p-8 border border-white/5 bg-zinc-900/30 rounded-2xl text-center space-y-4">
+                  <div className="w-12 h-12 rounded-full bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto border border-indigo-500/20">
+                    <Award className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-sm">No ATS Analysis Yet</h3>
+                    <p className="text-xs text-zinc-400 leading-relaxed mt-1">
+                      Fill out your target job details in the <strong>Generation</strong> tab and click <strong>Tailor CV &amp; Cover Letter</strong> to compute live keyword matching, score breakdowns, and actionable recommendations.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSidePanelTab('generation')}
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs cursor-pointer shadow-md transition-all"
+                  >
+                    Go to Generation Tab
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  <div>
+                    <h2 className="text-md font-bold text-white mb-2 flex items-center gap-1.5">
+                      <Award className="w-4 h-4 text-emerald-400" />
+                      AI Match Scorecard &amp; Insights
+                    </h2>
+                    <div className="flex items-center gap-4 bg-white/[0.02] p-4 rounded-xl border border-white/5">
+                      <div className="relative w-16 h-16 flex items-center justify-center rounded-full border-4 border-zinc-800 shrink-0">
+                        <div className="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin-slow"></div>
+                        <span className="font-extrabold text-white text-lg">{result.matchScore}%</span>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-white text-sm">Keyword / Skill Alignment</h4>
+                        <p className="text-xs text-zinc-400">Based on factual CV entries parsed against target requirements.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div
+                      className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-xl"
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const skill = e.dataTransfer.getData('text/plain');
+                        handleAddSkillInteractive(skill, true);
+                      }}
+                    >
+                      <h4 className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Matching Keywords
+                      </h4>
+                      <div className="flex flex-wrap gap-1 min-h-[40px] border border-dashed border-emerald-500/10 rounded p-1 items-center">
+                        {result.gapAnalysis.matchingKeywords.map((k, i) => (
+                          <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 flex items-center gap-1.5">
+                            {k}
+                            <button
+                              onClick={() => handleRemoveSkillInteractive(k)}
+                              className="hover:text-rose-400 hover:bg-white/10 rounded-full w-3.5 h-3.5 flex items-center justify-center transition-colors cursor-pointer text-[9px] font-bold"
+                              title={`Remove ${k} from CV`}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+
+                        {isAddingCustomSkill ? (
+                          <input
+                            type="text"
+                            value={customSkillInput}
+                            onChange={(e) => setCustomSkillInput(e.target.value)}
+                            onBlur={() => {
+                              const val = customSkillInput.trim();
+                              if (val) {
+                                setSkillModal({
+                                  isOpen: true,
+                                  skillName: val,
+                                  isGap: false,
+                                  alsoSaveToProfile: true
+                                });
+                              }
+                              setIsAddingCustomSkill(false);
+                              setCustomSkillInput('');
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                const val = customSkillInput.trim();
+                                if (val) {
+                                  setSkillModal({
+                                    isOpen: true,
+                                    skillName: val,
+                                    isGap: false,
+                                    alsoSaveToProfile: true
+                                  });
+                                }
+                                setIsAddingCustomSkill(false);
+                                setCustomSkillInput('');
+                              } else if (e.key === 'Escape') {
+                                setIsAddingCustomSkill(false);
+                                setCustomSkillInput('');
+                              }
+                            }}
+                            autoFocus
+                            placeholder="Type skill..."
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-white w-20 focus:outline-none focus:border-indigo-500"
+                          />
+                        ) : (
+                          <button
+                            onClick={() => setIsAddingCustomSkill(true)}
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/5 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 flex items-center gap-0.5 transition-colors cursor-pointer"
+                            title="Add custom skill"
+                          >
+                            <Plus className="w-2.5 h-2.5" />
+                            Add Skill
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
+                      <h4 className="text-[10px] text-amber-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" /> Missing / Skill Gaps
+                      </h4>
+                      <div className="flex flex-wrap gap-1 min-h-[40px]">
+                        {result.gapAnalysis.missingSkills.length > 0 ? (
+                          result.gapAnalysis.missingSkills.map((s, i) => (
+                            <span
+                              key={i}
+                              draggable={true}
+                              onDragStart={(e) => e.dataTransfer.setData('text/plain', s)}
+                              onClick={() => handleAddSkillInteractive(s, false)}
+                              className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 cursor-pointer hover:bg-amber-500/20 active:scale-95 transition-all select-none"
+                              title="Click or drag to add this skill to your profile"
+                            >
+                              {s}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-[10px] text-zinc-500">Perfect keyword alignment!</span>
+                        )}
+                      </div>
+                      {result.gapAnalysis.missingSkills.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const missing = [...result.gapAnalysis.missingSkills];
+                            missing.forEach(s => handleAddSkillInteractive(s, true));
+                          }}
+                          className="mt-2 w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-amber-500/30 hover:border-amber-500/50"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Add All Missing Keywords ({result.gapAnalysis.missingSkills.length})
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-xl text-xs space-y-3">
+                    <h4 className="font-bold text-indigo-300 border-b border-indigo-500/10 pb-1.5 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                      <Award className="w-4 h-4 text-indigo-400" />
+                      AI Placement Recommendation
+                    </h4>
+                    {renderRecommendation(result.gapAnalysis.recommendations)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: CUSTOMIZATION & SPACING */}
+          {sidePanelTab === 'customization' && (
+            <div className="animate-in fade-in duration-200">
+              <SectionControlsPanel
+                result={result}
+                setResult={setResult}
+                profile={profile}
+                setProfile={setProfile}
+                sectionOrder={sectionOrder}
+                setSectionOrder={setSectionOrder}
+                hiddenSections={hiddenSections}
+                setHiddenSections={setHiddenSections}
+                selectedProjects={selectedProjects}
+                setSelectedProjects={setSelectedProjects}
+                showSignatureSection={showSignatureSection}
+                setShowSignatureSection={setShowSignatureSection}
+                showSignatureImage={showSignatureImage}
+                setShowSignatureImage={setShowSignatureImage}
+                signingLocation={signingLocation}
+                setSigningLocation={setSigningLocation}
+                customSections={customSections}
+                setCustomSections={setCustomSections}
+                cvLanguage={cvLanguage}
+                clLanguage={clLanguage}
+                fontSize={fontSize}
+                setFontSize={setFontSize}
+                sectionSpacing={sectionSpacing}
+                setSectionSpacing={setSectionSpacing}
+                headerSpacing={headerSpacing}
+                setHeaderSpacing={setHeaderSpacing}
+                pagePaddingTop={pagePaddingTop}
+                setPagePaddingTop={setPagePaddingTop}
+                pagePaddingBottom={pagePaddingBottom}
+                setPagePaddingBottom={setPagePaddingBottom}
+                pagePaddingSide={pagePaddingSide}
+                setPagePaddingSide={setPagePaddingSide}
+                bulletSpacing={bulletSpacing}
+                setBulletSpacing={setBulletSpacing}
+                signatureSpacing={signatureSpacing}
+                setSignatureSpacing={setSignatureSpacing}
+                applyPreset={applyPreset}
+                skillsLayout={skillsLayout}
+                setSkillsLayout={setSkillsLayout}
+                handleOpenRegenModal={handleOpenRegenModal}
+                handleFetchBulletVariations={handleFetchBulletVariations}
+                handleFetchProjectVariations={handleFetchProjectVariations}
+                showAlert={showAlert}
+              />
             </div>
           )}
         </div>
@@ -5124,118 +5243,336 @@ export default function TailorWorkspace() {
         {/* Right Preview Pane: Col 7 */}
         <div className={`w-full col-span-1 lg:col-span-7 bg-[var(--layout-surface-card-bg)]/30 flex flex-col overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] ${activeMobileTab === 'preview' ? 'block' : 'hidden lg:block'
           }`}>
-          {/* Multi-Row Responsive Toolbar */}
-          <div className="sticky top-[49px] sm:top-0 z-20 no-print flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-3 sm:px-6 py-2.5 sm:py-3 bg-[var(--layout-surface-panel-bg)] border-b border-white/5 font-sans">
-            {/* Top Row / Left Group: Document Tabs & Layout Modes */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-wrap w-full sm:w-auto">
-              <div className="flex gap-1.5 font-sans w-full sm:w-auto">
-                <button
-                  onClick={() => setPreviewTab('cv')}
-                  className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${previewTab === 'cv'
-                    ? 'bg-zinc-800 text-white'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                    }`}
-                >
-                  Tailored {cvLanguage === 'DE' ? 'Lebenslauf' : 'Resume'}
-                </button>
-                <button
-                  onClick={() => setPreviewTab('coverLetter')}
-                  className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${previewTab === 'coverLetter'
-                    ? 'bg-zinc-800 text-white'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                    }`}
-                >
-                  Tailored {clLanguage === 'DE' ? 'Anschreiben' : 'Cover Letter'}
-                </button>
+          {/* Multi-Row Sticky Responsive Toolbar */}
+          <div className="sticky top-[49px] sm:top-0 z-40 no-print flex flex-col gap-2.5 px-3 sm:px-6 py-2.5 sm:py-3 bg-[var(--layout-surface-panel-bg)]/95 backdrop-blur-md border-b border-white/5 font-sans">
+            {/* Top Row: Document Tabs & Layout Modes & Export Button */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-wrap w-full sm:w-auto">
+                <div className="flex gap-1.5 font-sans w-full sm:w-auto">
+                  <button
+                    onClick={() => setPreviewTab('cv')}
+                    className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${previewTab === 'cv'
+                      ? 'bg-zinc-800 text-white'
+                      : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                      }`}
+                  >
+                    Tailored {cvLanguage === 'DE' ? 'Lebenslauf' : 'Resume'}
+                  </button>
+                  <button
+                    onClick={() => setPreviewTab('coverLetter')}
+                    className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${previewTab === 'coverLetter'
+                      ? 'bg-zinc-800 text-white'
+                      : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                      }`}
+                  >
+                    Tailored {clLanguage === 'DE' ? 'Anschreiben' : 'Cover Letter'}
+                  </button>
+                </div>
+
+                <div className="flex bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-0.5 font-sans w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => setIsAtsMode(false)}
+                    className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${!isAtsMode
+                      ? 'bg-zinc-800 text-white shadow-sm'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                  >
+                    Visual Layout (Standard)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAtsMode(true)}
+                    className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${isAtsMode
+                      ? 'bg-zinc-800 text-white shadow-sm'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                  >
+                    Strict ATS Layout
+                  </button>
+                </div>
               </div>
 
-              <div className="flex bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-0.5 font-sans w-full sm:w-auto">
-                <button
-                  type="button"
-                  onClick={() => setIsAtsMode(false)}
-                  className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${!isAtsMode
-                    ? 'bg-zinc-800 text-white shadow-sm'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                    }`}
-                >
-                  Visual Layout (Standard)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsAtsMode(true)}
-                  className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${isAtsMode
-                    ? 'bg-zinc-800 text-white shadow-sm'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                    }`}
-                >
-                  Strict ATS Layout
-                </button>
+              {/* Top Row Right: Height badge & Export Format button */}
+              <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-1.5 sm:pt-0 border-t sm:border-t-0 border-white/5">
+                {result && (
+                  <span className="text-[10px] font-semibold px-2 py-1 rounded-md bg-zinc-900 border border-white/5 flex items-center gap-1.5 font-sans">
+                    <span>Height:</span>
+                    <span className={numPages > 1 ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"}>
+                      {numPages} {numPages === 1 ? 'Page' : 'Pages'}
+                    </span>
+                    {numPages > 1 && lengthTarget === 'Strict 1-Page (concise)' && previewTab === 'cv' && (
+                      <span className="hidden md:inline text-amber-500 font-normal">
+                        (Spillover warning: try reducing bullets to fit on 1 Page)
+                      </span>
+                    )}
+                  </span>
+                )}
+
+                {result && (
+                  <div className="relative no-print font-sans z-50">
+                    <button
+                      onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
+                      className="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Export Format</span>
+                    </button>
+
+                    {exportDropdownOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setExportDropdownOpen(false)}></div>
+                        <div className="absolute right-0 mt-2 w-56 bg-zinc-900 border border-white/15 rounded-xl shadow-2xl z-50 py-1.5 text-xs text-zinc-300 backdrop-blur-xl">
+                          <button
+                            onClick={() => {
+                              setExportDropdownOpen(false);
+                              handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl');
+                            }}
+                            className="w-full text-left px-4 py-2 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                            <span>Download PDF Document (.pdf)</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setExportDropdownOpen(false);
+                              handleExportWord();
+                            }}
+                            className="w-full text-left px-4 py-2 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2"
+                          >
+                            <Download className="w-3.5 h-3.5 text-blue-400" />
+                            <span>Download MS Word Document (.doc)</span>
+                          </button>
+                          <button
+                            onClick={() => {
+                              setExportDropdownOpen(false);
+                              handleExportText();
+                            }}
+                            className="w-full text-left px-4 py-2 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-zinc-400" />
+                            <span>Download Plain Text (.txt)</span>
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Bottom Row / Right Group: Height badge & Export Format button */}
-            <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-1.5 sm:pt-0 border-t sm:border-t-0 border-white/5">
-              {result && (
-                <span className="text-[10px] font-semibold px-2 py-1 rounded-md bg-zinc-900 border border-white/5 flex items-center gap-1.5 font-sans">
-                  <span>Height:</span>
-                  <span className={numPages > 1 ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"}>
-                    {numPages} {numPages === 1 ? 'Page' : 'Pages'}
-                  </span>
-                  {numPages > 1 && lengthTarget === 'Strict 1-Page (concise)' && previewTab === 'cv' && (
-                    <span className="hidden md:inline text-amber-500 font-normal">
-                      (Spillover warning: try reducing bullets to fit on 1 Page)
-                    </span>
-                  )}
-                </span>
-              )}
+            {/* Row 2: Layout Presets & ATS Toolbar (Sticky on top of document) */}
+            {result && previewTab === 'cv' && (
+              <div className="pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-2.5 text-white font-sans text-xs">
+                {/* Left Group: Layout & Spacing Presets */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5 text-indigo-400" />
+                    <span className="font-semibold text-zinc-300 text-[11px]">Spacing:</span>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('default')}
+                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                      >
+                        Default
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('compact')}
+                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                      >
+                        Compact
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('tight')}
+                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                      >
+                        Ultra-Tight
+                      </button>
+                    </div>
+                  </div>
 
-              {result && (
-                <div className="relative no-print font-sans">
+                  {/* Section Layout Order Dropdown */}
+                  <div className="flex items-center gap-1.5 border-l border-zinc-700/60 pl-3">
+                    <span className="font-semibold text-zinc-400 text-[10px]">Layout:</span>
+                    <select
+                      value={
+                        sectionOrder[1] === 'work' ? 'work' : sectionOrder[1] === 'skills' ? 'skills' : 'education'
+                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === 'work') setSectionOrder(['summary', 'work', 'projects', 'education', 'skills', 'languages']);
+                        else if (val === 'skills') setSectionOrder(['summary', 'skills', 'projects', 'work', 'education', 'languages']);
+                        else if (val === 'education') setSectionOrder(['summary', 'education', 'work', 'projects', 'skills', 'languages']);
+                      }}
+                      className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    >
+                      <option value="work">Work-First</option>
+                      <option value="skills">Tech-First</option>
+                      <option value="education">Academic-First</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Right Group: ATS Highlights, Compare & Fine-Tune Popover */}
+                <div className="flex items-center gap-2 flex-wrap relative">
                   <button
-                    onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
-                    className="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 flex items-center gap-1.5 transition-colors cursor-pointer"
+                    type="button"
+                    onClick={() => setIsCompareModalOpen(true)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer shadow-sm"
+                    title="Compare Master Profile text side-by-side with Tailored Document"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Export Format</span>
+                    <GitCompare className="w-3 h-3 text-indigo-400" />
+                    <span>⚖️ Compare</span>
                   </button>
 
-                  {exportDropdownOpen && (
-                    <>
-                      <div className="fixed inset-0 z-20" onClick={() => setExportDropdownOpen(false)}></div>
-                      <div className="absolute right-0 mt-2 w-52 bg-[var(--layout-surface-panel-bg)] border border-white/10 rounded-xl shadow-xl z-30 py-1.5 text-xs text-zinc-300">
+                  <button
+                    type="button"
+                    onClick={() => setIsAtsHighlightEnabled((prev) => !prev)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${isAtsHighlightEnabled
+                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
+                      : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
+                      }`}
+                    title="Highlight ATS Job Description keywords in preview text"
+                  >
+                    <Target className="w-3 h-3 text-emerald-400" />
+                    <span>ATS Highlights {isAtsHighlightEnabled ? '(ON)' : '(OFF)'}</span>
+                  </button>
+
+                  {(() => {
+                    const stats = getAtsMatchStats();
+                    if (!stats) return null;
+                    const colorClass = stats.percentage >= 75
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                      : stats.percentage >= 50
+                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                        : 'bg-rose-500/10 border-rose-500/30 text-rose-300';
+                    return (
+                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold ${colorClass}`} title={`${stats.matched} matched out of ${stats.total} total extracted job keywords`}>
+                        <span>ATS: {stats.matched}/{stats.total} ({stats.percentage}%)</span>
+                      </div>
+                    );
+                  })()}
+
+                  <button
+                    type="button"
+                    onClick={() => setIsAdjustSpacingOpen((prev) => !prev)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${isAdjustSpacingOpen
+                      ? 'bg-indigo-600 text-white border-indigo-500 shadow-md'
+                      : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
+                      }`}
+                    title="Fine-tune exact pixel spacing and margins"
+                  >
+                    <Sliders className="w-3 h-3 text-indigo-400" />
+                    <span>⚙️ Fine-Tune</span>
+                  </button>
+
+                  {/* Fine-Tune Spacing Floating Popover */}
+                  {isAdjustSpacingOpen && (
+                    <div className="absolute right-0 top-9 z-50 bg-zinc-900/98 border border-zinc-700/90 rounded-2xl p-4 shadow-2xl backdrop-blur-xl text-xs text-white w-80 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                        <span className="font-bold text-indigo-300 text-[11px] uppercase tracking-wider flex items-center gap-1">
+                          <Sliders className="w-3.5 h-3.5 text-indigo-400" />
+                          Fine-Tune Page Spacing (Live)
+                        </span>
                         <button
-                          onClick={() => {
-                            setExportDropdownOpen(false);
-                            handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl');
-                          }}
-                          className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
+                          type="button"
+                          onClick={() => setIsAdjustSpacingOpen(false)}
+                          className="text-zinc-400 hover:text-white p-0.5 rounded hover:bg-zinc-800 cursor-pointer"
                         >
-                          Download PDF Document (.pdf)
-                        </button>
-                        <button
-                          onClick={() => {
-                            setExportDropdownOpen(false);
-                            handleExportWord();
-                          }}
-                          className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-                        >
-                          Download MS Word Document (.doc)
-                        </button>
-                        <button
-                          onClick={() => {
-                            setExportDropdownOpen(false);
-                            handleExportText();
-                          }}
-                          className="w-full text-left px-4 py-2 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
-                        >
-                          Download Plain Text (.txt)
+                          <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                    </>
+
+                      <div className="space-y-2.5 text-[11px]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-zinc-400">Section Spacing:</span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range"
+                              min="4"
+                              max="36"
+                              value={sectionSpacing}
+                              onChange={e => setSectionSpacing(parseInt(e.target.value))}
+                              className="w-24 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            />
+                            <span className="text-zinc-200 font-semibold w-8 text-right">{sectionSpacing}px</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-zinc-400">Header Gap:</span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range"
+                              min="2"
+                              max="32"
+                              value={headerSpacing}
+                              onChange={e => setHeaderSpacing(parseInt(e.target.value))}
+                              className="w-24 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            />
+                            <span className="text-zinc-200 font-semibold w-8 text-right">{headerSpacing}px</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-zinc-400">Font Size:</span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range"
+                              min="9"
+                              max="14"
+                              step="0.5"
+                              value={fontSize}
+                              onChange={e => setFontSize(parseFloat(e.target.value))}
+                              className="w-24 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            />
+                            <span className="text-zinc-200 font-semibold w-8 text-right">{fontSize}px</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-zinc-400">Bullet Spacing:</span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range"
+                              min="1"
+                              max="14"
+                              value={bulletSpacing}
+                              onChange={e => setBulletSpacing(parseInt(e.target.value))}
+                              className="w-24 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            />
+                            <span className="text-zinc-200 font-semibold w-8 text-right">{bulletSpacing}px</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-zinc-400">Page Margins:</span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="range"
+                              min="10"
+                              max="40"
+                              value={pagePaddingTop}
+                              onChange={e => {
+                                const val = parseInt(e.target.value);
+                                setPagePaddingTop(val);
+                                setPagePaddingBottom(Math.max(10, Math.floor(val * 0.7)));
+                                setPagePaddingSide(Math.max(10, Math.floor(val * 0.85)));
+                              }}
+                              className="w-24 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                            />
+                            <span className="text-zinc-200 font-semibold w-8 text-right">{pagePaddingTop}mm</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Real-time page overflow alert */}
@@ -5258,204 +5595,6 @@ export default function TailorWorkspace() {
             {result ? (
               <div className="w-full max-w-full sm:max-w-[210mm] flex flex-col items-center">
 
-                {/* Clean Restructured Customization Toolbar */}
-                {previewTab === 'cv' && (
-                  <div className="w-full no-print mb-4 p-3 bg-zinc-900/90 border border-zinc-700/80 rounded-xl flex flex-wrap items-center justify-between gap-3 text-white font-sans text-xs shadow-lg backdrop-blur-md relative z-20">
-                    {/* Left Group: Layout & Spacing Presets */}
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <div className="flex items-center gap-1.5">
-                        <Sliders className="w-4 h-4 text-indigo-400" />
-                        <span className="font-semibold text-zinc-300">Spacing:</span>
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            onClick={() => applyPreset('default')}
-                            className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
-                          >
-                            Default
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => applyPreset('compact')}
-                            className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
-                          >
-                            Compact
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => applyPreset('tight')}
-                            className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
-                          >
-                            Ultra-Tight
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Section Layout Order Dropdown */}
-                      <div className="flex items-center gap-1.5 border-l border-zinc-700/60 pl-3">
-                        <span className="font-semibold text-zinc-400 text-[10px]">Layout Order:</span>
-                        <select
-                          value={
-                            sectionOrder[1] === 'work' ? 'work' : sectionOrder[1] === 'skills' ? 'skills' : 'education'
-                          }
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (val === 'work') setSectionOrder(['summary', 'work', 'projects', 'education', 'skills', 'languages']);
-                            else if (val === 'skills') setSectionOrder(['summary', 'skills', 'projects', 'work', 'education', 'languages']);
-                            else if (val === 'education') setSectionOrder(['summary', 'education', 'work', 'projects', 'skills', 'languages']);
-                          }}
-                          className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                        >
-                          <option value="work">Work-First</option>
-                          <option value="skills">Tech & Skills First</option>
-                          <option value="education">Academic-First</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Right Group: ATS Intelligence + Comparer + Fine-Tune Popover Button */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => setIsCompareModalOpen(true)}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer shadow-sm"
-                        title="Compare Master Profile text side-by-side with Tailored Document"
-                      >
-                        <GitCompare className="w-3 h-3 text-indigo-400" />
-                        <span>⚖️ Compare</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setIsAtsHighlightEnabled((prev) => !prev)}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${isAtsHighlightEnabled
-                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
-                          : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
-                          }`}
-                        title="Highlight ATS Job Description keywords in preview text"
-                      >
-                        <Target className="w-3 h-3 text-emerald-400" />
-                        <span>ATS Highlights {isAtsHighlightEnabled ? '(ON)' : '(OFF)'}</span>
-                      </button>
-
-                      {(() => {
-                        const stats = getAtsMatchStats();
-                        if (!stats) return null;
-                        const colorClass = stats.percentage >= 75
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                          : stats.percentage >= 50
-                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
-                            : 'bg-rose-500/10 border-rose-500/30 text-rose-300';
-                        return (
-                          <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold ${colorClass}`} title={`${stats.matched} matched out of ${stats.total} total extracted job keywords`}>
-                            <span>ATS Match: {stats.matched}/{stats.total} ({stats.percentage}%)</span>
-                          </div>
-                        );
-                      })()}
-
-                      {/* Fine-Tune Spacing Popover Toggle */}
-                      <button
-                        type="button"
-                        onClick={() => setIsAdjustSpacingOpen((prev) => !prev)}
-                        className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${isAdjustSpacingOpen
-                          ? 'bg-indigo-600 text-white border-indigo-500 shadow-md'
-                          : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
-                          }`}
-                        title="Fine-tune exact pixel spacing and margins"
-                      >
-                        <Sliders className="w-3 h-3 text-indigo-400" />
-                        <span>⚙️ Fine-Tune Spacing</span>
-                      </button>
-                    </div>
-
-                    {/* Non-modal Floating Popover for Fine-Tune Spacing Sliders */}
-                    {isAdjustSpacingOpen && (
-                      <div className="absolute right-0 top-14 z-40 bg-zinc-900/95 border border-zinc-700/90 rounded-xl p-4 shadow-2xl backdrop-blur-md text-xs text-white w-80 space-y-3 animate-in fade-in zoom-in-95 duration-150">
-                        <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                          <span className="font-bold text-indigo-300 text-[11px] uppercase tracking-wider flex items-center gap-1">
-                            <Sliders className="w-3.5 h-3.5 text-indigo-400" />
-                            Fine-Tune Page Spacing (Live)
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setIsAdjustSpacingOpen(false)}
-                            className="text-zinc-400 hover:text-white p-0.5 rounded hover:bg-zinc-800 cursor-pointer"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-
-                        <div className="space-y-2.5 text-[11px]">
-                          <div className="flex items-center justify-between">
-                            <span className="text-zinc-400">Section Spacing:</span>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="range"
-                                min="4"
-                                max="36"
-                                value={sectionSpacing}
-                                onChange={e => setSectionSpacing(parseInt(e.target.value))}
-                                className="w-24 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                              />
-                              <span className="text-zinc-200 font-semibold w-8 text-right">{sectionSpacing}px</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <span className="text-zinc-400">Header Gap:</span>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="range"
-                                min="2"
-                                max="32"
-                                value={headerSpacing}
-                                onChange={e => setHeaderSpacing(parseInt(e.target.value))}
-                                className="w-24 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                              />
-                              <span className="text-zinc-200 font-semibold w-8 text-right">{headerSpacing}px</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <span className="text-zinc-400">Font Size:</span>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="range"
-                                min="9.5"
-                                max="13"
-                                step="0.1"
-                                value={fontSize}
-                                onChange={e => setFontSize(parseFloat(e.target.value))}
-                                className="w-24 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                              />
-                              <span className="text-zinc-200 font-semibold w-8 text-right">{fontSize}px</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <span className="text-zinc-400">Page Margins:</span>
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="range"
-                                min="10"
-                                max="40"
-                                value={pagePaddingTop}
-                                onChange={e => {
-                                  const val = parseInt(e.target.value);
-                                  setPagePaddingTop(val);
-                                  setPagePaddingBottom(Math.max(10, Math.floor(val * 0.7)));
-                                  setPagePaddingSide(Math.max(10, Math.floor(val * 0.85)));
-                                }}
-                                className="w-24 h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
-                              />
-                              <span className="text-zinc-200 font-semibold w-8 text-right">{pagePaddingTop}mm</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
 
                 {/* Hidden Sections Unhide Banner */}
                 {hiddenSections.length > 0 && (

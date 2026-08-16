@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { 
-  User, Briefcase, GraduationCap, Code2, Globe2, Plus, Trash2, Save, Sparkles, CheckCircle2, RefreshCw, FileText, FolderGit, Pencil 
+  User, Briefcase, GraduationCap, Code2, Globe2, Plus, Trash2, Save, Sparkles, CheckCircle2, RefreshCw, FileText, FolderGit, Pencil,
+  Layers, AlignLeft, List, Tag, ChevronUp, ChevronDown, Check, X
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { classifySkillCategory, SKILL_CATEGORIES } from '@/lib/skills';
+import { CustomSection, CustomSectionType, CustomSectionItem, CustomSectionSubgroup, createDefaultCustomSection } from '@/lib/customSections';
 import { useTokens } from '@/context/TokenContext';
 import { useAlertModal } from '@/context/AlertModalContext';
 
@@ -64,6 +66,7 @@ interface UserProfile {
   skills: Skill[];
   languages: Language[];
   projects?: Project[];
+  customSections?: CustomSection[];
 }
 
 const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'Native', 'Muttersprache'];
@@ -87,12 +90,16 @@ export default function ProfileVault() {
     education: [],
     skills: [],
     languages: [],
-    projects: []
+    projects: [],
+    customSections: []
   });
 
-  const [activeTab, setActiveTab] = useState<'personal' | 'experience' | 'education' | 'skills' | 'projects'>('personal');
+  const [activeTab, setActiveTab] = useState<'personal' | 'experience' | 'education' | 'skills' | 'projects' | 'custom'>('personal');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [newCustomSecTitle, setNewCustomSecTitle] = useState('');
+  const [newCustomSecType, setNewCustomSecType] = useState<CustomSectionType>('bullet-list');
+  const [showAddCustomModal, setShowAddCustomModal] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const { setIsTokenModalOpen, fetchTokens } = useTokens();
   const { showAlert } = useAlertModal();
@@ -875,6 +882,23 @@ export default function ProfileVault() {
           >
             <FolderGit className="w-4 h-4" />
             <span>Project Works</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('custom')}
+            className={`w-full text-left px-4 py-3.5 rounded-xl flex items-center gap-3 transition-all duration-300 border ${
+              activeTab === 'custom'
+                ? 'bg-indigo-600/15 border-indigo-500/30 text-white font-semibold shadow-inner'
+                : 'border-transparent text-zinc-400 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <Layers className="w-4 h-4 text-indigo-400" />
+            <span className="flex-1">Custom Sections</span>
+            {profile.customSections && profile.customSections.length > 0 && (
+              <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-bold">
+                {profile.customSections.length}
+              </span>
+            )}
           </button>
         </div>
 
@@ -1767,8 +1791,559 @@ export default function ProfileVault() {
             </div>
           )}
 
+          {/* TAB 6: Custom Sections */}
+          {activeTab === 'custom' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/5">
+                <div>
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Layers className="w-5 h-5 text-indigo-400" />
+                    Custom Profile Sections
+                  </h2>
+                  <p className="text-zinc-400 text-xs mt-0.5 font-sans">
+                    Create custom sections (e.g. Certifications, Publications, Volunteering, Custom Badges) to include in tailored CVs.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewCustomSecTitle('');
+                    setNewCustomSecType('bullet-list');
+                    setShowAddCustomModal(true);
+                  }}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/20 cursor-pointer transition-all self-start sm:self-auto"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add New Section</span>
+                </button>
+              </div>
+
+              {/* Sections List */}
+              {(!profile.customSections || profile.customSections.length === 0) ? (
+                <div className="p-8 text-center border border-dashed border-white/10 rounded-2xl bg-white/[0.01]">
+                  <Layers className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
+                  <h4 className="text-sm font-bold text-zinc-300">No Custom Sections Created Yet</h4>
+                  <p className="text-xs text-zinc-500 max-w-md mx-auto mt-1 font-sans">
+                    Add custom sections to highlight specialized domains like Certifications, Patents, Volunteering, or Custom Skill Matrices.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewCustomSecTitle('');
+                      setNewCustomSecType('bullet-list');
+                      setShowAddCustomModal(true);
+                    }}
+                    className="mt-4 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-indigo-400 text-xs font-semibold rounded-lg inline-flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Create First Section
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {profile.customSections.map((sec, secIdx) => (
+                    <div
+                      key={sec.id}
+                      className="p-5 rounded-2xl bg-zinc-950/60 border border-white/10 space-y-4 hover:border-zinc-700/80 transition-colors font-sans"
+                    >
+                      {/* Section Header Controls */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <input
+                            type="text"
+                            value={sec.title}
+                            onChange={(e) => {
+                              const updated = [...(profile.customSections || [])];
+                              updated[secIdx] = { ...updated[secIdx], title: e.target.value };
+                              setProfile(prev => ({ ...prev, customSections: updated }));
+                            }}
+                            placeholder="Section Title..."
+                            className="bg-zinc-900 border border-zinc-700/80 rounded-lg px-3 py-1.5 text-sm font-bold text-white focus:outline-none focus:border-indigo-500 min-w-[200px]"
+                          />
+                          <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold uppercase tracking-wider bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                            {sec.type === 'bullet-list' ? 'Bullet List' : sec.type === 'paragraph' ? 'Paragraph Text' : sec.type === 'subgroup-chips' ? 'Subgroup Badges' : 'Structured Items'}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                          <button
+                            type="button"
+                            disabled={secIdx === 0}
+                            onClick={() => {
+                              const updated = [...(profile.customSections || [])];
+                              const temp = updated[secIdx];
+                              updated[secIdx] = updated[secIdx - 1];
+                              updated[secIdx - 1] = temp;
+                              setProfile(prev => ({ ...prev, customSections: updated }));
+                            }}
+                            className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white disabled:opacity-30 cursor-pointer transition-colors"
+                            title="Move Section Up"
+                          >
+                            <ChevronUp className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={secIdx === (profile.customSections || []).length - 1}
+                            onClick={() => {
+                              const updated = [...(profile.customSections || [])];
+                              const temp = updated[secIdx];
+                              updated[secIdx] = updated[secIdx + 1];
+                              updated[secIdx + 1] = temp;
+                              setProfile(prev => ({ ...prev, customSections: updated }));
+                            }}
+                            className="p-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-white disabled:opacity-30 cursor-pointer transition-colors"
+                            title="Move Section Down"
+                          >
+                            <ChevronDown className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = (profile.customSections || []).filter((_, i) => i !== secIdx);
+                              setProfile(prev => ({ ...prev, customSections: updated }));
+                            }}
+                            className="p-1.5 rounded-lg bg-zinc-900 hover:bg-rose-500/20 text-zinc-400 hover:text-rose-400 cursor-pointer transition-colors"
+                            title="Delete Section"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Layout Type 1: Bullet List */}
+                      {sec.type === 'bullet-list' && (
+                        <div className="space-y-2.5">
+                          {(sec.bullets || []).map((b, bIdx) => (
+                            <div key={bIdx} className="flex items-start gap-2 group">
+                              <span className="text-zinc-500 text-xs mt-2 select-none">•</span>
+                              <input
+                                type="text"
+                                value={b}
+                                onChange={(e) => {
+                                  const updated = [...(profile.customSections || [])];
+                                  const bullets = [...(updated[secIdx].bullets || [])];
+                                  bullets[bIdx] = e.target.value;
+                                  updated[secIdx] = { ...updated[secIdx], bullets };
+                                  setProfile(prev => ({ ...prev, customSections: updated }));
+                                }}
+                                placeholder="Achievement, certification, or detail..."
+                                className="glass-input px-3 py-1.5 w-full text-xs text-white"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = [...(profile.customSections || [])];
+                                  const bullets = (updated[secIdx].bullets || []).filter((_, i) => i !== bIdx);
+                                  updated[secIdx] = { ...updated[secIdx], bullets };
+                                  setProfile(prev => ({ ...prev, customSections: updated }));
+                                }}
+                                className="p-1 text-zinc-600 hover:text-rose-400 mt-1 cursor-pointer transition-colors"
+                                title="Remove Bullet"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = [...(profile.customSections || [])];
+                              const bullets = [...(updated[secIdx].bullets || []), ''];
+                              updated[secIdx] = { ...updated[secIdx], bullets };
+                              setProfile(prev => ({ ...prev, customSections: updated }));
+                            }}
+                            className="px-3 py-1.5 text-xs text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 rounded-lg flex items-center gap-1 font-semibold transition-colors cursor-pointer mt-2"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Bullet</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Layout Type 2: Paragraph */}
+                      {sec.type === 'paragraph' && (
+                        <div className="space-y-2">
+                          <textarea
+                            value={sec.content || ''}
+                            onChange={(e) => {
+                              const updated = [...(profile.customSections || [])];
+                              updated[secIdx] = { ...updated[secIdx], content: e.target.value };
+                              setProfile(prev => ({ ...prev, customSections: updated }));
+                            }}
+                            rows={4}
+                            placeholder="Write section narrative, executive overview, or research details..."
+                            className="glass-input p-3 w-full text-xs text-white font-sans resize-none"
+                          />
+                        </div>
+                      )}
+
+                      {/* Layout Type 3: Subgroup Chips */}
+                      {sec.type === 'subgroup-chips' && (
+                        <div className="space-y-4">
+                          {(sec.subgroups || []).map((sub, subIdx) => (
+                            <div key={sub.id || subIdx} className="p-3.5 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-2.5">
+                              <div className="flex items-center justify-between gap-2">
+                                <input
+                                  type="text"
+                                  value={sub.name}
+                                  onChange={(e) => {
+                                    const updated = [...(profile.customSections || [])];
+                                    const subgroups = [...(updated[secIdx].subgroups || [])];
+                                    subgroups[subIdx] = { ...subgroups[subIdx], name: e.target.value };
+                                    updated[secIdx] = { ...updated[secIdx], subgroups };
+                                    setProfile(prev => ({ ...prev, customSections: updated }));
+                                  }}
+                                  placeholder="Subgroup Name (e.g. Frameworks, Cloud)..."
+                                  className="bg-zinc-950 border border-zinc-700/80 rounded-lg px-2.5 py-1 text-xs font-bold text-indigo-300 focus:outline-none focus:border-indigo-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = [...(profile.customSections || [])];
+                                    const subgroups = (updated[secIdx].subgroups || []).filter((_, i) => i !== subIdx);
+                                    updated[secIdx] = { ...updated[secIdx], subgroups };
+                                    setProfile(prev => ({ ...prev, customSections: updated }));
+                                  }}
+                                  className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer"
+                                  title="Delete Subgroup"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+
+                              <div className="flex flex-wrap gap-1.5 items-center">
+                                {sub.items.map((item, itemIdx) => (
+                                  <span
+                                    key={itemIdx}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] bg-zinc-800 text-zinc-200 border border-zinc-700"
+                                  >
+                                    <span>{item}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = [...(profile.customSections || [])];
+                                        const subgroups = [...(updated[secIdx].subgroups || [])];
+                                        subgroups[subIdx].items = subgroups[subIdx].items.filter((_, i) => i !== itemIdx);
+                                        updated[secIdx] = { ...updated[secIdx], subgroups };
+                                        setProfile(prev => ({ ...prev, customSections: updated }));
+                                      }}
+                                      className="text-zinc-500 hover:text-rose-400 cursor-pointer ml-1"
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ))}
+                                <input
+                                  type="text"
+                                  placeholder="+ Add chip (Press Enter)"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                                      e.preventDefault();
+                                      const val = e.currentTarget.value.trim();
+                                      const updated = [...(profile.customSections || [])];
+                                      const subgroups = [...(updated[secIdx].subgroups || [])];
+                                      subgroups[subIdx] = { ...subgroups[subIdx], items: [...subgroups[subIdx].items, val] };
+                                      updated[secIdx] = { ...updated[secIdx], subgroups };
+                                      setProfile(prev => ({ ...prev, customSections: updated }));
+                                      e.currentTarget.value = '';
+                                    }
+                                  }}
+                                  className="bg-transparent border border-dashed border-zinc-700 hover:border-zinc-500 rounded-md px-2.5 py-1 text-[11px] text-zinc-300 focus:outline-none focus:border-indigo-500 w-36"
+                                />
+                              </div>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = [...(profile.customSections || [])];
+                              const subgroups = [
+                                ...(updated[secIdx].subgroups || []),
+                                { id: 'sub-' + Date.now(), name: 'New Subgroup', items: ['Item 1'] }
+                              ];
+                              updated[secIdx] = { ...updated[secIdx], subgroups };
+                              setProfile(prev => ({ ...prev, customSections: updated }));
+                            }}
+                            className="px-3 py-1.5 text-xs text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 rounded-lg flex items-center gap-1 font-semibold transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Subgroup</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Layout Type 4: Structured Items */}
+                      {sec.type === 'structured-items' && (
+                        <div className="space-y-4">
+                          {(sec.items || []).map((item, itemIdx) => (
+                            <div key={item.id || itemIdx} className="p-4 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs font-bold text-zinc-400">Entry #{itemIdx + 1}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = [...(profile.customSections || [])];
+                                    const items = (updated[secIdx].items || []).filter((_, i) => i !== itemIdx);
+                                    updated[secIdx] = { ...updated[secIdx], items };
+                                    setProfile(prev => ({ ...prev, customSections: updated }));
+                                  }}
+                                  className="p-1 text-zinc-500 hover:text-rose-400 cursor-pointer"
+                                  title="Delete Entry"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                <div>
+                                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Title / Role / Award</label>
+                                  <input
+                                    type="text"
+                                    value={item.title}
+                                    onChange={(e) => {
+                                      const updated = [...(profile.customSections || [])];
+                                      const items = [...(updated[secIdx].items || [])];
+                                      items[itemIdx] = { ...items[itemIdx], title: e.target.value };
+                                      updated[secIdx] = { ...updated[secIdx], items };
+                                      setProfile(prev => ({ ...prev, customSections: updated }));
+                                    }}
+                                    placeholder="e.g. AWS Certified Solutions Architect"
+                                    className="glass-input px-3 py-1.5 w-full text-xs text-white mt-1"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Issuer / Organization</label>
+                                  <input
+                                    type="text"
+                                    value={item.subtitle || ''}
+                                    onChange={(e) => {
+                                      const updated = [...(profile.customSections || [])];
+                                      const items = [...(updated[secIdx].items || [])];
+                                      items[itemIdx] = { ...items[itemIdx], subtitle: e.target.value };
+                                      updated[secIdx] = { ...updated[secIdx], items };
+                                      setProfile(prev => ({ ...prev, customSections: updated }));
+                                    }}
+                                    placeholder="e.g. Amazon Web Services"
+                                    className="glass-input px-3 py-1.5 w-full text-xs text-white mt-1"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Date / Location</label>
+                                  <input
+                                    type="text"
+                                    value={item.dateOrLocation || ''}
+                                    onChange={(e) => {
+                                      const updated = [...(profile.customSections || [])];
+                                      const items = [...(updated[secIdx].items || [])];
+                                      items[itemIdx] = { ...items[itemIdx], dateOrLocation: e.target.value };
+                                      updated[secIdx] = { ...updated[secIdx], items };
+                                      setProfile(prev => ({ ...prev, customSections: updated }));
+                                    }}
+                                    placeholder="e.g. 2024"
+                                    className="glass-input px-3 py-1.5 w-full text-xs text-white mt-1"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Bullet Points</label>
+                                {(item.bullets || []).map((b, bIdx) => (
+                                  <div key={bIdx} className="flex items-center gap-2">
+                                    <span className="text-zinc-500 text-xs select-none">•</span>
+                                    <input
+                                      type="text"
+                                      value={b}
+                                      onChange={(e) => {
+                                        const updated = [...(profile.customSections || [])];
+                                        const items = [...(updated[secIdx].items || [])];
+                                        const bullets = [...(items[itemIdx].bullets || [])];
+                                        bullets[bIdx] = e.target.value;
+                                        items[itemIdx] = { ...items[itemIdx], bullets };
+                                        updated[secIdx] = { ...updated[secIdx], items };
+                                        setProfile(prev => ({ ...prev, customSections: updated }));
+                                      }}
+                                      className="glass-input px-3 py-1 w-full text-xs text-white"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = [...(profile.customSections || [])];
+                                        const items = [...(updated[secIdx].items || [])];
+                                        items[itemIdx].bullets = (items[itemIdx].bullets || []).filter((_, i) => i !== bIdx);
+                                        updated[secIdx] = { ...updated[secIdx], items };
+                                        setProfile(prev => ({ ...prev, customSections: updated }));
+                                      }}
+                                      className="text-zinc-600 hover:text-rose-400 cursor-pointer"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                ))}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = [...(profile.customSections || [])];
+                                    const items = [...(updated[secIdx].items || [])];
+                                    items[itemIdx].bullets = [...(items[itemIdx].bullets || []), ''];
+                                    updated[secIdx] = { ...updated[secIdx], items };
+                                    setProfile(prev => ({ ...prev, customSections: updated }));
+                                  }}
+                                  className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold inline-flex items-center gap-1 cursor-pointer pt-1"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                  <span>Add Bullet Point</span>
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = [...(profile.customSections || [])];
+                              const items = [
+                                ...(updated[secIdx].items || []),
+                                { id: 'item-' + Date.now(), title: 'New Entry', subtitle: '', dateOrLocation: '', bullets: ['Key detail...'] }
+                              ];
+                              updated[secIdx] = { ...updated[secIdx], items };
+                              setProfile(prev => ({ ...prev, customSections: updated }));
+                            }}
+                            className="px-3 py-1.5 text-xs text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 rounded-lg flex items-center gap-1 font-semibold transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Structured Entry</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       </div>
+
+      {/* Add Custom Section Modal */}
+      {showAddCustomModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-[var(--layout-surface-panel-bg)] border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col gap-5 font-sans">
+            <div className="flex justify-between items-center pb-3 border-b border-white/5">
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-base font-bold text-white">Create Custom Section</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddCustomModal(false)}
+                className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-white/5 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-zinc-300">Section Title</label>
+                <input
+                  type="text"
+                  value={newCustomSecTitle}
+                  onChange={(e) => setNewCustomSecTitle(e.target.value)}
+                  placeholder="e.g. Certifications, Publications, Volunteering, Key Awards"
+                  className="glass-input px-3.5 py-2.5 w-full text-xs text-white focus:border-indigo-500"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <label className="text-xs font-semibold text-zinc-300">Choose Section Layout Style</label>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setNewCustomSecType('bullet-list')}
+                    className={`p-3 rounded-xl border text-left flex flex-col gap-1.5 transition-all cursor-pointer ${
+                      newCustomSecType === 'bullet-list'
+                        ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-md'
+                        : 'bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                    }`}
+                  >
+                    <List className="w-4 h-4 text-indigo-400" />
+                    <span className="text-xs font-bold">Bullet Points</span>
+                    <span className="text-[10px] text-zinc-400 leading-tight">Key takeaways, achievements, and lists</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNewCustomSecType('paragraph')}
+                    className={`p-3 rounded-xl border text-left flex flex-col gap-1.5 transition-all cursor-pointer ${
+                      newCustomSecType === 'paragraph'
+                        ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-md'
+                        : 'bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                    }`}
+                  >
+                    <AlignLeft className="w-4 h-4 text-indigo-400" />
+                    <span className="text-xs font-bold">Paragraph / Narrative</span>
+                    <span className="text-[10px] text-zinc-400 leading-tight">Longer text blocks, executive bio, research</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNewCustomSecType('subgroup-chips')}
+                    className={`p-3 rounded-xl border text-left flex flex-col gap-1.5 transition-all cursor-pointer ${
+                      newCustomSecType === 'subgroup-chips'
+                        ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-md'
+                        : 'bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                    }`}
+                  >
+                    <Tag className="w-4 h-4 text-indigo-400" />
+                    <span className="text-xs font-bold">Subgroups & Badges</span>
+                    <span className="text-[10px] text-zinc-400 leading-tight">Categories with pill chips / tags</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNewCustomSecType('structured-items')}
+                    className={`p-3 rounded-xl border text-left flex flex-col gap-1.5 transition-all cursor-pointer ${
+                      newCustomSecType === 'structured-items'
+                        ? 'bg-indigo-600/20 border-indigo-500 text-white shadow-md'
+                        : 'bg-zinc-950/60 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700'
+                    }`}
+                  >
+                    <Briefcase className="w-4 h-4 text-indigo-400" />
+                    <span className="text-xs font-bold">Structured Entries</span>
+                    <span className="text-[10px] text-zinc-400 leading-tight">Title, organization, date, and bullets</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-white/5">
+              <button
+                type="button"
+                onClick={() => setShowAddCustomModal(false)}
+                className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!newCustomSecTitle.trim()}
+                onClick={() => {
+                  const newSec = createDefaultCustomSection(newCustomSecType, newCustomSecTitle.trim());
+                  setProfile(prev => ({
+                    ...prev,
+                    customSections: [...(prev.customSections || []), newSec]
+                  }));
+                  setShowAddCustomModal(false);
+                }}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-500/20 cursor-pointer transition-all"
+              >
+                Create Section
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Signature Processing Modal */}
       {showSigProcessor && (
