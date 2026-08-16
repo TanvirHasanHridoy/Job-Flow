@@ -3186,6 +3186,10 @@ export default function TailorWorkspace() {
   const fetchProfile = async () => {
     try {
       const res = await fetch('/api/profile');
+      if (res.status === 401) {
+        window.location.href = '/login';
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         // If the profile is completely empty (no fullName), mark as not set
@@ -6756,7 +6760,7 @@ export default function TailorWorkspace() {
 
       {/* Premium Skill Confirmation Modal Overlay */}
       {skillModal.isOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-sm bg-zinc-950 border border-white/10 rounded-2xl p-5 shadow-2xl space-y-4 font-sans text-left">
             <div className="flex justify-between items-center pb-2.5 border-b border-white/5">
               <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
@@ -6821,7 +6825,7 @@ export default function TailorWorkspace() {
 
       {/* Section Regeneration Modal */}
       {regenModal.isOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4 font-sans text-left">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
@@ -6930,7 +6934,7 @@ export default function TailorWorkspace() {
 
       {/* Bullet Point Polish Modal */}
       {bulletPolishModal.isOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-xl w-full shadow-2xl space-y-4 font-sans text-left">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
@@ -7026,7 +7030,7 @@ export default function TailorWorkspace() {
 
       {/* Cover Letter Paragraph Polish Modal */}
       {clPolishModal.isOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl space-y-4 font-sans text-left overflow-hidden">
             <div className="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
               <div className="flex items-center gap-2">
@@ -7146,7 +7150,7 @@ export default function TailorWorkspace() {
 
       {/* Project Description Polish Modal */}
       {projectPolishModal.isOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 no-print">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 no-print">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl max-w-xl w-full flex flex-col shadow-2xl overflow-hidden font-sans">
             <div className="p-4 border-b border-white/10 flex items-center justify-between bg-zinc-950">
               <div className="flex items-center gap-2">
@@ -7267,7 +7271,7 @@ export default function TailorWorkspace() {
 
       {/* Compare Original vs Tailored Modal */}
       {isCompareModalOpen && result && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 no-print">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 no-print">
           <div className="bg-zinc-950 border border-white/10 rounded-2xl max-w-5xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden font-sans">
             <div className="p-4 border-b border-white/10 flex items-center justify-between bg-zinc-900/50">
               <div className="flex items-center gap-2">

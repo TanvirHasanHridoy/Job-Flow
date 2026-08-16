@@ -78,7 +78,7 @@ export function AlertModalProvider({ children }: { children: React.ReactNode }) 
 
       {/* Global Alert Modal Overlay */}
       {activeAlert && config && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
           {/* Modal Backdrop click handler */}
           <div className="absolute inset-0" onClick={hideAlert} />
 

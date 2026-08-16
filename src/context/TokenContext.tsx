@@ -81,7 +81,7 @@ export function TokenProvider({ children }: { children: React.ReactNode }) {
 
       {/* Global Warning Modal */}
       {isTokenModalOpen && isAuthenticated && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-200">
           <div className="relative w-full max-w-md overflow-hidden rounded-2xl glass-panel border border-white/10 shadow-2xl animate-in zoom-in-95 duration-200 bg-zinc-900/90 text-left">
             
             {/* Ambient Background Glow */}

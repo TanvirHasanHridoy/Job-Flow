@@ -377,6 +377,11 @@ export default function Dashboard() {
   const fetchApplications = async () => {
     try {
       const res = await fetch('/api/applications');
+      if (res.status === 401) {
+        setApplications([]);
+        window.location.href = '/login';
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setApplications(data);
@@ -1072,7 +1077,7 @@ export default function Dashboard() {
 
       {/* Slideout Application Detail Modal Overlay */}
       {selectedApp && (
-        <div className="fixed inset-0 z-[60] flex justify-end bg-black/70 backdrop-blur-sm transition-all duration-300">
+        <div className="fixed inset-0 z-[9999] flex justify-end bg-black/70 backdrop-blur-sm transition-all duration-300">
           {/* Close trigger boundary */}
           <div className="hidden sm:block flex-1" onClick={() => setSelectedApp(null)}></div>
 
@@ -1337,7 +1342,7 @@ export default function Dashboard() {
 
       {/* Follow-Up Automation Modal Overlay */}
       {followUpModalApp && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-xl bg-zinc-950 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 font-sans text-left">
             <div className="flex justify-between items-center pb-3 border-b border-white/5">
               <div className="flex items-center gap-2">
@@ -1466,7 +1471,7 @@ export default function Dashboard() {
 
       {/* Calendar Event Scheduler Modal Overlay */}
       {calendarModalApp && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-lg bg-zinc-950 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 font-sans text-left">
             <div className="flex justify-between items-center pb-3 border-b border-white/5">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
@@ -1591,7 +1596,7 @@ export default function Dashboard() {
 
       {/* 📖 Application Mastery Workflow Guide Modal */}
       {isGuideModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-3xl bg-zinc-950 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-6 font-sans text-left max-h-[90vh] overflow-y-auto custom-scrollbar">
             {/* Modal Header */}
             <div className="flex justify-between items-center pb-4 border-b border-white/10 sticky top-0 bg-zinc-950 z-10">

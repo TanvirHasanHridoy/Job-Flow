@@ -207,6 +207,41 @@ export default function ProfileVault() {
     }
   }, [sigProcessorOriginal, sigProcessorThreshold]);
 
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const res = await fetch('/api/profile');
+        if (res.status === 401) {
+          window.location.href = '/login';
+          return;
+        }
+        if (res.ok) {
+          const data = await res.json();
+          setProfile(prev => ({
+            ...prev,
+            ...data,
+            workExperience: data.workExperience || [],
+            education: data.education || [],
+            skills: data.skills || [],
+            languages: data.languages || [],
+            projects: data.projects || [],
+            customSections: data.customSections || [],
+            personas: data.personas || []
+          }));
+          const defaultPersona = (data.personas || []).find((p: any) => p.isDefault);
+          if (defaultPersona) {
+            setActivePersonaId(defaultPersona.id);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load profile:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadProfile();
+  }, []);
+
   const handleImport = async () => {
     if (!githubUsername.trim() && !linkedinText.trim()) {
       showAlert({
@@ -601,6 +636,10 @@ export default function ProfileVault() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
+      if (res.status === 401) {
+        window.location.href = '/login';
+        return;
+      }
       if (res.ok) {
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
@@ -1133,7 +1172,7 @@ export default function ProfileVault() {
 
       {/* Modal: New Persona */}
       {showNewPersonaModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-sans animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 font-sans animate-in fade-in duration-200">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 text-left">
             <div className="flex items-center justify-between pb-3 border-b border-white/5">
               <h3 className="font-bold text-white text-md flex items-center gap-2">
@@ -1216,7 +1255,7 @@ export default function ProfileVault() {
 
       {/* Modal: Rename Persona */}
       {isRenamingPersona && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-sans animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 font-sans animate-in fade-in duration-200">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-left">
             <h3 className="font-bold text-white text-sm flex items-center gap-2">
               <Pencil className="w-4 h-4 text-indigo-400" />
@@ -2662,7 +2701,7 @@ export default function ProfileVault() {
 
       {/* Add Custom Section Modal */}
       {showAddCustomModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="relative w-full max-w-lg bg-[var(--layout-surface-panel-bg)] border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col gap-5 font-sans">
             <div className="flex justify-between items-center pb-3 border-b border-white/5">
               <div className="flex items-center gap-2">
@@ -2783,7 +2822,7 @@ export default function ProfileVault() {
 
       {/* Signature Processing Modal */}
       {showSigProcessor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
           <style>{`
             .checkerboard-bg {
               background-image: linear-gradient(45deg, var(--effect-checkerboard-square) 25%, transparent 25%), 
