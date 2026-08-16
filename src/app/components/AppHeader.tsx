@@ -21,7 +21,7 @@ export default function AppHeader() {
   return (
     <header className="no-print sticky top-0 z-50 glass-panel border-b border-white/5 px-3 sm:px-6 py-2.5 sm:py-4 flex items-center justify-between gap-2 w-full">
       <div className="flex items-center gap-2 shrink-0">
-        <Link href="/" className="flex items-center gap-1.5 sm:gap-2 group">
+        <Link href="/dashboard" className="flex items-center gap-1.5 sm:gap-2 group">
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform duration-300 text-xs sm:text-sm">
             J
           </div>
@@ -34,24 +34,22 @@ export default function AppHeader() {
       <div className="flex items-center gap-1.5 sm:gap-4 shrink-0">
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6">
-          <Link 
-            href="/dashboard" 
-            className={`text-sm font-medium transition-colors duration-200 ${
-              pathname === '/dashboard' ? 'text-[var(--layout-backdrop-fg)] font-semibold' : 'text-zinc-400 hover:text-[var(--layout-backdrop-fg)]'
-            }`}
+          <Link
+            href="/dashboard"
+            className={`text-sm font-medium transition-colors duration-200 ${pathname === '/dashboard' ? 'text-[var(--layout-backdrop-fg)] font-semibold' : 'text-zinc-400 hover:text-[var(--layout-backdrop-fg)]'
+              }`}
           >
             Dashboard
           </Link>
-          <Link 
-            href="/profile" 
-            className={`text-sm font-medium transition-colors duration-200 ${
-              pathname === '/profile' ? 'text-[var(--layout-backdrop-fg)] font-semibold' : 'text-zinc-400 hover:text-[var(--layout-backdrop-fg)]'
-            }`}
+          <Link
+            href="/profile"
+            className={`text-sm font-medium transition-colors duration-200 ${pathname === '/profile' ? 'text-[var(--layout-backdrop-fg)] font-semibold' : 'text-zinc-400 hover:text-[var(--layout-backdrop-fg)]'
+              }`}
           >
             Master Profile Vault
           </Link>
-          <Link 
-            href="/tailor" 
+          <Link
+            href="/tailor"
             className="px-4 py-2 text-xs font-semibold rounded-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 hover:scale-105 transition-all duration-300 flex items-center gap-1.5"
           >
             <svg className="w-3.5 h-3.5 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -60,7 +58,7 @@ export default function AppHeader() {
             Tailor Workspace
           </Link>
         </nav>
-        
+
         <ThemeToggle />
         <UserMenu />
 
@@ -77,25 +75,23 @@ export default function AppHeader() {
       {/* Mobile Dropdown Navigation Drawer */}
       {menuOpen && (
         <div className="absolute top-full left-0 right-0 bg-[var(--layout-surface-panel-bg)]/95 backdrop-blur-md border-b border-white/5 p-5 flex flex-col gap-3.5 md:hidden z-40 animate-in slide-in-from-top duration-200 shadow-2xl">
-          <Link 
+          <Link
             href="/dashboard"
             onClick={() => setMenuOpen(false)}
-            className={`text-sm font-medium p-2.5 rounded-xl hover:bg-white/5 transition-colors ${
-              pathname === '/dashboard' ? 'text-[var(--layout-backdrop-fg)] font-semibold bg-white/5' : 'text-zinc-400'
-            }`}
+            className={`text-sm font-medium p-2.5 rounded-xl hover:bg-white/5 transition-colors ${pathname === '/dashboard' ? 'text-[var(--layout-backdrop-fg)] font-semibold bg-white/5' : 'text-zinc-400'
+              }`}
           >
             Dashboard
           </Link>
-          <Link 
+          <Link
             href="/profile"
             onClick={() => setMenuOpen(false)}
-            className={`text-sm font-medium p-2.5 rounded-xl hover:bg-white/5 transition-colors ${
-              pathname === '/profile' ? 'text-[var(--layout-backdrop-fg)] font-semibold bg-white/5' : 'text-zinc-400'
-            }`}
+            className={`text-sm font-medium p-2.5 rounded-xl hover:bg-white/5 transition-colors ${pathname === '/profile' ? 'text-[var(--layout-backdrop-fg)] font-semibold bg-white/5' : 'text-zinc-400'
+              }`}
           >
             Master Profile Vault
           </Link>
-          <Link 
+          <Link
             href="/tailor"
             onClick={() => setMenuOpen(false)}
             className="px-4 py-3 text-xs font-semibold rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-500/20"

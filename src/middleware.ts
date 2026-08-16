@@ -53,8 +53,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users from /login to /dashboard
-  if (user && pathname === '/login') {
+  // Redirect authenticated users away from public-only pages (landing + login)
+  if (user && (pathname === '/' || pathname === '/login')) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
     return NextResponse.redirect(url);
