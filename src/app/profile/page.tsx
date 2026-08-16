@@ -207,41 +207,6 @@ export default function ProfileVault() {
     }
   }, [sigProcessorOriginal, sigProcessorThreshold]);
 
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const res = await fetch('/api/profile');
-        if (res.status === 401) {
-          window.location.href = '/';
-          return;
-        }
-        if (res.ok) {
-          const data = await res.json();
-          setProfile(prev => ({
-            ...prev,
-            ...data,
-            workExperience: data.workExperience || [],
-            education: data.education || [],
-            skills: data.skills || [],
-            languages: data.languages || [],
-            projects: data.projects || [],
-            customSections: data.customSections || [],
-            personas: data.personas || []
-          }));
-          const defaultPersona = (data.personas || []).find((p: any) => p.isDefault);
-          if (defaultPersona) {
-            setActivePersonaId(defaultPersona.id);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to load profile:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadProfile();
-  }, []);
-
   const handleImport = async () => {
     if (!githubUsername.trim() && !linkedinText.trim()) {
       showAlert({
@@ -429,6 +394,10 @@ export default function ProfileVault() {
   const fetchProfile = async () => {
     try {
       const res = await fetch('/api/profile');
+      if (res.status === 401) {
+        window.location.href = '/';
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         let personas = data.personas;
@@ -444,8 +413,17 @@ export default function ProfileVault() {
             customSections: data.customSections || []
           }];
         }
-        setProfile({ ...data, personas });
         const defaultP = personas.find((p: ProfilePersona) => p.isDefault) || personas[0];
+        setProfile({
+          ...data,
+          workExperience: (defaultP?.workExperience && defaultP.workExperience.length > 0) ? defaultP.workExperience : (data.workExperience || []),
+          education: (defaultP?.education && defaultP.education.length > 0) ? defaultP.education : (data.education || []),
+          skills: (defaultP?.skills && defaultP.skills.length > 0) ? defaultP.skills : (data.skills || []),
+          languages: data.languages || [],
+          projects: (defaultP?.projects && defaultP.projects.length > 0) ? defaultP.projects : (data.projects || []),
+          customSections: (defaultP?.customSections && defaultP.customSections.length > 0) ? defaultP.customSections : (data.customSections || []),
+          personas
+        });
         if (defaultP) {
           setActivePersonaId(defaultP.id);
         }

@@ -33,19 +33,49 @@ export async function GET() {
         languages: [],
         projects: [],
         customSections: [],
-        personas: []
+        personas: [{
+          id: 'default',
+          name: 'Master Profile',
+          isDefault: true,
+          skills: [],
+          workExperience: [],
+          projects: [],
+          education: [],
+          customSections: []
+        }]
       });
+    }
+
+    const workExperience = JSON.parse(profile.workExperience || '[]');
+    const education = JSON.parse(profile.education || '[]');
+    const skills = JSON.parse(profile.skills || '[]');
+    const languages = JSON.parse(profile.languages || '[]');
+    const projects = JSON.parse(profile.projects || '[]');
+    const customSections = JSON.parse((profile as any).customSections || '[]');
+    let personas = JSON.parse((profile as any).personas || '[]');
+
+    if (!Array.isArray(personas) || personas.length === 0) {
+      personas = [{
+        id: 'default',
+        name: 'Master Profile',
+        isDefault: true,
+        skills,
+        workExperience,
+        projects,
+        education,
+        customSections
+      }];
     }
 
     return NextResponse.json({
       ...profile,
-      workExperience: JSON.parse(profile.workExperience),
-      education: JSON.parse(profile.education),
-      skills: JSON.parse(profile.skills),
-      languages: JSON.parse(profile.languages),
-      projects: JSON.parse(profile.projects || '[]'),
-      customSections: JSON.parse((profile as any).customSections || '[]'),
-      personas: JSON.parse((profile as any).personas || '[]'),
+      workExperience,
+      education,
+      skills,
+      languages,
+      projects,
+      customSections,
+      personas,
     });
   } catch (error: any) {
     console.error('Error fetching profile:', error);
