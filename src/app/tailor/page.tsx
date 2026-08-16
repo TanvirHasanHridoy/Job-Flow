@@ -3209,7 +3209,7 @@ export default function TailorWorkspace() {
           }
 
           setProfile({ ...data, personas });
-          
+
           // By default, select all projects from the active persona
           const activeProjects = (defaultP && defaultP.projects) || data.projects || [];
           if (activeProjects.length > 0) {
@@ -5559,23 +5559,23 @@ export default function TailorWorkspace() {
               {/* Top Row Right: Height badge & Export Format button (Shown on CV & Cover Letter) */}
               {(previewTab === 'cv' || previewTab === 'coverLetter') && (
                 <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-1.5 sm:pt-0 border-t sm:border-t-0 border-white/5">
-                {result && (
-                  <span className="text-[10px] font-semibold px-2 py-1 rounded-md bg-zinc-900 border border-white/5 flex items-center gap-1.5 font-sans">
-                    <span>Height:</span>
-                    <span className={numPages > 1 ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"}>
-                      {numPages} {numPages === 1 ? 'Page' : 'Pages'}
-                    </span>
-                    {numPages > 1 && lengthTarget === 'Strict 1-Page (concise)' && previewTab === 'cv' && (
-                      <span className="hidden md:inline text-amber-500 font-normal">
-                        (Spillover warning: try reducing bullets to fit on 1 Page)
+                  {result && (
+                    <span className="text-[10px] font-semibold px-2 py-1 rounded-md bg-zinc-900 border border-white/5 flex items-center gap-1.5 font-sans">
+                      <span>Height:</span>
+                      <span className={numPages > 1 ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"}>
+                        {numPages} {numPages === 1 ? 'Page' : 'Pages'}
                       </span>
-                    )}
-                  </span>
-                )}
+                      {numPages > 1 && lengthTarget === 'Strict 1-Page (concise)' && previewTab === 'cv' && (
+                        <span className="hidden md:inline text-amber-500 font-normal">
+                          (Spillover warning: try reducing bullets to fit on 1 Page)
+                        </span>
+                      )}
+                    </span>
+                  )}
 
-                {result && (
-                  <div className="flex items-center gap-1.5 relative no-print font-sans z-50">
-                    <button
+                  {result && (
+                    <div className="flex items-center gap-1.5 relative no-print font-sans z-50">
+                      {/* <button
                       type="button"
                       onClick={handleCopyAtsPlainText}
                       className="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -5583,81 +5583,81 @@ export default function TailorWorkspace() {
                     >
                       <FileText className="w-3.5 h-3.5 text-indigo-400" />
                       <span className="hidden sm:inline">Copy ATS Text</span>
-                    </button>
+                    </button> */}
 
-                    <div className="relative">
-                      <button
-                        onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
-                        className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-500/25 flex items-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Export ▼</span>
-                      </button>
+                      <div className="relative">
+                        <button
+                          onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
+                          className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-500/25 flex items-center gap-1.5 transition-colors cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Export ▼</span>
+                        </button>
 
-                      {exportDropdownOpen && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => setExportDropdownOpen(false)}></div>
-                          <div className="absolute right-0 mt-2 w-64 bg-zinc-900 border border-white/15 rounded-xl shadow-2xl z-50 py-1.5 text-xs text-zinc-300 backdrop-blur-xl">
-                            <button
-                              onClick={() => {
-                                setExportDropdownOpen(false);
-                                handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl');
-                              }}
-                              className="w-full text-left px-4 py-2.5 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2.5"
-                            >
-                              <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
-                              <div>
-                                <span className="font-semibold block text-white">Download Vector PDF</span>
-                                <span className="text-[10px] text-zinc-400">High-res vector print for recruiters</span>
-                              </div>
-                            </button>
-                            <button
-                              onClick={() => {
-                                setExportDropdownOpen(false);
-                                handleExportDocx();
-                              }}
-                              className="w-full text-left px-4 py-2.5 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2.5 border-t border-white/5"
-                            >
-                              <Download className="w-4 h-4 text-blue-400 shrink-0" />
-                              <div>
-                                <span className="font-semibold block text-white">Download Word Document (.docx)</span>
-                                <span className="text-[10px] text-zinc-400">Standard editable Microsoft Word</span>
-                              </div>
-                            </button>
-                            <button
-                              onClick={() => {
-                                setExportDropdownOpen(false);
-                                handleCopyAtsPlainText();
-                              }}
-                              className="w-full text-left px-4 py-2.5 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2.5 border-t border-white/5"
-                            >
-                              <CheckSquare className="w-4 h-4 text-emerald-400 shrink-0" />
-                              <div>
-                                <span className="font-semibold block text-white">Copy ATS Plain-Text</span>
-                                <span className="text-[10px] text-zinc-400">1-Click clipboard for online portals</span>
-                              </div>
-                            </button>
-                            <button
-                              onClick={() => {
-                                setExportDropdownOpen(false);
-                                handleExportText();
-                              }}
-                              className="w-full text-left px-4 py-2.5 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2.5 border-t border-white/5"
-                            >
-                              <FileText className="w-4 h-4 text-zinc-400 shrink-0" />
-                              <div>
-                                <span className="font-semibold block text-white">Download Plain Text (.txt)</span>
-                                <span className="text-[10px] text-zinc-400">ASCII text file download</span>
-                              </div>
-                            </button>
-                          </div>
-                        </>
-                      )}
+                        {exportDropdownOpen && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => setExportDropdownOpen(false)}></div>
+                            <div className="absolute right-0 mt-2 w-64 bg-zinc-900 border border-white/15 rounded-xl shadow-2xl z-50 py-1.5 text-xs text-zinc-300 backdrop-blur-xl">
+                              <button
+                                onClick={() => {
+                                  setExportDropdownOpen(false);
+                                  handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl');
+                                }}
+                                className="w-full text-left px-4 py-2.5 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2.5"
+                              >
+                                <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
+                                <div>
+                                  <span className="font-semibold block text-white">Download Vector PDF</span>
+                                  <span className="text-[10px] text-zinc-400">High-res vector print for recruiters</span>
+                                </div>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setExportDropdownOpen(false);
+                                  handleExportDocx();
+                                }}
+                                className="w-full text-left px-4 py-2.5 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2.5 border-t border-white/5"
+                              >
+                                <Download className="w-4 h-4 text-blue-400 shrink-0" />
+                                <div>
+                                  <span className="font-semibold block text-white">Download Word Document (.docx)</span>
+                                  <span className="text-[10px] text-zinc-400">Standard editable Microsoft Word</span>
+                                </div>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setExportDropdownOpen(false);
+                                  handleCopyAtsPlainText();
+                                }}
+                                className="w-full text-left px-4 py-2.5 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2.5 border-t border-white/5"
+                              >
+                                <CheckSquare className="w-4 h-4 text-emerald-400 shrink-0" />
+                                <div>
+                                  <span className="font-semibold block text-white">Copy ATS Plain-Text</span>
+                                  <span className="text-[10px] text-zinc-400">1-Click clipboard for online portals</span>
+                                </div>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setExportDropdownOpen(false);
+                                  handleExportText();
+                                }}
+                                className="w-full text-left px-4 py-2.5 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2.5 border-t border-white/5"
+                              >
+                                <FileText className="w-4 h-4 text-zinc-400 shrink-0" />
+                                <div>
+                                  <span className="font-semibold block text-white">Download Plain Text (.txt)</span>
+                                  <span className="text-[10px] text-zinc-400">ASCII text file download</span>
+                                </div>
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Row 2: Layout Presets & ATS Toolbar (Sticky on top of document) */}
@@ -5740,11 +5740,10 @@ export default function TailorWorkspace() {
                           type="button"
                           onClick={() => setColorThemeId(theme.id)}
                           style={{ backgroundColor: theme.previewColor }}
-                          className={`w-3.5 h-3.5 rounded-full transition-all cursor-pointer border ${
-                            colorThemeId === theme.id
+                          className={`w-3.5 h-3.5 rounded-full transition-all cursor-pointer border ${colorThemeId === theme.id
                               ? 'ring-2 ring-white ring-offset-1 ring-offset-zinc-900 scale-110 border-white'
                               : 'border-white/20 opacity-70 hover:opacity-100'
-                          }`}
+                            }`}
                           title={`${theme.name} Palette`}
                         />
                       ))}
