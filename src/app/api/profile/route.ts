@@ -32,7 +32,8 @@ export async function GET() {
         skills: [],
         languages: [],
         projects: [],
-        customSections: []
+        customSections: [],
+        personas: []
       });
     }
 
@@ -44,6 +45,7 @@ export async function GET() {
       languages: JSON.parse(profile.languages),
       projects: JSON.parse(profile.projects || '[]'),
       customSections: JSON.parse((profile as any).customSections || '[]'),
+      personas: JSON.parse((profile as any).personas || '[]'),
     });
   } catch (error: any) {
     console.error('Error fetching profile:', error);
@@ -78,7 +80,8 @@ export async function POST(req: Request) {
       skills = [],
       languages = [],
       projects = [],
-      customSections = []
+      customSections = [],
+      personas = []
     } = body;
 
     const data = {
@@ -99,7 +102,8 @@ export async function POST(req: Request) {
       skills: JSON.stringify(skills),
       languages: JSON.stringify(languages),
       projects: JSON.stringify(projects),
-      customSections: JSON.stringify(customSections)
+      customSections: JSON.stringify(customSections),
+      personas: JSON.stringify(personas)
     };
 
     // Upsert: create if not exists, update if exists
@@ -120,6 +124,7 @@ export async function POST(req: Request) {
       languages: JSON.parse(savedProfile.languages),
       projects: JSON.parse(savedProfile.projects || '[]'),
       customSections: JSON.parse((savedProfile as any).customSections || '[]'),
+      personas: JSON.parse((savedProfile as any).personas || '[]'),
     });
   } catch (error: any) {
     console.error('Error saving profile:', error);

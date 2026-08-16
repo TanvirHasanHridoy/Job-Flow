@@ -447,6 +447,7 @@ const ContentEditable = ({
 export default function TailorWorkspace() {
   const [profile, setProfile] = useState<any>(null);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [selectedPersonaId, setSelectedPersonaId] = useState<string>('default');
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [sectionOrder, setSectionOrder] = useState<string[]>(['summary', 'work', 'education', 'projects', 'skills', 'languages']);
   const [isAdjustSpacingOpen, setIsAdjustSpacingOpen] = useState<boolean>(false);
@@ -2913,6 +2914,28 @@ export default function TailorWorkspace() {
   }, [result, fontSize, sectionSpacing, pagePaddingTop, pagePaddingBottom, pagePaddingSide, bulletSpacing, signatureSpacing, photoHeight, headerSpacing, bulletStyle, lengthTarget, previewTab, showSignatureImage, showSignatureSection, sectionOrder, selectedProjects, isAtsHighlightEnabled, hiddenSections, customSections, sectionMargins]);
 
 
+  const handleSelectPersona = (personaId: string) => {
+    setSelectedPersonaId(personaId);
+    if (!profile || !profile.personas) return;
+    const target = profile.personas.find((p: any) => p.id === personaId);
+    if (target) {
+      setProfile((prev: any) => ({
+        ...prev,
+        skills: target.skills || prev?.skills || [],
+        workExperience: target.workExperience || prev?.workExperience || [],
+        projects: target.projects || prev?.projects || [],
+        education: target.education || prev?.education || [],
+        customSections: target.customSections || prev?.customSections || []
+      }));
+      if (target.projects && Array.isArray(target.projects)) {
+        setSelectedProjects(target.projects.map((p: any) => p.name));
+      }
+      if (target.customSections && Array.isArray(target.customSections)) {
+        setCustomSections(target.customSections);
+      }
+    }
+  };
+
   const fetchProfile = async () => {
     try {
       const res = await fetch('/api/profile');
@@ -2920,17 +2943,38 @@ export default function TailorWorkspace() {
         const data = await res.json();
         // If the profile is completely empty (no fullName), mark as not set
         if (data.fullName) {
-          setProfile(data);
-          // By default, select all projects if available
-          if (data.projects && data.projects.length > 0) {
-            setSelectedProjects(data.projects.map((p: any) => p.name));
+          let personas = data.personas;
+          if (!Array.isArray(personas) || personas.length === 0) {
+            personas = [{
+              id: 'default',
+              name: 'Master Profile',
+              isDefault: true,
+              skills: data.skills || [],
+              workExperience: data.workExperience || [],
+              projects: data.projects || [],
+              education: data.education || [],
+              customSections: data.customSections || []
+            }];
+          }
+          const defaultP = personas.find((p: any) => p.isDefault) || personas[0];
+          if (defaultP) {
+            setSelectedPersonaId(defaultP.id);
+          }
+
+          setProfile({ ...data, personas });
+          
+          // By default, select all projects from the active persona
+          const activeProjects = (defaultP && defaultP.projects) || data.projects || [];
+          if (activeProjects.length > 0) {
+            setSelectedProjects(activeProjects.map((p: any) => p.name));
           }
           // Load custom sections from master profile
-          if (data.customSections && Array.isArray(data.customSections)) {
-            setCustomSections(data.customSections);
+          const activeCustomSecs = (defaultP && defaultP.customSections) || data.customSections || [];
+          if (activeCustomSecs && Array.isArray(activeCustomSecs)) {
+            setCustomSections(activeCustomSecs);
             setSectionOrder(prev => {
               const existing = new Set(prev);
-              const toAdd = data.customSections
+              const toAdd = activeCustomSecs
                 .map((cs: any) => `custom-${cs.id}`)
                 .filter((k: string) => !existing.has(k));
               return [...prev, ...toAdd];
@@ -4597,6 +4641,30 @@ export default function TailorWorkspace() {
           {/* TAB 1: GENERATION & STRATEGY */}
           {sidePanelTab === 'generation' && (
             <div className="space-y-4 animate-in fade-in duration-200">
+              {/* Source Career Persona Selection */}
+              {profile?.personas && profile.personas.length > 1 && (
+                <div className="p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-xl space-y-1.5 text-left font-sans shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                      Source Career Persona
+                    </label>
+                    <span className="text-[9px] text-zinc-400">Baseline for AI tailoring</span>
+                  </div>
+                  <select
+                    value={selectedPersonaId}
+                    onChange={e => handleSelectPersona(e.target.value)}
+                    className="glass-input px-3 py-2 text-xs bg-zinc-900 border border-white/10 w-full text-white cursor-pointer font-medium"
+                  >
+                    {profile.personas.map((p: any) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} {p.isDefault ? '(Default)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Company Name</label>

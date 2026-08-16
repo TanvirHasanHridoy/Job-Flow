@@ -48,6 +48,19 @@ interface Project {
   url?: string;
 }
 
+export interface ProfilePersona {
+  id: string;
+  name: string;
+  headline?: string;
+  summary?: string;
+  isDefault?: boolean;
+  skills?: Skill[];
+  workExperience?: WorkExperience[];
+  projects?: Project[];
+  education?: Education[];
+  customSections?: CustomSection[];
+}
+
 interface UserProfile {
   fullName: string;
   email: string;
@@ -67,6 +80,7 @@ interface UserProfile {
   languages: Language[];
   projects?: Project[];
   customSections?: CustomSection[];
+  personas?: ProfilePersona[];
 }
 
 const CEFR_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'Native', 'Muttersprache'];
@@ -91,8 +105,17 @@ export default function ProfileVault() {
     skills: [],
     languages: [],
     projects: [],
-    customSections: []
+    customSections: [],
+    personas: []
   });
+
+  const [activePersonaId, setActivePersonaId] = useState<string>('default');
+  const [showNewPersonaModal, setShowNewPersonaModal] = useState(false);
+  const [newPersonaTitle, setNewPersonaTitle] = useState('');
+  const [newPersonaCloneFrom, setNewPersonaCloneFrom] = useState<'current' | 'blank'>('current');
+  const [isRenamingPersona, setIsRenamingPersona] = useState(false);
+  const [renamePersonaId, setRenamePersonaId] = useState<string | null>(null);
+  const [renamePersonaName, setRenamePersonaName] = useState('');
 
   const [activeTab, setActiveTab] = useState<'personal' | 'experience' | 'education' | 'skills' | 'projects' | 'custom'>('personal');
   const [loading, setLoading] = useState(true);
@@ -373,7 +396,24 @@ export default function ProfileVault() {
       const res = await fetch('/api/profile');
       if (res.ok) {
         const data = await res.json();
-        setProfile(data);
+        let personas = data.personas;
+        if (!Array.isArray(personas) || personas.length === 0) {
+          personas = [{
+            id: 'default',
+            name: 'Master Profile',
+            isDefault: true,
+            skills: data.skills || [],
+            workExperience: data.workExperience || [],
+            projects: data.projects || [],
+            education: data.education || [],
+            customSections: data.customSections || []
+          }];
+        }
+        setProfile({ ...data, personas });
+        const defaultP = personas.find((p: ProfilePersona) => p.isDefault) || personas[0];
+        if (defaultP) {
+          setActivePersonaId(defaultP.id);
+        }
       }
     } catch (err) {
       console.error('Failed to load profile:', err);
@@ -382,14 +422,184 @@ export default function ProfileVault() {
     }
   };
 
+  const handleSwitchPersona = (targetId: string) => {
+    if (targetId === activePersonaId) return;
+    setProfile(prev => {
+      const personas = [...(prev.personas || [])];
+      const currentIdx = personas.findIndex(p => p.id === activePersonaId);
+      if (currentIdx !== -1) {
+        personas[currentIdx] = {
+          ...personas[currentIdx],
+          skills: prev.skills,
+          workExperience: prev.workExperience,
+          projects: prev.projects,
+          education: prev.education,
+          customSections: prev.customSections
+        };
+      }
+      const target = personas.find(p => p.id === targetId);
+      if (!target) return { ...prev, personas };
+
+      setActivePersonaId(targetId);
+      return {
+        ...prev,
+        personas,
+        skills: target.skills || prev.skills || [],
+        workExperience: target.workExperience || prev.workExperience || [],
+        projects: target.projects || prev.projects || [],
+        education: target.education || prev.education || [],
+        customSections: target.customSections || prev.customSections || []
+      };
+    });
+  };
+
+  const handleCreatePersona = (name: string, cloneFrom: 'current' | 'blank') => {
+    if (!name.trim()) return;
+    const newId = `persona-${Date.now()}`;
+    const newPersona: ProfilePersona = {
+      id: newId,
+      name: name.trim(),
+      isDefault: false,
+      skills: cloneFrom === 'current' ? [...(profile.skills || [])] : [],
+      workExperience: cloneFrom === 'current' ? [...(profile.workExperience || [])] : [],
+      projects: cloneFrom === 'current' ? [...(profile.projects || [])] : [],
+      education: cloneFrom === 'current' ? [...(profile.education || [])] : [],
+      customSections: cloneFrom === 'current' ? [...(profile.customSections || [])] : []
+    };
+
+    setProfile(prev => {
+      const personas = [...(prev.personas || []), newPersona];
+      return {
+        ...prev,
+        personas,
+        skills: newPersona.skills || [],
+        workExperience: newPersona.workExperience || [],
+        projects: newPersona.projects || [],
+        education: newPersona.education || [],
+        customSections: newPersona.customSections || []
+      };
+    });
+    setActivePersonaId(newId);
+    setShowNewPersonaModal(false);
+    setNewPersonaTitle('');
+    showAlert({
+      title: 'Persona Created',
+      message: `Created new persona "${name.trim()}". Click "Save Vault" to commit changes.`,
+      type: 'success'
+    });
+  };
+
+  const handleDuplicatePersona = (sourceId: string) => {
+    const source = profile.personas?.find(p => p.id === sourceId);
+    if (!source) return;
+    const newId = `persona-${Date.now()}`;
+    const duplicated: ProfilePersona = {
+      ...source,
+      id: newId,
+      name: `Copy of ${source.name}`,
+      isDefault: false
+    };
+    setProfile(prev => ({
+      ...prev,
+      personas: [...(prev.personas || []), duplicated]
+    }));
+    setActivePersonaId(newId);
+    showAlert({
+      title: 'Persona Duplicated',
+      message: `Created duplicate "${duplicated.name}". Click "Save Vault" to save.`,
+      type: 'success'
+    });
+  };
+
+  const handleStartRenamePersona = (persona: ProfilePersona) => {
+    setRenamePersonaId(persona.id);
+    setRenamePersonaName(persona.name);
+    setIsRenamingPersona(true);
+  };
+
+  const handleSaveRenamePersona = () => {
+    if (!renamePersonaId || !renamePersonaName.trim()) {
+      setIsRenamingPersona(false);
+      return;
+    }
+    setProfile(prev => ({
+      ...prev,
+      personas: (prev.personas || []).map(p =>
+        p.id === renamePersonaId ? { ...p, name: renamePersonaName.trim() } : p
+      )
+    }));
+    setIsRenamingPersona(false);
+    setRenamePersonaId(null);
+  };
+
+  const handleSetDefaultPersona = (targetId: string) => {
+    setProfile(prev => ({
+      ...prev,
+      personas: (prev.personas || []).map(p => ({
+        ...p,
+        isDefault: p.id === targetId
+      }))
+    }));
+    showAlert({
+      title: 'Default Persona Updated',
+      message: 'This persona will now be loaded as the default in the tailoring engine.',
+      type: 'success'
+    });
+  };
+
+  const handleDeletePersona = (targetId: string) => {
+    const currentPersonas = profile.personas || [];
+    if (currentPersonas.length <= 1) {
+      showAlert({
+        title: 'Cannot Delete',
+        message: 'You must maintain at least one persona in your vault.',
+        type: 'warning'
+      });
+      return;
+    }
+    const remaining = currentPersonas.filter(p => p.id !== targetId);
+    const nextActive = remaining[0].id;
+    setProfile(prev => ({
+      ...prev,
+      personas: remaining
+    }));
+    if (activePersonaId === targetId) {
+      handleSwitchPersona(nextActive);
+    }
+    showAlert({
+      title: 'Persona Deleted',
+      message: 'Persona removed from vault. Click "Save Vault" to commit.',
+      type: 'info'
+    });
+  };
+
   const saveProfile = async () => {
     setSaving(true);
     setSaveSuccess(false);
     try {
+      // Ensure active persona snapshot is updated before saving
+      const personas = [...(profile.personas || [])];
+      const currentIdx = personas.findIndex(p => p.id === activePersonaId);
+      if (currentIdx !== -1) {
+        personas[currentIdx] = {
+          ...personas[currentIdx],
+          skills: profile.skills,
+          workExperience: profile.workExperience,
+          projects: profile.projects,
+          education: profile.education,
+          customSections: profile.customSections
+        };
+      }
+
+      const payload = {
+        ...profile,
+        personas
+      };
+
       const res = await fetch('/api/profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(profile)
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         setSaveSuccess(true);
@@ -820,6 +1030,232 @@ export default function ProfileVault() {
           </div>
         )}
       </div>
+
+      {/* Career Persona Management Bar */}
+      <div className="mb-6 p-4 rounded-2xl glass-panel border border-indigo-500/20 shadow-lg space-y-3 font-sans">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-white/5">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-indigo-400" />
+            <span className="text-sm font-bold text-white">Career Persona Vault</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-semibold">
+              {(profile.personas || []).length} Persona{(profile.personas || []).length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowNewPersonaModal(true)}
+              className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-500/20"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>New Persona</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Persona Pills Tab Bar */}
+        <div className="flex flex-wrap items-center gap-2">
+          {(profile.personas || []).map((persona) => {
+            const isActive = persona.id === activePersonaId;
+            return (
+              <div
+                key={persona.id}
+                onClick={() => handleSwitchPersona(persona.id)}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border select-none ${
+                  isActive
+                    ? 'bg-indigo-600 text-white border-indigo-400 shadow-md shadow-indigo-500/20'
+                    : 'bg-zinc-900/60 text-zinc-400 border-white/10 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                <span>{persona.name}</span>
+                {persona.isDefault && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-bold border border-amber-400/30">
+                    Default
+                  </span>
+                )}
+                {isActive && (
+                  <div className="flex items-center gap-1 ml-1 border-l border-white/20 pl-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDuplicatePersona(persona.id);
+                      }}
+                      className="hover:text-indigo-200 transition-colors p-0.5"
+                      title="Duplicate persona"
+                    >
+                      <Layers className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleStartRenamePersona(persona);
+                      }}
+                      className="hover:text-indigo-200 transition-colors p-0.5"
+                      title="Rename persona"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </button>
+                    {!persona.isDefault && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSetDefaultPersona(persona.id);
+                        }}
+                        className="hover:text-amber-200 transition-colors p-0.5"
+                        title="Set as Default for AI tailoring"
+                      >
+                        <Check className="w-3 h-3" />
+                      </button>
+                    )}
+                    {(profile.personas || []).length > 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeletePersona(persona.id);
+                        }}
+                        className="hover:text-rose-200 transition-colors p-0.5"
+                        title="Delete persona"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Modal: New Persona */}
+      {showNewPersonaModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-sans animate-in fade-in duration-200">
+          <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 text-left">
+            <div className="flex items-center justify-between pb-3 border-b border-white/5">
+              <h3 className="font-bold text-white text-md flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-indigo-400" />
+                Create Career Persona
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowNewPersonaModal(false)}
+                className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-white/5 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-zinc-400 uppercase">Persona Title / Role Specialization</label>
+                <input
+                  type="text"
+                  value={newPersonaTitle}
+                  onChange={e => setNewPersonaTitle(e.target.value)}
+                  placeholder="e.g. Cloud & DevOps Architect, Frontend Lead..."
+                  className="glass-input px-3.5 py-2.5 text-xs text-white"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-zinc-400 uppercase">Initial Content</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewPersonaCloneFrom('current')}
+                    className={`p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer text-left ${
+                      newPersonaCloneFrom === 'current'
+                        ? 'border-indigo-500 bg-indigo-500/10 text-white'
+                        : 'border-white/10 bg-white/5 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <span className="block font-bold">Clone Active Profile</span>
+                    <span className="text-[10px] text-zinc-400 font-normal">Copies current skills & projects</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewPersonaCloneFrom('blank')}
+                    className={`p-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer text-left ${
+                      newPersonaCloneFrom === 'blank'
+                        ? 'border-indigo-500 bg-indigo-500/10 text-white'
+                        : 'border-white/10 bg-white/5 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <span className="block font-bold">Start Fresh</span>
+                    <span className="text-[10px] text-zinc-400 font-normal">Blank skills & projects list</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowNewPersonaModal(false)}
+                className="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold cursor-pointer transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCreatePersona(newPersonaTitle, newPersonaCloneFrom)}
+                disabled={!newPersonaTitle.trim()}
+                className="flex-1 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer transition-all shadow-md disabled:opacity-50"
+              >
+                Create Persona
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Rename Persona */}
+      {isRenamingPersona && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-sans animate-in fade-in duration-200">
+          <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-left">
+            <h3 className="font-bold text-white text-sm flex items-center gap-2">
+              <Pencil className="w-4 h-4 text-indigo-400" />
+              Rename Persona
+            </h3>
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] font-semibold text-zinc-400 uppercase">Persona Name</label>
+              <input
+                type="text"
+                value={renamePersonaName}
+                onChange={e => setRenamePersonaName(e.target.value)}
+                className="glass-input px-3.5 py-2 text-xs text-white"
+                autoFocus
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleSaveRenamePersona();
+                  else if (e.key === 'Escape') setIsRenamingPersona(false);
+                }}
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsRenamingPersona(false)}
+                className="flex-1 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold cursor-pointer transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveRenamePersona}
+                disabled={!renamePersonaName.trim()}
+                className="flex-1 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold cursor-pointer transition-all shadow-md disabled:opacity-50"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Navigation Sidebar */}

@@ -34,6 +34,7 @@ model UserProfile {
   languages      String   @default("[]")
   projects       String   @default("[]")
   customSections String   @default("[]")
+  personas       String   @default("[]")
   
   updatedAt      DateTime @updatedAt
 
