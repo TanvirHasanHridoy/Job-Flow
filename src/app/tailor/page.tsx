@@ -11,6 +11,7 @@ import {
 import confetti from 'canvas-confetti';
 import { groupSkillsByCategory } from '@/lib/skills';
 import { CustomSection, CustomSectionType, CustomSectionItem, CustomSectionSubgroup, createDefaultCustomSection, formatCityCountry } from '@/lib/customSections';
+import { generateAtsPlainText } from '@/lib/atsPlainText';
 import { useTokens } from '@/context/TokenContext';
 import { useAlertModal } from '@/context/AlertModalContext';
 import SectionControlsPanel from './components/SectionControlsPanel';
@@ -3787,158 +3788,56 @@ export default function TailorWorkspace() {
     }
   };
 
-  const handleExportWord = () => {
-    const type = previewTab === 'cv' ? 'cv' : 'cl';
-    const element = type === 'cv' ? cvPreviewRef.current : clPreviewRef.current;
-    if (!element) return;
+  const handleExportDocx = async () => {
+    if (!result?.tailoredCv) return;
+    try {
+      const res = await fetch('/api/export-docx', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tailoredCv: result.tailoredCv,
+          targetLanguage: cvLanguage
+        })
+      });
 
-    // Clean up contentEditable attributes and guide lines using DOM cloning
-    const tempElement = preparePrintClone(element);
-    tempElement.querySelectorAll('.no-print').forEach(el => el.remove());
-
-    // Flatten CV pages to flow naturally in Word without fixed-height constraints
-    if (type === 'cv') {
-      const pageBoxes = tempElement.querySelectorAll('.cv-page-box');
-      if (pageBoxes.length > 0) {
-        const newContainer = tempElement.ownerDocument.createElement('div');
-        pageBoxes.forEach((pageBox, pageIdx) => {
-          if (pageIdx > 0) {
-            const breakEl = tempElement.ownerDocument.createElement('div');
-            breakEl.setAttribute('style', 'page-break-before: always;');
-            newContainer.appendChild(breakEl);
-          }
-          // Move all child nodes of this pageBox to newContainer
-          while (pageBox.firstChild) {
-            newContainer.appendChild(pageBox.firstChild);
-          }
-        });
-        // Clear tempElement and append the flattened content
-        tempElement.innerHTML = '';
-        tempElement.appendChild(newContainer);
+      if (!res.ok) {
+        throw new Error('Failed to generate DOCX file');
       }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const fileName = `${(result.tailoredCv.personalDetails.fullName || 'Resume').replace(/\s+/g, '_')}_Tailored_CV.docx`;
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+      showAlert({
+        title: 'DOCX Export Complete',
+        message: `Your editable Microsoft Word document "${fileName}" has been downloaded.`,
+        type: 'success'
+      });
+    } catch (err: any) {
+      console.error(err);
+      showAlert({
+        title: 'DOCX Export Failed',
+        message: err.message || 'An error occurred while generating the DOCX document.',
+        type: 'error'
+      });
     }
+  };
 
-    let htmlContent = tempElement.innerHTML;
-    htmlContent = htmlContent.replace(/contenteditable="true"/g, '');
-    htmlContent = htmlContent.replace(/contenteditable="false"/g, '');
-
-    const isCv = type === 'cv';
-    const bgColor = '#FFFFFF';
-    const textColor = isCv ? '#1F2937' : '#1A1A1A';
-
-    // Add XML wrappers and high fidelity formatting styles for Microsoft Word Document
-    const header = `<html xmlns:o="urn:schemas-microsoft-com:office:office" 
-          xmlns:w="urn:schemas-microsoft-com:office:word" 
-          xmlns="http://www.w3.org/TR/REC-html40">
-          <head>
-            <meta charset="utf-8">
-            <title>${type === 'cv' ? 'Resume' : 'Cover Letter'}</title>
-            <!--[if gte mso 9]>
-            <xml>
-              <w:WordDocument>
-                <w:View>Print</w:View>
-                <w:Zoom>100</w:Zoom>
-              </w:WordDocument>
-            </xml>
-            <![endif]-->
-            <style>
-              @page {
-                size: A4;
-                margin: ${isCv ? `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm` : '32mm 28mm 24mm 28mm'};
-              }
-              body {
-                background-color: ${bgColor};
-                color: ${textColor};
-                font-family: "Arial", "Calibri", "Helvetica", sans-serif;
-                font-size: 11.5px;
-                line-height: 1.55;
-                margin: 0;
-                padding: 0;
-              }
-              h1 {
-                font-size: 24px;
-                font-weight: bold;
-                color: #1F2937;
-                margin: 0 0 4px 0;
-                line-height: 1.2;
-              }
-              h2 {
-                font-size: 15px;
-                font-weight: bold;
-                letter-spacing: 2.2px;
-                text-transform: uppercase;
-                margin-top: 20px;
-                margin-bottom: 4px;
-              }
-              p {
-                margin: 0 0 6px 0;
-              }
-              table {
-                width: 100%;
-                border-collapse: collapse;
-                margin-top: 8px;
-                margin-bottom: 8px;
-              }
-              td {
-                vertical-align: top;
-                padding-top: 4px;
-                padding-bottom: 4px;
-              }
-              .border-b {
-                border-bottom: 1px solid #CBD5E1;
-              }
-              .text-right {
-                text-align: right;
-              }
-              .text-\\[\\#2980B9\\] {
-                color: #2980B9 !important;
-              }
-              .text-gray-800 {
-                color: #1F2937 !important;
-              }
-              .text-gray-700 {
-                color: #374151 !important;
-              }
-              .text-gray-600 {
-                color: #4B5563 !important;
-              }
-              .text-gray-500 {
-                color: #6B7280 !important;
-              }
-              .font-semibold {
-                font-weight: bold;
-              }
-              .italic {
-                font-style: italic;
-              }
-              ul {
-                margin: 6px 0;
-                padding-left: 0;
-                list-style-type: none;
-              }
-              li {
-                margin-bottom: 4px;
-              }
-            </style>
-          </head>
-          <body>`;
-
-    const footer = `</body></html>`;
-    const docContent = header + htmlContent + footer;
-
-    // Create a Blob and trigger download
-    const blob = new Blob(['\ufeff' + docContent], { type: 'application/msword' });
-    const url = URL.createObjectURL(blob);
-
-    const fileName = getExportFileName(type, 'doc');
-
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleCopyAtsPlainText = () => {
+    if (!result?.tailoredCv) return;
+    const text = generateAtsPlainText(result.tailoredCv, cvLanguage);
+    navigator.clipboard.writeText(text);
+    showAlert({
+      title: 'ATS Plain-Text Copied!',
+      message: 'Clean, formatted ASCII plain-text has been copied to your clipboard. Perfect for pasting directly into Workday, Greenhouse, or Taleo application forms.',
+      type: 'success'
+    });
   };
 
   const handleExportText = () => {
@@ -5398,52 +5297,86 @@ export default function TailorWorkspace() {
                 )}
 
                 {result && (
-                  <div className="relative no-print font-sans z-50">
+                  <div className="flex items-center gap-1.5 relative no-print font-sans z-50">
                     <button
-                      onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
-                      className="px-3.5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 flex items-center gap-1.5 transition-colors cursor-pointer"
+                      type="button"
+                      onClick={handleCopyAtsPlainText}
+                      className="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Copy clean ASCII plain-text directly to clipboard for job portals"
                     >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Export Format</span>
+                      <FileText className="w-3.5 h-3.5 text-indigo-400" />
+                      <span className="hidden sm:inline">Copy ATS Text</span>
                     </button>
 
-                    {exportDropdownOpen && (
-                      <>
-                        <div className="fixed inset-0 z-40" onClick={() => setExportDropdownOpen(false)}></div>
-                        <div className="absolute right-0 mt-2 w-56 bg-zinc-900 border border-white/15 rounded-xl shadow-2xl z-50 py-1.5 text-xs text-zinc-300 backdrop-blur-xl">
-                          <button
-                            onClick={() => {
-                              setExportDropdownOpen(false);
-                              handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl');
-                            }}
-                            className="w-full text-left px-4 py-2 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2"
-                          >
-                            <FileText className="w-3.5 h-3.5 text-indigo-400" />
-                            <span>Download PDF Document (.pdf)</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              setExportDropdownOpen(false);
-                              handleExportWord();
-                            }}
-                            className="w-full text-left px-4 py-2 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2"
-                          >
-                            <Download className="w-3.5 h-3.5 text-blue-400" />
-                            <span>Download MS Word Document (.doc)</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              setExportDropdownOpen(false);
-                              handleExportText();
-                            }}
-                            className="w-full text-left px-4 py-2 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2"
-                          >
-                            <FileText className="w-3.5 h-3.5 text-zinc-400" />
-                            <span>Download Plain Text (.txt)</span>
-                          </button>
-                        </div>
-                      </>
-                    )}
+                    <div className="relative">
+                      <button
+                        onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
+                        className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-500/25 flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Export ▼</span>
+                      </button>
+
+                      {exportDropdownOpen && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setExportDropdownOpen(false)}></div>
+                          <div className="absolute right-0 mt-2 w-64 bg-zinc-900 border border-white/15 rounded-xl shadow-2xl z-50 py-1.5 text-xs text-zinc-300 backdrop-blur-xl">
+                            <button
+                              onClick={() => {
+                                setExportDropdownOpen(false);
+                                handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl');
+                              }}
+                              className="w-full text-left px-4 py-2.5 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2.5"
+                            >
+                              <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
+                              <div>
+                                <span className="font-semibold block text-white">Download Vector PDF</span>
+                                <span className="text-[10px] text-zinc-400">High-res vector print for recruiters</span>
+                              </div>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setExportDropdownOpen(false);
+                                handleExportDocx();
+                              }}
+                              className="w-full text-left px-4 py-2.5 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2.5 border-t border-white/5"
+                            >
+                              <Download className="w-4 h-4 text-blue-400 shrink-0" />
+                              <div>
+                                <span className="font-semibold block text-white">Download Word Document (.docx)</span>
+                                <span className="text-[10px] text-zinc-400">Standard editable Microsoft Word</span>
+                              </div>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setExportDropdownOpen(false);
+                                handleCopyAtsPlainText();
+                              }}
+                              className="w-full text-left px-4 py-2.5 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2.5 border-t border-white/5"
+                            >
+                              <CheckSquare className="w-4 h-4 text-emerald-400 shrink-0" />
+                              <div>
+                                <span className="font-semibold block text-white">Copy ATS Plain-Text</span>
+                                <span className="text-[10px] text-zinc-400">1-Click clipboard for online portals</span>
+                              </div>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setExportDropdownOpen(false);
+                                handleExportText();
+                              }}
+                              className="w-full text-left px-4 py-2.5 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2.5 border-t border-white/5"
+                            >
+                              <FileText className="w-4 h-4 text-zinc-400 shrink-0" />
+                              <div>
+                                <span className="font-semibold block text-white">Download Plain Text (.txt)</span>
+                                <span className="text-[10px] text-zinc-400">ASCII text file download</span>
+                              </div>
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
