@@ -209,6 +209,46 @@ export default function SectionControlsPanel({
   };
 
   // Work Experience Operations
+  const getBulletsArray = (bullets: any): string[] => {
+    if (!bullets) return [];
+    if (Array.isArray(bullets)) return bullets;
+    if (typeof bullets === 'object') {
+      const list = bullets.star || bullets.punchy || bullets.standard || Object.values(bullets).find(Array.isArray);
+      if (Array.isArray(list)) return list as string[];
+    }
+    return [];
+  };
+
+  const updateWorkBullets = (wIdx: number, newBulletsList: string[]) => {
+    if (!result?.tailoredCv?.workExperience) return;
+    const currentWork = [...result.tailoredCv.workExperience];
+    const w = currentWork[wIdx];
+    if (!w) return;
+
+    if (Array.isArray(w.bullets)) {
+      currentWork[wIdx] = { ...w, bullets: newBulletsList };
+    } else if (w.bullets && typeof w.bullets === 'object') {
+      const key = w.bullets.star ? 'star' : w.bullets.punchy ? 'punchy' : 'standard';
+      currentWork[wIdx] = {
+        ...w,
+        bullets: {
+          ...w.bullets,
+          [key]: newBulletsList
+        }
+      };
+    } else {
+      currentWork[wIdx] = { ...w, bullets: newBulletsList };
+    }
+
+    setResult({
+      ...result,
+      tailoredCv: {
+        ...result.tailoredCv,
+        workExperience: currentWork
+      }
+    });
+  };
+
   const handleMoveWorkExp = (idx: number, direction: 'up' | 'down') => {
     if (!result?.tailoredCv?.workExperience) return;
     const target = direction === 'up' ? idx - 1 : idx + 1;
@@ -1003,28 +1043,26 @@ export default function SectionControlsPanel({
 
                           {/* Bullets List */}
                           <div className="space-y-1.5 pl-2 border-l border-white/5">
-                            {(w.bullets || []).map((b: string, bIdx: number) => (
+                            {getBulletsArray(w.bullets).map((b: string, bIdx: number) => (
                               <div key={bIdx} className="flex items-start gap-1.5 group">
                                 <span className="text-zinc-500 text-[10px] mt-0.5">•</span>
                                 <input
                                   type="text"
                                   value={b}
                                   onChange={(e) => {
-                                    const updatedBullets = [...w.bullets];
+                                    const currentBullets = getBulletsArray(w.bullets);
+                                    const updatedBullets = [...currentBullets];
                                     updatedBullets[bIdx] = e.target.value;
-                                    const updatedWork = [...result.tailoredCv.workExperience];
-                                    updatedWork[wIdx] = { ...w, bullets: updatedBullets };
-                                    setResult({ ...result, tailoredCv: { ...result.tailoredCv, workExperience: updatedWork } });
+                                    updateWorkBullets(wIdx, updatedBullets);
                                   }}
                                   className="glass-input px-2 py-1 text-[11px] flex-1"
                                 />
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const updatedBullets = w.bullets.filter((_: any, i: number) => i !== bIdx);
-                                    const updatedWork = [...result.tailoredCv.workExperience];
-                                    updatedWork[wIdx] = { ...w, bullets: updatedBullets };
-                                    setResult({ ...result, tailoredCv: { ...result.tailoredCv, workExperience: updatedWork } });
+                                    const currentBullets = getBulletsArray(w.bullets);
+                                    const updatedBullets = currentBullets.filter((_: any, i: number) => i !== bIdx);
+                                    updateWorkBullets(wIdx, updatedBullets);
                                   }}
                                   className="p-1 text-zinc-600 hover:text-rose-400 rounded"
                                 >
@@ -1036,10 +1074,9 @@ export default function SectionControlsPanel({
                             <button
                               type="button"
                               onClick={() => {
-                                const updatedBullets = [...(w.bullets || []), 'Delivered impactful technical solution and optimizations.'];
-                                const updatedWork = [...result.tailoredCv.workExperience];
-                                updatedWork[wIdx] = { ...w, bullets: updatedBullets };
-                                setResult({ ...result, tailoredCv: { ...result.tailoredCv, workExperience: updatedWork } });
+                                const currentBullets = getBulletsArray(w.bullets);
+                                const updatedBullets = [...currentBullets, 'Delivered impactful technical solution and optimizations.'];
+                                updateWorkBullets(wIdx, updatedBullets);
                               }}
                               className="text-[10px] text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 pt-1 cursor-pointer"
                             >
