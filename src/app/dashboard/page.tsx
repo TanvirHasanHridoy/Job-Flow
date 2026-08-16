@@ -379,7 +379,7 @@ export default function Dashboard() {
       const res = await fetch('/api/applications');
       if (res.status === 401) {
         setApplications([]);
-        window.location.href = '/login';
+        window.location.href = '/';
         return;
       }
       if (res.ok) {

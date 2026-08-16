@@ -3187,7 +3187,7 @@ export default function TailorWorkspace() {
     try {
       const res = await fetch('/api/profile');
       if (res.status === 401) {
-        window.location.href = '/login';
+        window.location.href = '/';
         return;
       }
       if (res.ok) {

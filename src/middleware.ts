@@ -43,13 +43,13 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/_next') ||
     pathname.includes('.');
 
-  // Protect all non-public routes
+  // Protect all non-public routes -> redirect to landing page
   if (!user && !isPublicRoute) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const url = request.nextUrl.clone();
-    url.pathname = '/login';
+    url.pathname = '/';
     return NextResponse.redirect(url);
   }
 
