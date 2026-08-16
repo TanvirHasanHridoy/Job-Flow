@@ -110,6 +110,113 @@ interface TailorResponse {
   };
 }
 
+export type ColorThemeId = 'classic-oxford' | 'nordic-slate' | 'emerald-tech' | 'obsidian-dark' | 'burgundy-executive';
+
+export interface ColorTheme {
+  id: ColorThemeId;
+  name: string;
+  accent: string;
+  accentSecondary: string;
+  borderRule: string;
+  badgeBg: string;
+  badgeText: string;
+  previewColor: string;
+}
+
+export const COLOR_THEMES: Record<ColorThemeId, ColorTheme> = {
+  'classic-oxford': {
+    id: 'classic-oxford',
+    name: 'Classic Oxford',
+    accent: '#2563EB',
+    accentSecondary: '#1D4ED8',
+    borderRule: '#CBD5E1',
+    badgeBg: '#EFF6FF',
+    badgeText: '#1E40AF',
+    previewColor: '#2563EB'
+  },
+  'nordic-slate': {
+    id: 'nordic-slate',
+    name: 'Nordic Slate',
+    accent: '#334155',
+    accentSecondary: '#1E293B',
+    borderRule: '#94A3B8',
+    badgeBg: '#F1F5F9',
+    badgeText: '#334155',
+    previewColor: '#475569'
+  },
+  'emerald-tech': {
+    id: 'emerald-tech',
+    name: 'Emerald Tech',
+    accent: '#059669',
+    accentSecondary: '#047857',
+    borderRule: '#A7F3D0',
+    badgeBg: '#ECFDF5',
+    badgeText: '#065F46',
+    previewColor: '#10B981'
+  },
+  'obsidian-dark': {
+    id: 'obsidian-dark',
+    name: 'Obsidian Minimal',
+    accent: '#18181B',
+    accentSecondary: '#09090B',
+    borderRule: '#D4D4D8',
+    badgeBg: '#F4F4F5',
+    badgeText: '#18181B',
+    previewColor: '#18181B'
+  },
+  'burgundy-executive': {
+    id: 'burgundy-executive',
+    name: 'Executive Burgundy',
+    accent: '#831843',
+    accentSecondary: '#701A75',
+    borderRule: '#FBCFE8',
+    badgeBg: '#FDF2F8',
+    badgeText: '#831843',
+    previewColor: '#BE185D'
+  }
+};
+
+export type CvLayoutTemplateId = 'standard' | 'minimalist-swiss' | 'tech-monospace' | 'executive-accent';
+
+export interface CvLayoutTemplate {
+  id: CvLayoutTemplateId;
+  name: string;
+  description: string;
+  fontFamily: string;
+  headerStyle: 'classic-underlined' | 'swiss-solid-bar' | 'tech-mono-bracket' | 'minimal-pill';
+}
+
+export const LAYOUT_TEMPLATES: Record<CvLayoutTemplateId, CvLayoutTemplate> = {
+  'standard': {
+    id: 'standard',
+    name: 'Modern Standard',
+    description: 'Clean professional corporate layout with two-tone section headings',
+    fontFamily: '"Inter", "Segoe UI", system-ui, -apple-system, sans-serif',
+    headerStyle: 'classic-underlined'
+  },
+  'minimalist-swiss': {
+    id: 'minimalist-swiss',
+    name: 'Minimalist Swiss',
+    description: 'Ultra-clean Swiss International typographic hierarchy with left border accents',
+    fontFamily: '"Inter", "Helvetica Neue", Arial, sans-serif',
+    headerStyle: 'swiss-solid-bar'
+  },
+  'tech-monospace': {
+    id: 'tech-monospace',
+    name: 'Tech Monospace',
+    description: 'Engineered layout featuring monospace code tags & bracketed headers for devs & DevOps',
+    fontFamily: '"JetBrains Mono", "Fira Code", "Consolas", monospace, sans-serif',
+    headerStyle: 'tech-mono-bracket'
+  },
+  'executive-accent': {
+    id: 'executive-accent',
+    name: 'Executive Leadership',
+    description: 'Premium serif-accented header styling for executive and leadership roles',
+    fontFamily: '"Merriweather", "Georgia", "Times New Roman", serif, sans-serif',
+    headerStyle: 'minimal-pill'
+  }
+};
+
 const getActiveBulletStyleKey = (style: string): 'star' | 'punchy' | 'standard' => {
   if (style === 'Short & Punchy achievements') return 'punchy';
   if (style === 'Standard responsibilities') return 'standard';
@@ -1018,7 +1125,9 @@ export default function TailorWorkspace() {
   const [skillsLayout, setSkillsLayout] = useState<'level' | 'category'>('category');
   const [themeDirective, setThemeDirective] = useState('');
 
-  // Visual Customization States
+  // Visual Customization & Template Theme States
+  const [colorThemeId, setColorThemeId] = useState<ColorThemeId>('classic-oxford');
+  const [cvLayoutTemplateId, setCvLayoutTemplateId] = useState<CvLayoutTemplateId>('standard');
   const [sectionSpacing, setSectionSpacing] = useState(24); // px
   const [pagePaddingTop, setPagePaddingTop] = useState(28); // mm
   const [pagePaddingBottom, setPagePaddingBottom] = useState(20); // mm
@@ -1493,6 +1602,110 @@ export default function TailorWorkspace() {
   const renderBlock = (blockId: string, isMeasurement: boolean) => {
     if (!result) return null;
     const isFirstSection = getFirstSectionWithData() === blockId;
+    const activeTheme = COLOR_THEMES[colorThemeId] || COLOR_THEMES['classic-oxford'];
+
+    const renderSectionHeading = (title: string, isFirstSec: boolean, extraTopMargin = 0, extraBottomMargin = 0) => {
+      const idx = title.indexOf(' ');
+      const first = idx === -1 ? title : title.slice(0, idx);
+      const rest = idx === -1 ? '' : title.slice(idx + 1);
+
+      if (cvLayoutTemplateId === 'minimalist-swiss') {
+        return (
+          <div
+            className="text-left animate-none"
+            style={{
+              marginTop: `${(isFirstSec ? 0 : sectionSpacing * 0.4) + extraTopMargin}px`,
+              marginBottom: `${(sectionSpacing * 0.25) + extraBottomMargin}px`
+            }}
+          >
+            <div className="flex items-center gap-2">
+              <div
+                className="w-1.5 self-stretch rounded-sm"
+                style={{ backgroundColor: activeTheme.accent }}
+              />
+              <h2 className="text-[14px] font-extrabold uppercase tracking-wider text-gray-900 font-sans">
+                {title}
+              </h2>
+            </div>
+          </div>
+        );
+      }
+
+      if (cvLayoutTemplateId === 'tech-monospace') {
+        return (
+          <div
+            className="text-left animate-none"
+            style={{
+              marginTop: `${(isFirstSec ? 0 : sectionSpacing * 0.4) + extraTopMargin}px`,
+              marginBottom: `${(sectionSpacing * 0.25) + extraBottomMargin}px`
+            }}
+          >
+            <div className="flex items-center gap-2 font-mono">
+              <span style={{ color: activeTheme.accent }} className="text-xs font-bold select-none">
+                // [
+              </span>
+              <h2
+                className="text-[13px] font-bold uppercase tracking-widest"
+                style={{ color: activeTheme.accent }}
+              >
+                {title}
+              </h2>
+              <span style={{ color: activeTheme.accent }} className="text-xs font-bold select-none">
+                ]
+              </span>
+              <div
+                className="flex-1 h-[1px]"
+                style={{ backgroundColor: activeTheme.borderRule }}
+              />
+            </div>
+          </div>
+        );
+      }
+
+      if (cvLayoutTemplateId === 'executive-accent') {
+        return (
+          <div
+            className="text-left animate-none"
+            style={{
+              marginTop: `${(isFirstSec ? 0 : sectionSpacing * 0.4) + extraTopMargin}px`,
+              marginBottom: `${(sectionSpacing * 0.25) + extraBottomMargin}px`
+            }}
+          >
+            <h2 className="text-[15px] font-serif font-bold text-gray-900 tracking-wide">
+              {title}
+            </h2>
+            <div
+              className="h-[2px] w-12 mt-1 rounded-full"
+              style={{ backgroundColor: activeTheme.accent }}
+            />
+            <div
+              className="border-b mt-[1px]"
+              style={{ borderColor: activeTheme.borderRule }}
+            />
+          </div>
+        );
+      }
+
+      // Default: 'standard' (Modern Standard)
+      return (
+        <div
+          className="text-left animate-none"
+          style={{
+            marginTop: `${(isFirstSec ? 0 : sectionSpacing * 0.4) + extraTopMargin}px`,
+            marginBottom: `${(sectionSpacing * 0.25) + extraBottomMargin}px`
+          }}
+        >
+          <h2 className="text-[15px] font-bold uppercase font-sans">
+            <span className="text-gray-800">{first}</span>
+            {rest && <span style={{ color: activeTheme.accent }}>&nbsp;{rest}</span>}
+          </h2>
+          <div
+            className="border-b mt-1"
+            style={{ borderColor: activeTheme.borderRule }}
+          />
+        </div>
+      );
+    };
 
     if (blockId === 'personal-header') {
       if (isAtsMode) {
@@ -1514,7 +1727,8 @@ export default function TailorWorkspace() {
               onBlur={(e: any) => handleCvDetailsChange('occupation', e.target.innerText, false)}
               useInnerText={true}
               isMeasurement={isMeasurement}
-              className="text-[#2980B9] text-[13px] font-medium mt-0.5 text-left font-sans cursor-pointer focus:outline-none"
+              style={{ color: activeTheme.accent }}
+              className="text-[13px] font-medium mt-0.5 text-left font-sans cursor-pointer focus:outline-none"
             />
           </div>
         );
@@ -1539,7 +1753,8 @@ export default function TailorWorkspace() {
               onBlur={(e: any) => handleCvDetailsChange('occupation', e.target.innerText, false)}
               useInnerText={true}
               isMeasurement={isMeasurement}
-              className="text-[#2980B9] text-[13px] font-medium mt-0.5 text-left font-sans cursor-pointer focus:outline-none"
+              style={{ color: activeTheme.accent }}
+              className="text-[13px] font-medium mt-0.5 text-left font-sans cursor-pointer focus:outline-none"
             />
           </div>
 
@@ -1795,27 +2010,7 @@ export default function TailorWorkspace() {
       return (
         <div key={blockId} data-block-id={blockId} className="w-full text-left group relative">
           {!isMeasurement && renderSectionHeaderControls('summary', cvLanguage === 'DE' ? 'Berufliches Profil' : 'Professional Profile', result.tailoredCv.summary)}
-          {(() => {
-            const title = cvLanguage === 'DE' ? 'Berufliches Profil' : 'Professional Profile';
-            const idx = title.indexOf(' ');
-            const first = idx === -1 ? title : title.slice(0, idx);
-            const rest = idx === -1 ? '' : title.slice(idx + 1);
-            return (
-              <div
-                className="text-left animate-none"
-                style={{
-                  marginTop: `${isFirstSection ? 0 : sectionSpacing * 0.4}px`,
-                  marginBottom: `${sectionSpacing * 0.3}px`
-                }}
-              >
-                <h2 className="text-[15px] font-bold uppercase">
-                  <span className="text-gray-800">{first}</span>
-                  {rest && <span className="text-[#2980B9]">&nbsp;{rest}</span>}
-                </h2>
-                <div className="border-b border-[#CBD5E1] mt-1" />
-              </div>
-            );
-          })()}
+          {renderSectionHeading(cvLanguage === 'DE' ? 'Berufliches Profil' : 'Professional Profile', isFirstSection)}
           <ContentEditable
             tagName="p"
             value={result.tailoredCv.summary}
@@ -1845,21 +2040,7 @@ export default function TailorWorkspace() {
           }}
         >
           {!isMeasurement && renderSectionHeaderControls('work', cvLanguage === 'DE' ? 'Berufserfahrung' : 'Work History', result.tailoredCv.workExperience)}
-          {(() => {
-            const title = cvLanguage === 'DE' ? 'Berufserfahrung' : 'Work History';
-            const idx = title.indexOf(' ');
-            const first = idx === -1 ? title : title.slice(0, idx);
-            const rest = idx === -1 ? '' : title.slice(idx + 1);
-            return (
-              <>
-                <h2 className="text-[15px] font-bold uppercase">
-                  <span className="text-gray-800">{first}</span>
-                  {rest && <span className="text-[#2980B9]">&nbsp;{rest}</span>}
-                </h2>
-                <div className="border-b border-[#CBD5E1] mt-1" />
-              </>
-            );
-          })()}
+          {renderSectionHeading(cvLanguage === 'DE' ? 'Berufserfahrung' : 'Work History', isFirstSection)}
         </div>
       );
     }
@@ -1891,8 +2072,8 @@ export default function TailorWorkspace() {
               />
             </p>
             <p
-              className="font-semibold text-[#2980B9]"
-              style={{ fontSize: `${fontSize + 0.5}px` }}
+              className="font-semibold"
+              style={{ fontSize: `${fontSize + 0.5}px`, color: activeTheme.accent }}
             >
               <ContentEditable
                 tagName="span"
@@ -1956,7 +2137,7 @@ export default function TailorWorkspace() {
                     className="focus:outline-none flex-1"
                   />
                   {!isMeasurement && (
-                    <div className="no-print opacity-0 group-hover:opacity-100 flex items-center gap-1 ml-1.5 shrink-0 transition-opacity">
+                    <div className="no-print opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex items-center gap-1 ml-1.5 shrink-0 transition-opacity">
                       <button
                         type="button"
                         onClick={() => handleFetchBulletVariations(idx, bIdx, b)}
@@ -1986,7 +2167,7 @@ export default function TailorWorkspace() {
                   className="opacity-0 group-hover/workitem:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 inline-flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
                   title="Add new bullet point to this work experience entry"
                 >
-                  <Plus className="w-3 h-3" />
+                  <Plus className="w-3 h-3 text-indigo-600" />
                   <span>Add Bullet Point</span>
                 </button>
               </div>
@@ -2026,8 +2207,8 @@ export default function TailorWorkspace() {
                   }}
                 >
                   <p
-                    className="font-semibold text-[#2980B9]"
-                    style={{ fontSize: `${fontSize + 0.5}px` }}
+                    className="font-semibold"
+                    style={{ fontSize: `${fontSize + 0.5}px`, color: activeTheme.accent }}
                   >
                     <ContentEditable
                       tagName="span"
@@ -2148,21 +2329,7 @@ export default function TailorWorkspace() {
           }}
         >
           {!isMeasurement && renderSectionHeaderControls('education', cvLanguage === 'DE' ? 'Ausbildung' : 'Education', result.tailoredCv.education)}
-          {(() => {
-            const title = cvLanguage === 'DE' ? 'Ausbildung' : 'Education';
-            const idx = title.indexOf(' ');
-            const first = idx === -1 ? title : title.slice(0, idx);
-            const rest = idx === -1 ? '' : title.slice(idx + 1);
-            return (
-              <>
-                <h2 className="text-[15px] font-bold uppercase">
-                  <span className="text-gray-800">{first}</span>
-                  {rest && <span className="text-[#2980B9]">&nbsp;{rest}</span>}
-                </h2>
-                <div className="border-b border-[#CBD5E1] mt-1" />
-              </>
-            );
-          })()}
+          {renderSectionHeading(cvLanguage === 'DE' ? 'Ausbildung' : 'Education', isFirstSection)}
         </div>
       );
     }
@@ -2194,8 +2361,8 @@ export default function TailorWorkspace() {
               />
             </p>
             <p
-              className="font-semibold text-[#2980B9]"
-              style={{ fontSize: `${fontSize + 0.5}px` }}
+              className="font-semibold"
+              style={{ fontSize: `${fontSize + 0.5}px`, color: activeTheme.accent }}
             >
               <ContentEditable
                 tagName="span"
@@ -2270,8 +2437,8 @@ export default function TailorWorkspace() {
                   }}
                 >
                   <p
-                    className="font-semibold text-[#2980B9]"
-                    style={{ fontSize: `${fontSize + 0.5}px` }}
+                    className="font-semibold"
+                    style={{ fontSize: `${fontSize + 0.5}px`, color: activeTheme.accent }}
                   >
                     <ContentEditable
                       tagName="span"
@@ -2333,21 +2500,7 @@ export default function TailorWorkspace() {
           }}
         >
           {!isMeasurement && renderSectionHeaderControls('projects', cvLanguage === 'DE' ? 'Projekte' : 'Projects', result.tailoredCv.projects)}
-          {(() => {
-            const title = cvLanguage === 'DE' ? 'Projekte' : 'Projects';
-            const idx = title.indexOf(' ');
-            const first = idx === -1 ? title : title.slice(0, idx);
-            const rest = idx === -1 ? '' : title.slice(idx + 1);
-            return (
-              <>
-                <h2 className="text-[15px] font-bold uppercase font-sans">
-                  <span className="text-gray-800">{first}</span>
-                  {rest && <span className="text-[#2980B9]">&nbsp;{rest}</span>}
-                </h2>
-                <div className="border-b border-[#CBD5E1] mt-1" />
-              </>
-            );
-          })()}
+          {renderSectionHeading(cvLanguage === 'DE' ? 'Projekte' : 'Projects', isFirstSection)}
         </div>
       );
     }
@@ -2366,8 +2519,8 @@ export default function TailorWorkspace() {
           >
             <div className="flex items-center justify-between gap-2">
               <p
-                className="font-semibold text-[#2980B9] flex items-center gap-1.5 flex-wrap animate-none"
-                style={{ fontSize: `${fontSize + 0.5}px` }}
+                className="font-semibold flex items-center gap-1.5 flex-wrap animate-none"
+                style={{ fontSize: `${fontSize + 0.5}px`, color: activeTheme.accent }}
               >
                 <ContentEditable
                   tagName="span"
@@ -2496,7 +2649,7 @@ export default function TailorWorkspace() {
                         </span>
                       )}
                       {proj.url && (
-                        <a href={proj.url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#2980B9] hover:underline no-print font-normal">
+                        <a href={proj.url} target="_blank" rel="noopener noreferrer" style={{ color: activeTheme.accent }} className="text-[10px] hover:underline no-print font-normal">
                           ({proj.url})
                         </a>
                       )}
@@ -2558,27 +2711,7 @@ export default function TailorWorkspace() {
       return (
         <div key={blockId} data-block-id={blockId} className="w-full text-left font-sans group relative">
           {!isMeasurement && renderSectionHeaderControls('skills', cvLanguage === 'DE' ? 'Fähigkeiten' : 'Skills', result.tailoredCv.skills)}
-          {(() => {
-            const title = cvLanguage === 'DE' ? 'Fähigkeiten' : 'Skills';
-            const idx = title.indexOf(' ');
-            const first = idx === -1 ? title : title.slice(0, idx);
-            const rest = idx === -1 ? '' : title.slice(idx + 1);
-            return (
-              <div
-                className="text-left"
-                style={{
-                  marginTop: `${isFirstSection ? 0 : sectionSpacing * 0.4}px`,
-                  marginBottom: `${sectionSpacing * 0.3}px`
-                }}
-              >
-                <h2 className="text-[15px] font-bold uppercase">
-                  <span className="text-gray-800">{first}</span>
-                  {rest && <span className="text-[#2980B9]">&nbsp;{rest}</span>}
-                </h2>
-                <div className="border-b border-[#CBD5E1] mt-1" />
-              </div>
-            );
-          })()}
+          {renderSectionHeading(cvLanguage === 'DE' ? 'Fähigkeiten' : 'Skills', isFirstSection)}
           <div style={{ marginTop: `${bulletSpacing * 0.5}px` }}>
             <ul className="list-none pl-0">
               {skillsLayout === 'level' ? (
@@ -2653,15 +2786,7 @@ export default function TailorWorkspace() {
           style={{ marginTop: `${isFirstSection ? 0 : sectionSpacing * 0.5}px` }}
         >
           {!isMeasurement && renderSectionHeaderControls('languages', cvLanguage === 'DE' ? 'Sprachen' : 'Languages', result.tailoredCv.languages)}
-          <p
-            className="font-semibold text-gray-800 mb-1"
-            style={{
-              fontSize: `${fontSize + 0.5}px`,
-              marginTop: `${bulletSpacing * 0.75}px`
-            }}
-          >
-            {cvLanguage === 'DE' ? 'Sprachen' : 'Languages'}
-          </p>
+          {renderSectionHeading(cvLanguage === 'DE' ? 'Sprachen' : 'Languages', isFirstSection)}
           <ul className="list-none pl-0">
             <li
               className="flex items-start gap-1.5 text-gray-700 leading-[1.55]"
@@ -2705,27 +2830,7 @@ export default function TailorWorkspace() {
           }}
         >
           {!isMeasurement && renderSectionHeaderControls(`custom-${sec.id}`, sec.title, sec)}
-          {(() => {
-            const title = sec.title || 'Custom Section';
-            const idx = title.indexOf(' ');
-            const first = idx === -1 ? title : title.slice(0, idx);
-            const rest = idx === -1 ? '' : title.slice(idx + 1);
-            return (
-              <div
-                className="text-left animate-none"
-                style={{
-                  marginTop: `${(isFirstSection ? 0 : sectionSpacing * 0.4) + topMargin}px`,
-                  marginBottom: `${(sectionSpacing * 0.3) + bottomMargin}px`
-                }}
-              >
-                <h2 className="text-[15px] font-bold uppercase">
-                  <span className="text-gray-800">{first}</span>
-                  {rest && <span className="text-[#2980B9]">&nbsp;{rest}</span>}
-                </h2>
-                <div className="border-b border-[#CBD5E1] mt-1" />
-              </div>
-            );
-          })()}
+          {renderSectionHeading(sec.title || 'Custom Section', isFirstSection, topMargin, bottomMargin)}
 
           {sec.type === 'bullet-list' && (
             <ul className="list-none pl-0">
@@ -3720,7 +3825,7 @@ export default function TailorWorkspace() {
           break-after: ${isLastPage ? 'auto' : 'page'} !important;
           background-color: #FFFFFF !important;
           position: relative !important;
-          font-family: "Inter", "Calibri", "Segoe UI", Arial, sans-serif !important;
+          font-family: ${(LAYOUT_TEMPLATES[cvLayoutTemplateId] || LAYOUT_TEMPLATES['standard']).fontFamily} !important;
           font-size: ${fontSize}px !important;
           line-height: 1.55 !important;
           color: #1F2937 !important;
@@ -3932,12 +4037,16 @@ export default function TailorWorkspace() {
   const handleExportDocx = async () => {
     if (!result?.tailoredCv) return;
     try {
+      const activeTheme = COLOR_THEMES[colorThemeId] || COLOR_THEMES['classic-oxford'];
+      const docxFont = cvLayoutTemplateId === 'tech-monospace' ? 'Courier New' : cvLayoutTemplateId === 'executive-accent' ? 'Georgia' : 'Calibri';
       const res = await fetch('/api/export-docx', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tailoredCv: result.tailoredCv,
-          targetLanguage: cvLanguage
+          targetLanguage: cvLanguage,
+          accentColor: activeTheme.accent,
+          font: docxFont
         })
       });
 
@@ -5585,7 +5694,7 @@ export default function TailorWorkspace() {
                   </div>
 
                   {/* Section Layout Order Dropdown */}
-                  <div className="flex items-center gap-1.5 border-l border-zinc-700/60 pl-3">
+                  <div className="flex items-center gap-1.5 border-l border-zinc-700/60 pl-2.5">
                     <span className="font-semibold text-zinc-400 text-[10px]">Layout:</span>
                     <select
                       value={
@@ -5603,6 +5712,43 @@ export default function TailorWorkspace() {
                       <option value="skills">Tech-First</option>
                       <option value="education">Academic-First</option>
                     </select>
+                  </div>
+
+                  {/* Modern Layout Template Selector */}
+                  <div className="flex items-center gap-1.5 border-l border-zinc-700/60 pl-2.5">
+                    <span className="font-semibold text-zinc-400 text-[10px]">Template:</span>
+                    <select
+                      value={cvLayoutTemplateId}
+                      onChange={(e) => setCvLayoutTemplateId(e.target.value as CvLayoutTemplateId)}
+                      className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    >
+                      {Object.values(LAYOUT_TEMPLATES).map((tmpl) => (
+                        <option key={tmpl.id} value={tmpl.id}>
+                          {tmpl.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Curated Color Themes Swatches */}
+                  <div className="flex items-center gap-1.5 border-l border-zinc-700/60 pl-2.5">
+                    <span className="font-semibold text-zinc-400 text-[10px]">Theme:</span>
+                    <div className="flex items-center gap-1">
+                      {Object.values(COLOR_THEMES).map((theme) => (
+                        <button
+                          key={theme.id}
+                          type="button"
+                          onClick={() => setColorThemeId(theme.id)}
+                          style={{ backgroundColor: theme.previewColor }}
+                          className={`w-3.5 h-3.5 rounded-full transition-all cursor-pointer border ${
+                            colorThemeId === theme.id
+                              ? 'ring-2 ring-white ring-offset-1 ring-offset-zinc-900 scale-110 border-white'
+                              : 'border-white/20 opacity-70 hover:opacity-100'
+                          }`}
+                          title={`${theme.name} Palette`}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -6295,7 +6441,7 @@ export default function TailorWorkspace() {
                         width: '794px',
                         padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,
                         boxSizing: 'border-box',
-                        fontFamily: '"Inter", "Calibri", "Segoe UI", system-ui, sans-serif',
+                        fontFamily: (LAYOUT_TEMPLATES[cvLayoutTemplateId] || LAYOUT_TEMPLATES['standard']).fontFamily,
                         fontSize: `${fontSize}px`,
                         lineHeight: 1.55,
                       }}
@@ -6334,7 +6480,7 @@ export default function TailorWorkspace() {
                               style={{
                                 width: '794px',
                                 height: '1123px',
-                                fontFamily: '"Inter", "Calibri", "Segoe UI", system-ui, sans-serif',
+                                fontFamily: (LAYOUT_TEMPLATES[cvLayoutTemplateId] || LAYOUT_TEMPLATES['standard']).fontFamily,
                                 fontSize: `${fontSize}px`,
                                 lineHeight: 1.55,
                                 padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,

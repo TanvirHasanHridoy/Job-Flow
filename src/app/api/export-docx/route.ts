@@ -16,7 +16,7 @@ import {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { tailoredCv, targetLanguage = 'EN' } = body;
+    const { tailoredCv, targetLanguage = 'EN', accentColor = '2563EB', font = 'Calibri' } = body;
 
     if (!tailoredCv) {
       return NextResponse.json({ error: 'Missing tailored CV payload' }, { status: 400 });
@@ -34,10 +34,10 @@ export async function POST(req: Request) {
     } = tailoredCv;
 
     const isDe = targetLanguage === 'DE';
-    const primaryColor = '2563EB'; // Royal Blue Accent
+    const primaryColor = accentColor.replace('#', '');
     const darkTextColor = '1F2937'; // Slate 800
     const lightTextColor = '4B5563'; // Slate 600
-    const fontName = 'Calibri';
+    const fontName = font;
 
     const children: any[] = [];
 
