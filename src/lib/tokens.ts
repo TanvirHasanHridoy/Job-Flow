@@ -6,6 +6,8 @@ export const TOKEN_PRICING = {
   INTAKE: 5,           // /api/intake/parse-job-pdf & /api/intake/scrape-url
   REGENERATE_SECTION: 5, // /api/tailor/section
   POLISH_BULLET: 2,    // /api/tailor/section (single bullet)
+  OUTREACH: 5,         // /api/tailor/outreach
+  INTERVIEW_PREP: 5,   // /api/tailor/interview-prep
 } as const;
 
 /**

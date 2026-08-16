@@ -1209,12 +1209,77 @@ export default function TailorWorkspace() {
     };
   }, [history, historyIndex]);
 
-  const [previewTab, setPreviewTab] = useState<'cv' | 'coverLetter'>('cv');
+  const [previewTab, setPreviewTab] = useState<'cv' | 'coverLetter' | 'outreach' | 'interviewPrep'>('cv');
+  const [outreachData, setOutreachData] = useState<{
+    linkedInInMail: { subject: string; message: string; tips: string };
+    hiringManagerEmail: { subject: string; message: string; tips: string };
+    warmReferralCoffeeChat: { subject: string; message: string; tips: string };
+  } | null>(null);
+  const [generatingOutreach, setGeneratingOutreach] = useState(false);
+  const [outreachCustomPrompt, setOutreachCustomPrompt] = useState('');
+  const [outreachRecruiterName, setOutreachRecruiterName] = useState('');
+
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [exportDropdownOpen, setExportDropdownOpen] = useState(false);
   const [numPages, setNumPages] = useState(1);
   const [pages, setPages] = useState<string[][]>([]);
+
+  const handleGenerateOutreach = async () => {
+    if (!jobDescription) {
+      showAlert({
+        title: 'Job Description Required',
+        message: 'Please provide or paste a job description first before generating outreach messages.',
+        type: 'warning'
+      });
+      return;
+    }
+    setGeneratingOutreach(true);
+    try {
+      const res = await fetch('/api/tailor/outreach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobDescription,
+          companyName,
+          roleName,
+          tailoredCv: result?.tailoredCv || profile,
+          targetLanguage: cvLanguage,
+          recruiterName: outreachRecruiterName || result?.jobMetadata?.recruiterName || '',
+          customInstruction: outreachCustomPrompt
+        })
+      });
+
+      if (res.status === 403) {
+        setIsTokenModalOpen(true);
+        return;
+      }
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate outreach');
+      }
+
+      const data = await res.json();
+      if (data.data?.outreach) {
+        setOutreachData(data.data.outreach);
+        fetchTokens();
+        showAlert({
+          title: 'Outreach Templates Ready',
+          message: 'Generated 3 customized recruiter messages. 1-Click copy to send via LinkedIn or Email.',
+          type: 'success'
+        });
+      }
+    } catch (err: any) {
+      showAlert({
+        title: 'Outreach Generation Failed',
+        message: err.message || 'An error occurred while generating outreach messages.',
+        type: 'error'
+      });
+    } finally {
+      setGeneratingOutreach(false);
+    }
+  };
 
   const getOrderedBlocks = () => {
     if (!result) return [];
@@ -5235,53 +5300,69 @@ export default function TailorWorkspace() {
             {/* Top Row: Document Tabs & Layout Modes & Export Button */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-wrap w-full sm:w-auto">
-                <div className="flex gap-1.5 font-sans w-full sm:w-auto">
+                <div className="flex gap-1.5 font-sans w-full sm:w-auto flex-wrap">
                   <button
                     onClick={() => setPreviewTab('cv')}
-                    className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${previewTab === 'cv'
-                      ? 'bg-zinc-800 text-white'
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${previewTab === 'cv'
+                      ? 'bg-zinc-800 text-white shadow-sm'
                       : 'text-zinc-400 hover:text-white hover:bg-white/5'
                       }`}
                   >
-                    Tailored {cvLanguage === 'DE' ? 'Lebenslauf' : 'Resume'}
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>{cvLanguage === 'DE' ? 'Lebenslauf' : 'Resume'}</span>
                   </button>
                   <button
                     onClick={() => setPreviewTab('coverLetter')}
-                    className={`flex-1 sm:flex-initial px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${previewTab === 'coverLetter'
-                      ? 'bg-zinc-800 text-white'
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${previewTab === 'coverLetter'
+                      ? 'bg-zinc-800 text-white shadow-sm'
                       : 'text-zinc-400 hover:text-white hover:bg-white/5'
                       }`}
                   >
-                    Tailored {clLanguage === 'DE' ? 'Anschreiben' : 'Cover Letter'}
+                    <PenTool className="w-3.5 h-3.5" />
+                    <span>{clLanguage === 'DE' ? 'Anschreiben' : 'Cover Letter'}</span>
+                  </button>
+                  <button
+                    onClick={() => setPreviewTab('outreach')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${previewTab === 'outreach'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                      }`}
+                  >
+                    <Briefcase className="w-3.5 h-3.5" />
+                    <span>Outreach</span>
+                    {outreachData && <span className="w-2 h-2 rounded-full bg-emerald-400"></span>}
                   </button>
                 </div>
 
-                <div className="flex bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-0.5 font-sans w-full sm:w-auto">
-                  <button
-                    type="button"
-                    onClick={() => setIsAtsMode(false)}
-                    className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${!isAtsMode
-                      ? 'bg-zinc-800 text-white shadow-sm'
-                      : 'text-zinc-400 hover:text-zinc-200'
-                      }`}
-                  >
-                    Visual Layout (Standard)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsAtsMode(true)}
-                    className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${isAtsMode
-                      ? 'bg-zinc-800 text-white shadow-sm'
-                      : 'text-zinc-400 hover:text-zinc-200'
-                      }`}
-                  >
-                    Strict ATS Layout
-                  </button>
-                </div>
+                {previewTab === 'cv' && (
+                  <div className="flex bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-0.5 font-sans w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => setIsAtsMode(false)}
+                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${!isAtsMode
+                        ? 'bg-zinc-800 text-white shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                    >
+                      Visual Layout
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsAtsMode(true)}
+                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${isAtsMode
+                        ? 'bg-zinc-800 text-white shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                    >
+                      Strict ATS
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Top Row Right: Height badge & Export Format button */}
-              <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-1.5 sm:pt-0 border-t sm:border-t-0 border-white/5">
+              {/* Top Row Right: Height badge & Export Format button (Shown on CV & Cover Letter) */}
+              {(previewTab === 'cv' || previewTab === 'coverLetter') && (
+                <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-1.5 sm:pt-0 border-t sm:border-t-0 border-white/5">
                 {result && (
                   <span className="text-[10px] font-semibold px-2 py-1 rounded-md bg-zinc-900 border border-white/5 flex items-center gap-1.5 font-sans">
                     <span>Height:</span>
@@ -5380,6 +5461,7 @@ export default function TailorWorkspace() {
                   </div>
                 )}
               </div>
+            )}
             </div>
 
             {/* Row 2: Layout Presets & ATS Toolbar (Sticky on top of document) */}
@@ -5613,7 +5695,246 @@ export default function TailorWorkspace() {
 
           {/* Live A4 Sheet Render - Fully Scrollable on Mobile */}
           <div className="flex-1 p-3 sm:p-6 md:p-8 bg-[var(--layout-workspace-bg)] flex flex-col items-center justify-start overflow-x-auto overflow-y-auto w-full max-w-full">
-            {result ? (
+            {previewTab === 'outreach' ? (
+              <div className="w-full max-w-4xl space-y-6 font-sans animate-in fade-in duration-200 text-left">
+                {/* Outreach Generation Header Card */}
+                <div className="glass-panel p-5 rounded-2xl border border-indigo-500/20 shadow-xl space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-indigo-400" />
+                        <h3 className="text-base font-bold text-white">AI Recruiter Outreach &amp; InMail Engine</h3>
+                      </div>
+                      <p className="text-xs text-zinc-400 mt-1">
+                        Generate 3 hyper-targeted outreach variations tailored specifically to {companyName || 'the target company'} and {roleName || 'the position'}.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleGenerateOutreach}
+                      disabled={generatingOutreach || !jobDescription}
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+                    >
+                      {generatingOutreach ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Generating Outreach (5 Tokens)...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          {outreachData ? 'Re-Generate Outreach (5 Tokens)' : 'Generate Outreach (5 Tokens)'}
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/5">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-semibold text-zinc-400 uppercase">Recruiter / Contact Person Name (Optional)</label>
+                      <input
+                        type="text"
+                        value={outreachRecruiterName}
+                        onChange={e => setOutreachRecruiterName(e.target.value)}
+                        placeholder="e.g. Sarah Jenkins (Talent Acquisition Lead)"
+                        className="glass-input px-3 py-2 text-xs text-white"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-semibold text-zinc-400 uppercase">Custom Angle or Directives (Optional)</label>
+                      <input
+                        type="text"
+                        value={outreachCustomPrompt}
+                        onChange={e => setOutreachCustomPrompt(e.target.value)}
+                        placeholder="e.g. Emphasize AWS migration & German B2 fluency"
+                        className="glass-input px-3 py-2 text-xs text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Outreach Cards */}
+                {outreachData ? (
+                  <div className="grid grid-cols-1 gap-6">
+                    {/* Card 1: LinkedIn InMail */}
+                    <div className="glass-panel p-5 rounded-2xl border border-white/10 shadow-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 font-bold text-xs">
+                            LinkedIn
+                          </span>
+                          <h4 className="font-bold text-white text-sm">Direct LinkedIn InMail / Connection Note</h4>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(outreachData.linkedInInMail.message);
+                            showAlert({ title: 'Copied!', message: 'LinkedIn message copied to clipboard.', type: 'success' });
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
+                        >
+                          <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Copy Message</span>
+                        </button>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Subject / Header</label>
+                        <input
+                          type="text"
+                          value={outreachData.linkedInInMail.subject}
+                          onChange={e => setOutreachData({
+                            ...outreachData,
+                            linkedInInMail: { ...outreachData.linkedInInMail, subject: e.target.value }
+                          })}
+                          className="glass-input px-3 py-1.5 text-xs text-white font-medium w-full"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Message Body (Editable)</label>
+                        <textarea
+                          value={outreachData.linkedInInMail.message}
+                          onChange={e => setOutreachData({
+                            ...outreachData,
+                            linkedInInMail: { ...outreachData.linkedInInMail, message: e.target.value }
+                          })}
+                          rows={5}
+                          className="glass-input p-3 text-xs text-white font-sans w-full leading-relaxed resize-y"
+                        />
+                      </div>
+
+                      {outreachData.linkedInInMail.tips && (
+                        <div className="p-3 bg-blue-500/5 border border-blue-500/15 rounded-xl text-[11px] text-blue-300 flex items-start gap-2">
+                          <span className="font-bold">💡 Headhunter Tip:</span>
+                          <span>{outreachData.linkedInInMail.tips}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Card 2: Hiring Manager Direct Email */}
+                    <div className="glass-panel p-5 rounded-2xl border border-white/10 shadow-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-bold text-xs">
+                            Email
+                          </span>
+                          <h4 className="font-bold text-white text-sm">Hiring Manager Direct Email Pitch</h4>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(`Subject: ${outreachData.hiringManagerEmail.subject}\n\n${outreachData.hiringManagerEmail.message}`);
+                            showAlert({ title: 'Copied!', message: 'Email draft copied to clipboard.', type: 'success' });
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
+                        >
+                          <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Copy Subject &amp; Body</span>
+                        </button>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Email Subject Line</label>
+                        <input
+                          type="text"
+                          value={outreachData.hiringManagerEmail.subject}
+                          onChange={e => setOutreachData({
+                            ...outreachData,
+                            hiringManagerEmail: { ...outreachData.hiringManagerEmail, subject: e.target.value }
+                          })}
+                          className="glass-input px-3 py-1.5 text-xs text-white font-medium w-full"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Email Body (Editable)</label>
+                        <textarea
+                          value={outreachData.hiringManagerEmail.message}
+                          onChange={e => setOutreachData({
+                            ...outreachData,
+                            hiringManagerEmail: { ...outreachData.hiringManagerEmail, message: e.target.value }
+                          })}
+                          rows={7}
+                          className="glass-input p-3 text-xs text-white font-sans w-full leading-relaxed resize-y"
+                        />
+                      </div>
+
+                      {outreachData.hiringManagerEmail.tips && (
+                        <div className="p-3 bg-indigo-500/5 border border-indigo-500/15 rounded-xl text-[11px] text-indigo-300 flex items-start gap-2">
+                          <span className="font-bold">💡 Open-Rate Strategy:</span>
+                          <span>{outreachData.hiringManagerEmail.tips}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Card 3: Warm Referral / Coffee Chat Ask */}
+                    <div className="glass-panel p-5 rounded-2xl border border-white/10 shadow-lg space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 font-bold text-xs">
+                            Networking
+                          </span>
+                          <h4 className="font-bold text-white text-sm">Peer Referral &amp; Informational Coffee Chat</h4>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(outreachData.warmReferralCoffeeChat.message);
+                            showAlert({ title: 'Copied!', message: 'Coffee chat message copied to clipboard.', type: 'success' });
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
+                        >
+                          <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Copy Message</span>
+                        </button>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Subject / Header</label>
+                        <input
+                          type="text"
+                          value={outreachData.warmReferralCoffeeChat.subject}
+                          onChange={e => setOutreachData({
+                            ...outreachData,
+                            warmReferralCoffeeChat: { ...outreachData.warmReferralCoffeeChat, subject: e.target.value }
+                          })}
+                          className="glass-input px-3 py-1.5 text-xs text-white font-medium w-full"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Message Body (Editable)</label>
+                        <textarea
+                          value={outreachData.warmReferralCoffeeChat.message}
+                          onChange={e => setOutreachData({
+                            ...outreachData,
+                            warmReferralCoffeeChat: { ...outreachData.warmReferralCoffeeChat, message: e.target.value }
+                          })}
+                          rows={6}
+                          className="glass-input p-3 text-xs text-white font-sans w-full leading-relaxed resize-y"
+                        />
+                      </div>
+
+                      {outreachData.warmReferralCoffeeChat.tips && (
+                        <div className="p-3 bg-purple-500/5 border border-purple-500/15 rounded-xl text-[11px] text-purple-300 flex items-start gap-2">
+                          <span className="font-bold">💡 Networking Tip:</span>
+                          <span>{outreachData.warmReferralCoffeeChat.tips}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-8 text-center glass-panel rounded-2xl border border-dashed border-white/10 space-y-3">
+                    <Briefcase className="w-10 h-10 mx-auto text-indigo-400 opacity-60" />
+                    <h4 className="font-bold text-white text-sm">No Outreach Messages Generated Yet</h4>
+                    <p className="text-xs text-zinc-400 max-w-md mx-auto">
+                      Click the "Generate Outreach" button above to craft 3 personalized outreach messages based on your tailored CV and the target job description.
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : result ? (
               <div className="w-full max-w-full sm:max-w-[210mm] flex flex-col items-center">
 
 
