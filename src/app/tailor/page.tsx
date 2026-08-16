@@ -1281,6 +1281,82 @@ export default function TailorWorkspace() {
     }
   };
 
+  const [interviewPrepData, setInterviewPrepData] = useState<{
+    elevatorPitch: string;
+    predictedQuestions: Array<{
+      question: string;
+      category: string;
+      intent: string;
+      suggestedAnswerTalkingPoints: string[];
+    }>;
+    reverseQuestions: Array<{
+      question: string;
+      context: string;
+    }>;
+    redFlagTraps: Array<{
+      trap: string;
+      recommendation: string;
+    }>;
+  } | null>(null);
+  const [generatingInterviewPrep, setGeneratingInterviewPrep] = useState(false);
+  const [interviewPrepCustomPrompt, setInterviewPrepCustomPrompt] = useState('');
+  const [expandedQuestionIdx, setExpandedQuestionIdx] = useState<number | null>(0);
+
+  const handleGenerateInterviewPrep = async () => {
+    if (!jobDescription) {
+      showAlert({
+        title: 'Job Description Required',
+        message: 'Please provide or paste a job description first before generating the interview cheat-sheet.',
+        type: 'warning'
+      });
+      return;
+    }
+    setGeneratingInterviewPrep(true);
+    try {
+      const res = await fetch('/api/tailor/interview-prep', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobDescription,
+          companyName,
+          roleName,
+          tailoredCv: result?.tailoredCv || profile,
+          targetLanguage: cvLanguage,
+          customInstruction: interviewPrepCustomPrompt
+        })
+      });
+
+      if (res.status === 403) {
+        setIsTokenModalOpen(true);
+        return;
+      }
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate interview prep');
+      }
+
+      const data = await res.json();
+      if (data.data?.interviewPrep) {
+        setInterviewPrepData(data.data.interviewPrep);
+        fetchTokens();
+        showAlert({
+          title: 'Interview Cheat-Sheet Ready',
+          message: 'Generated predicted questions, reverse questions, and 30-second elevator pitch.',
+          type: 'success'
+        });
+      }
+    } catch (err: any) {
+      showAlert({
+        title: 'Interview Prep Failed',
+        message: err.message || 'An error occurred while generating interview prep cheat-sheet.',
+        type: 'error'
+      });
+    } finally {
+      setGeneratingInterviewPrep(false);
+    }
+  };
+
   const getOrderedBlocks = () => {
     if (!result) return [];
     const orderedBlocks: string[] = [];
@@ -5332,6 +5408,17 @@ export default function TailorWorkspace() {
                     <span>Outreach</span>
                     {outreachData && <span className="w-2 h-2 rounded-full bg-emerald-400"></span>}
                   </button>
+                  <button
+                    onClick={() => setPreviewTab('interviewPrep')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${previewTab === 'interviewPrep'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                      }`}
+                  >
+                    <Target className="w-3.5 h-3.5" />
+                    <span>Interview Prep</span>
+                    {interviewPrepData && <span className="w-2 h-2 rounded-full bg-emerald-400"></span>}
+                  </button>
                 </div>
 
                 {previewTab === 'cv' && (
@@ -5930,6 +6017,231 @@ export default function TailorWorkspace() {
                     <h4 className="font-bold text-white text-sm">No Outreach Messages Generated Yet</h4>
                     <p className="text-xs text-zinc-400 max-w-md mx-auto">
                       Click the "Generate Outreach" button above to craft 3 personalized outreach messages based on your tailored CV and the target job description.
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : previewTab === 'interviewPrep' ? (
+              <div className="w-full max-w-4xl space-y-6 font-sans animate-in fade-in duration-200 text-left">
+                {/* Interview Prep Generator Header Card */}
+                <div className="glass-panel p-5 rounded-2xl border border-indigo-500/20 shadow-xl space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Target className="w-5 h-5 text-indigo-400" />
+                        <h3 className="text-base font-bold text-white">AI Interview Prep Cheat-Sheet Copilot</h3>
+                      </div>
+                      <p className="text-xs text-zinc-400 mt-1">
+                        Predicted technical &amp; behavioral questions with STAR talking points, high-signal reverse questions, and 30-second elevator pitch.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleGenerateInterviewPrep}
+                      disabled={generatingInterviewPrep || !jobDescription}
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 cursor-pointer transition-all disabled:opacity-50"
+                    >
+                      {generatingInterviewPrep ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          Generating Cheat-Sheet (5 Tokens)...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          {interviewPrepData ? 'Re-Generate Cheat-Sheet (5 Tokens)' : 'Generate Cheat-Sheet (5 Tokens)'}
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col gap-1 pt-2 border-t border-white/5">
+                    <label className="text-[10px] font-semibold text-zinc-400 uppercase">Focus Area or Interview Stage (Optional)</label>
+                    <input
+                      type="text"
+                      value={interviewPrepCustomPrompt}
+                      onChange={e => setInterviewPrepCustomPrompt(e.target.value)}
+                      placeholder="e.g. System Architecture Round, Senior Cultural Fit, or live coding emphasis"
+                      className="glass-input px-3 py-2 text-xs text-white"
+                    />
+                  </div>
+                </div>
+
+                {interviewPrepData ? (
+                  <div className="space-y-6">
+                    {/* 1. 30-Second Elevator Pitch Card */}
+                    {interviewPrepData.elevatorPitch && (
+                      <div className="glass-panel p-5 rounded-2xl border border-indigo-500/20 shadow-lg space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-bold text-xs">
+                              ⚡ Elevator Pitch
+                            </span>
+                            <h4 className="font-bold text-white text-sm">"Tell Me About Yourself" (30-Second Hook)</h4>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(interviewPrepData.elevatorPitch);
+                              showAlert({ title: 'Copied!', message: 'Elevator pitch copied to clipboard.', type: 'success' });
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
+                          >
+                            <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Copy Pitch</span>
+                          </button>
+                        </div>
+                        <p className="text-xs text-zinc-200 bg-black/30 p-3.5 rounded-xl border border-white/5 leading-relaxed font-sans">
+                          {interviewPrepData.elevatorPitch}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* 2. Top Predicted Questions & STAR Talking Points */}
+                    {interviewPrepData.predictedQuestions && interviewPrepData.predictedQuestions.length > 0 && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                            <Award className="w-4 h-4 text-indigo-400" />
+                            Top 5 Predicted Interview Questions &amp; STAR Talking Points
+                          </h4>
+                          <span className="text-[10px] text-zinc-400 font-semibold">Click to expand talking points</span>
+                        </div>
+
+                        <div className="space-y-3">
+                          {interviewPrepData.predictedQuestions.map((q, qIdx) => {
+                            const isExpanded = expandedQuestionIdx === qIdx;
+                            return (
+                              <div
+                                key={qIdx}
+                                className="glass-panel rounded-2xl border border-white/10 overflow-hidden transition-all shadow-md"
+                              >
+                                <div
+                                  onClick={() => setExpandedQuestionIdx(isExpanded ? null : qIdx)}
+                                  className="p-4 flex items-start justify-between gap-3 cursor-pointer hover:bg-white/5 transition-colors select-none"
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <span className="w-6 h-6 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
+                                      {qIdx + 1}
+                                    </span>
+                                    <div>
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 font-bold uppercase tracking-wider">
+                                          {q.category || 'Technical'}
+                                        </span>
+                                      </div>
+                                      <h5 className="font-bold text-white text-xs leading-snug">{q.question}</h5>
+                                      {q.intent && (
+                                        <p className="text-[11px] text-zinc-400 mt-1 italic">
+                                          <strong>Testing Intent:</strong> {q.intent}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <ChevronDown className={`w-4 h-4 text-zinc-400 shrink-0 transition-transform ${isExpanded ? 'rotate-180 text-white' : ''}`} />
+                                </div>
+
+                                {isExpanded && (
+                                  <div className="px-4 pb-4 pt-2 border-t border-white/5 space-y-3 bg-black/20 text-xs">
+                                    <div className="space-y-1.5">
+                                      <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider block">
+                                        Suggested STAR Talking Points (From Your Real Experience):
+                                      </span>
+                                      <ul className="space-y-1.5 pl-1">
+                                        {q.suggestedAnswerTalkingPoints.map((point, pIdx) => (
+                                          <li key={pIdx} className="flex items-start gap-2 text-zinc-200 text-[11px] leading-relaxed">
+                                            <span className="text-indigo-400 font-bold mt-0.5">•</span>
+                                            <span>{point}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                    <div className="flex justify-end pt-1">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigator.clipboard.writeText(`Question: ${q.question}\n\nTalking Points:\n${q.suggestedAnswerTalkingPoints.map(p => `- ${p}`).join('\n')}`);
+                                          showAlert({ title: 'Copied!', message: 'Question & talking points copied to clipboard.', type: 'success' });
+                                        }}
+                                        className="px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition-all"
+                                      >
+                                        <CheckSquare className="w-3 h-3 text-emerald-400" />
+                                        <span>Copy Question &amp; Answer Guide</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 3. High-Signal Reverse Questions */}
+                    {interviewPrepData.reverseQuestions && interviewPrepData.reverseQuestions.length > 0 && (
+                      <div className="glass-panel p-5 rounded-2xl border border-white/10 shadow-lg space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold text-xs">
+                            ❓ Reverse Questions
+                          </span>
+                          <h4 className="font-bold text-white text-sm">High-Signal Questions to Ask the Interviewer</h4>
+                        </div>
+                        <div className="space-y-2.5 pt-1">
+                          {interviewPrepData.reverseQuestions.map((rq, rqIdx) => (
+                            <div key={rqIdx} className="p-3 bg-black/30 rounded-xl border border-white/5 space-y-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-xs font-bold text-white">{rq.question}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(rq.question);
+                                    showAlert({ title: 'Copied!', message: 'Question copied to clipboard.', type: 'success' });
+                                  }}
+                                  className="text-zinc-400 hover:text-white p-1"
+                                  title="Copy question"
+                                >
+                                  <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
+                                </button>
+                              </div>
+                              {rq.context && <p className="text-[10px] text-zinc-400 italic">{rq.context}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 4. Trap Warnings */}
+                    {interviewPrepData.redFlagTraps && interviewPrepData.redFlagTraps.length > 0 && (
+                      <div className="glass-panel p-5 rounded-2xl border border-rose-500/20 shadow-lg space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1.5 rounded-lg bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold text-xs">
+                            ⚠️ Pitfalls &amp; Traps
+                          </span>
+                          <h4 className="font-bold text-white text-sm">Role-Specific Traps to Avoid</h4>
+                        </div>
+                        <div className="space-y-2.5 pt-1">
+                          {interviewPrepData.redFlagTraps.map((trap, tIdx) => (
+                            <div key={tIdx} className="p-3 bg-rose-500/5 rounded-xl border border-rose-500/15 space-y-1 text-xs">
+                              <p className="font-bold text-rose-300 flex items-center gap-1.5">
+                                <span>Trap:</span> {trap.trap}
+                              </p>
+                              <p className="text-zinc-300 text-[11px] leading-relaxed">
+                                <strong>Navigation:</strong> {trap.recommendation}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center glass-panel rounded-2xl border border-dashed border-white/10 space-y-3">
+                    <Target className="w-10 h-10 mx-auto text-indigo-400 opacity-60" />
+                    <h4 className="font-bold text-white text-sm">No Interview Cheat-Sheet Generated Yet</h4>
+                    <p className="text-xs text-zinc-400 max-w-md mx-auto">
+                      Click the "Generate Cheat-Sheet" button above to produce 5 predicted interview questions, tailored STAR answer talking points, reverse questions, and your 30-second elevator pitch.
                     </p>
                   </div>
                 )}
