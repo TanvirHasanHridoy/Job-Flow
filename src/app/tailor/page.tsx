@@ -4112,8 +4112,9 @@ export default function TailorWorkspace() {
         body: JSON.stringify({
           tailoredCv: result.tailoredCv,
           targetLanguage: cvLanguage,
+          cvFormat: cvFormatMode,
           accentColor: activeTheme.accent,
-          font: docxFont
+          font: cvFormatMode === 'bullet-matrix' ? 'Arial' : docxFont
         })
       });
 

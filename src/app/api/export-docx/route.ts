@@ -16,7 +16,7 @@ import {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { tailoredCv, targetLanguage = 'EN', accentColor = '2563EB', font = 'Calibri' } = body;
+    const { tailoredCv, targetLanguage = 'EN', cvFormat = 'visual', accentColor = '2563EB', font = 'Calibri' } = body;
 
     if (!tailoredCv) {
       return NextResponse.json({ error: 'Missing tailored CV payload' }, { status: 400 });
@@ -25,6 +25,7 @@ export async function POST(req: Request) {
     const {
       personalDetails = {},
       summary = '',
+      summaryBullets = [],
       workExperience = [],
       education = [],
       skills = [],
@@ -34,10 +35,11 @@ export async function POST(req: Request) {
     } = tailoredCv;
 
     const isDe = targetLanguage === 'DE';
-    const primaryColor = accentColor.replace('#', '');
-    const darkTextColor = '1F2937'; // Slate 800
-    const lightTextColor = '4B5563'; // Slate 600
-    const fontName = font;
+    const isBulletMatrix = cvFormat === 'bullet-matrix';
+    const primaryColor = isBulletMatrix ? '000000' : accentColor.replace('#', '');
+    const darkTextColor = isBulletMatrix ? '000000' : '1F2937'; // Slate 800
+    const lightTextColor = isBulletMatrix ? '000000' : '4B5563'; // Slate 600
+    const fontName = isBulletMatrix ? 'Arial' : font;
 
     const children: any[] = [];
 
@@ -132,21 +134,45 @@ export async function POST(req: Request) {
     };
 
     // 3. Professional Summary
-    if (summary) {
-      children.push(createSectionHeader(isDe ? 'Beruflicher Werdegang' : 'Professional Summary'));
-      children.push(
-        new Paragraph({
-          spacing: { after: 200, line: 276 },
-          children: [
-            new TextRun({
-              text: summary,
-              size: 21, // 10.5pt
-              font: fontName,
-              color: darkTextColor
+    if (summary || (summaryBullets && summaryBullets.length > 0)) {
+      children.push(createSectionHeader(isDe ? (isBulletMatrix ? 'BERUFLICHE ZUSAMMENFASSUNG' : 'Beruflicher Werdegang') : 'PROFESSIONAL SUMMARY'));
+      
+      if (isBulletMatrix) {
+        const bulletsToRender: string[] = summaryBullets && summaryBullets.length > 0
+          ? summaryBullets
+          : (typeof summary === 'string' ? summary.split('\n').map(l => l.replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean) : []);
+
+        bulletsToRender.forEach((b: string) => {
+          children.push(
+            new Paragraph({
+              bullet: { level: 0 },
+              spacing: { after: 60, line: 260 },
+              children: [
+                new TextRun({
+                  text: b,
+                  size: 20, // 10pt
+                  font: fontName,
+                  color: darkTextColor
+                })
+              ]
             })
-          ]
-        })
-      );
+          );
+        });
+      } else {
+        children.push(
+          new Paragraph({
+            spacing: { after: 200, line: 276 },
+            children: [
+              new TextRun({
+                text: summary,
+                size: 21, // 10.5pt
+                font: fontName,
+                color: darkTextColor
+              })
+            ]
+          })
+        );
+      }
     }
 
     // 4. Work Experience
@@ -302,36 +328,72 @@ export async function POST(req: Request) {
 
     // 7. Education
     if (education && education.length > 0) {
-      children.push(createSectionHeader(isDe ? 'Ausbildung' : 'Education'));
+      children.push(createSectionHeader(isDe ? (isBulletMatrix ? 'AUSBILDUNG' : 'Ausbildung') : 'EDUCATION'));
 
       education.forEach((edu: any) => {
-        children.push(
-          new Paragraph({
-            spacing: { before: 100, after: 60 },
-            children: [
-              new TextRun({
-                text: edu.degree || '',
-                bold: true,
-                size: 21,
-                font: fontName,
-                color: '111827'
-              }),
-              new TextRun({
-                text: `  |  ${edu.institution || ''}`,
-                size: 20,
-                font: fontName,
-                color: primaryColor
-              }),
-              new TextRun({
-                text: `  (${edu.period || ''}${edu.location ? ` - ${edu.location}` : ''})`,
-                italics: true,
-                size: 19,
-                font: fontName,
-                color: lightTextColor
-              })
-            ]
-          })
-        );
+        if (isBulletMatrix) {
+          children.push(
+            new Paragraph({
+              spacing: { before: 100, after: 20 },
+              children: [
+                new TextRun({
+                  text: (edu.degree || '').toUpperCase(),
+                  bold: true,
+                  size: 24, // 12pt
+                  font: fontName,
+                  color: '000000'
+                })
+              ]
+            }),
+            new Paragraph({
+              spacing: { after: 80 },
+              children: [
+                new TextRun({
+                  text: `${edu.institution || ''}${edu.location ? ` – ${edu.location}` : ''}`,
+                  bold: false,
+                  size: 24, // 12pt
+                  font: fontName,
+                  color: '000000'
+                }),
+                edu.period ? new TextRun({
+                  text: `    ${edu.period.toUpperCase()}`,
+                  bold: false,
+                  size: 24, // 12pt
+                  font: fontName,
+                  color: '000000'
+                }) : new TextRun('')
+              ]
+            })
+          );
+        } else {
+          children.push(
+            new Paragraph({
+              spacing: { before: 100, after: 60 },
+              children: [
+                new TextRun({
+                  text: edu.degree || '',
+                  bold: true,
+                  size: 21,
+                  font: fontName,
+                  color: '111827'
+                }),
+                new TextRun({
+                  text: `  |  ${edu.institution || ''}`,
+                  size: 20,
+                  font: fontName,
+                  color: primaryColor
+                }),
+                new TextRun({
+                  text: `  (${edu.period || ''}${edu.location ? ` - ${edu.location}` : ''})`,
+                  italics: true,
+                  size: 19,
+                  font: fontName,
+                  color: lightTextColor
+                })
+              ]
+            })
+          );
+        }
       });
     }
 
