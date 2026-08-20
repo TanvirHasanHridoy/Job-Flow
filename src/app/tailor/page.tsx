@@ -64,11 +64,13 @@ interface TailoredCv {
     occupation?: string;
   };
   summary: string;
+  summaryBullets?: string[];
   workExperience: WorkExperience[];
   education: Education[];
   skills: TailoredSkill[];
   languages: Language[];
   projects?: any[];
+  certifications?: string[];
   customSections?: CustomSection[];
   signingLine?: string;
 }
@@ -1043,7 +1045,32 @@ export default function TailorWorkspace() {
 
   const handleApplyBulletVariation = (newBulletText: string) => {
     const { expIndex, bulletIndex } = bulletPolishModal;
-    if (expIndex < 0 || bulletIndex < 0 || !result) return;
+    if (bulletIndex < 0 || !result) return;
+
+    if (expIndex === -1) {
+      setResult((prev: any) => {
+        if (!prev) return prev;
+        const currentBullets = Array.isArray(prev.tailoredCv?.summaryBullets) && prev.tailoredCv.summaryBullets.length > 0
+          ? [...prev.tailoredCv.summaryBullets]
+          : (typeof prev.tailoredCv?.summary === 'string'
+              ? prev.tailoredCv.summary.split('\n').map((s: string) => s.replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean)
+              : []);
+        currentBullets[bulletIndex] = newBulletText;
+        return {
+          ...prev,
+          tailoredCv: {
+            ...prev.tailoredCv,
+            summaryBullets: currentBullets,
+            summary: currentBullets.map((b: string) => `• ${b}`).join('\n')
+          }
+        };
+      });
+      showAlert({ title: 'Bullet Polish', message: 'Summary bullet updated successfully!', type: 'success' });
+      setBulletPolishModal({ isOpen: false, expIndex: -1, bulletIndex: -1, originalBullet: '', variations: null });
+      return;
+    }
+
+    if (expIndex < 0) return;
 
     setResult((prev: any) => {
       if (!prev) return prev;
@@ -1666,6 +1693,22 @@ export default function TailorWorkspace() {
     const activeTheme = COLOR_THEMES[colorThemeId] || COLOR_THEMES['classic-oxford'];
 
     const renderSectionHeading = (title: string, isFirstSec: boolean, extraTopMargin = 0, extraBottomMargin = 0) => {
+      if (cvFormatMode === 'bullet-matrix') {
+        return (
+          <div
+            className="text-left animate-none"
+            style={{
+              marginTop: `${(isFirstSec ? 0 : sectionSpacing * 0.4) + extraTopMargin}px`,
+              marginBottom: `${(sectionSpacing * 0.25) + extraBottomMargin}px`
+            }}
+          >
+            <h2 className="text-[13pt] font-bold uppercase tracking-[0.2px] text-black font-sans leading-tight">
+              {title}
+            </h2>
+          </div>
+        );
+      }
+
       const idx = title.indexOf(' ');
       const first = idx === -1 ? title : title.slice(0, idx);
       const rest = idx === -1 ? '' : title.slice(idx + 1);
@@ -1769,6 +1812,33 @@ export default function TailorWorkspace() {
     };
 
     if (blockId === 'personal-header') {
+      if (cvFormatMode === 'bullet-matrix') {
+        return (
+          <div key={blockId} data-block-id={blockId} className="flex flex-col items-start w-full animate-none" style={{ marginBottom: `${bulletSpacing * 0.5}px` }}>
+            <ContentEditable
+              tagName="h1"
+              value={result.tailoredCv.personalDetails.fullName}
+              onChange={(val) => handleCvDetailsChange('fullName', val, true)}
+              onBlur={(e: any) => handleCvDetailsChange('fullName', e.target.innerText, false)}
+              useInnerText={true}
+              isMeasurement={isMeasurement}
+              className="text-[22pt] font-bold text-black uppercase leading-tight text-left focus:outline-none tracking-wide"
+            />
+            {result.tailoredCv.personalDetails.occupation && (
+              <ContentEditable
+                tagName="p"
+                value={result.tailoredCv.personalDetails.occupation}
+                onChange={(val) => handleCvDetailsChange('occupation', val, true)}
+                onBlur={(e: any) => handleCvDetailsChange('occupation', e.target.innerText, false)}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="text-[11pt] font-semibold text-gray-700 mt-0.5 text-left focus:outline-none"
+              />
+            )}
+          </div>
+        );
+      }
+
       if (isAtsMode) {
         return (
           <div key={blockId} data-block-id={blockId} className="flex flex-col items-start w-full animate-none" style={{ marginBottom: `${bulletSpacing}px` }}>
@@ -1843,6 +1913,132 @@ export default function TailorWorkspace() {
     }
 
     if (blockId === 'contact-grid') {
+      if (cvFormatMode === 'bullet-matrix') {
+        const details = result.tailoredCv.personalDetails;
+        const items: React.ReactNode[] = [];
+        if (details.phone) {
+          items.push(
+            <span key="phone">
+              <span className="font-semibold text-black">Mobile: </span>
+              <ContentEditable
+                tagName="span"
+                value={details.phone}
+                onChange={(val) => handleCvDetailsChange('phone', val, true)}
+                onBlur={(e: any) => handleCvDetailsChange('phone', e.target.innerText, false)}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="focus:outline-none"
+              />
+            </span>
+          );
+        }
+        if (details.email) {
+          items.push(
+            <span key="email">
+              <span className="font-semibold text-black">Email: </span>
+              <ContentEditable
+                tagName="span"
+                value={details.email}
+                onChange={(val) => handleCvDetailsChange('email', val, true)}
+                onBlur={(e: any) => handleCvDetailsChange('email', e.target.innerText, false)}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="focus:outline-none"
+              />
+            </span>
+          );
+        }
+        if (details.address) {
+          items.push(
+            <span key="address">
+              <span className="font-semibold text-black">Address: </span>
+              <ContentEditable
+                tagName="span"
+                value={details.address}
+                onChange={(val) => handleCvDetailsChange('address', val, true)}
+                onBlur={(e: any) => handleCvDetailsChange('address', e.target.innerText, false)}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="focus:outline-none"
+              />
+            </span>
+          );
+        }
+        if (details.linkedin) {
+          items.push(
+            <span key="linkedin" className="inline-flex items-center gap-1">
+              <span className="font-semibold text-black">LinkedIn: </span>
+              <ContentEditable
+                tagName="span"
+                value={details.linkedin}
+                onChange={(val) => handleCvDetailsChange('linkedin', val, true)}
+                onBlur={(e: any) => handleCvDetailsChange('linkedin', e.target.innerText, false)}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="focus:outline-none"
+              />
+              {!isMeasurement && (
+                <a
+                  href={details.linkedin.startsWith('http') ? details.linkedin : `https://${details.linkedin}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-indigo-600 no-print transition-colors shrink-0"
+                  title="Open LinkedIn Profile"
+                >
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </a>
+              )}
+            </span>
+          );
+        }
+        if (details.github) {
+          items.push(
+            <span key="github" className="inline-flex items-center gap-1">
+              <span className="font-semibold text-black">GitHub: </span>
+              <ContentEditable
+                tagName="span"
+                value={details.github}
+                onChange={(val) => handleCvDetailsChange('github', val, true)}
+                onBlur={(e: any) => handleCvDetailsChange('github', e.target.innerText, false)}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="focus:outline-none"
+              />
+              {!isMeasurement && (
+                <a
+                  href={details.github.startsWith('http') ? details.github : `https://${details.github}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-400 hover:text-indigo-600 no-print transition-colors shrink-0"
+                  title="Open GitHub Profile"
+                >
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </a>
+              )}
+            </span>
+          );
+        }
+
+        return (
+          <div
+            key={blockId}
+            data-block-id={blockId}
+            className="text-black text-left w-full flex flex-col gap-0.5 pb-1"
+            style={{
+              marginTop: `${headerSpacing * 0.25}px`,
+              fontSize: `${fontSize - 0.5}px`,
+              marginBottom: `${sectionSpacing * 0.4}px`
+            }}
+          >
+            {items.map((item, idx) => (
+              <div key={idx} className="leading-tight">
+                {item}
+              </div>
+            ))}
+          </div>
+        );
+      }
+
       return (
         <div
           key={blockId}
@@ -2068,10 +2264,126 @@ export default function TailorWorkspace() {
     }
 
     if (blockId === 'summary') {
+      const isBulletMatrix = cvFormatMode === 'bullet-matrix';
+      const rawSummary = result.tailoredCv.summary || '';
+      const summaryBullets = Array.isArray(result.tailoredCv.summaryBullets) && result.tailoredCv.summaryBullets.length > 0
+        ? result.tailoredCv.summaryBullets
+        : rawSummary.includes('•') || rawSummary.includes('\n')
+        ? rawSummary.split('\n').map((s: string) => s.replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean)
+        : [];
+
+      const title = isBulletMatrix
+        ? (cvLanguage === 'DE' ? 'BERUFLICHE ZUSAMMENFASSUNG' : 'PROFESSIONAL SUMMARY')
+        : (cvLanguage === 'DE' ? 'Berufliches Profil' : 'Professional Profile');
+
+      if (isBulletMatrix && summaryBullets.length > 0) {
+        return (
+          <div key={blockId} data-block-id={blockId} className="w-full text-left group relative">
+            {!isMeasurement && renderSectionHeaderControls('summary', title, result.tailoredCv.summary)}
+            {renderSectionHeading(title, isFirstSection)}
+            <ul className="list-none pl-0" style={{ marginTop: `${bulletSpacing * 0.35}px` }}>
+              {summaryBullets.map((bText: string, bIdx: number) => (
+                <li
+                  key={bIdx}
+                  className="group/sumbullet flex items-start gap-1.5 text-black leading-[1.45] relative"
+                  style={{ fontSize: `${fontSize}px`, marginTop: `${bulletSpacing}px` }}
+                >
+                  <span className="text-gray-500 leading-none mt-[2px] select-none shrink-0">•</span>
+                  <ContentEditable
+                    tagName="span"
+                    value={bText}
+                    onChange={(val) => {
+                      const updated = [...summaryBullets];
+                      updated[bIdx] = val;
+                      setResult({
+                        ...result,
+                        tailoredCv: {
+                          ...result.tailoredCv,
+                          summaryBullets: updated,
+                          summary: updated.map(b => `• ${b}`).join('\n')
+                        }
+                      });
+                    }}
+                    onBlur={(e: any) => {
+                      const updated = [...summaryBullets];
+                      updated[bIdx] = e.target.innerText;
+                      setResult({
+                        ...result,
+                        tailoredCv: {
+                          ...result.tailoredCv,
+                          summaryBullets: updated,
+                          summary: updated.map(b => `• ${b}`).join('\n')
+                        }
+                      });
+                    }}
+                    isMeasurement={isMeasurement}
+                    highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(bText) : undefined}
+                    className="focus:outline-none flex-1 text-black"
+                  />
+                  {!isMeasurement && (
+                    <div className="no-print opacity-0 group-hover/sumbullet:opacity-100 flex items-center gap-1 ml-1.5 shrink-0 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => handleFetchBulletVariations(-1, bIdx, bText)}
+                        className="text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 cursor-pointer w-4 h-4 rounded-full flex items-center justify-center transition-all duration-150 border border-indigo-200"
+                        title="Polish summary bullet point with AI"
+                      >
+                        <Wand2 className="w-2.5 h-2.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const updated = summaryBullets.filter((_: any, i: number) => i !== bIdx);
+                          setResult({
+                            ...result,
+                            tailoredCv: {
+                              ...result.tailoredCv,
+                              summaryBullets: updated,
+                              summary: updated.map((b: string) => `• ${b}`).join('\n')
+                            }
+                          });
+                        }}
+                        className="text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 cursor-pointer w-4 h-4 rounded-full flex items-center justify-center transition-all duration-150 select-none border border-rose-200 font-sans text-[10px]"
+                        title="Delete summary bullet point"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {!isMeasurement && (
+              <div className="no-print font-sans pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const updated = [...summaryBullets, 'Demonstrated deep technical expertise and delivered key scalable solutions.'];
+                    setResult({
+                      ...result,
+                      tailoredCv: {
+                        ...result.tailoredCv,
+                        summaryBullets: updated,
+                        summary: updated.map((b: string) => `• ${b}`).join('\n')
+                      }
+                    });
+                  }}
+                  className="opacity-0 group-hover:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 inline-flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
+                  title="Add new bullet point to summary"
+                >
+                  <Plus className="w-3 h-3 text-indigo-600" />
+                  <span>Add Summary Bullet</span>
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      }
+
       return (
         <div key={blockId} data-block-id={blockId} className="w-full text-left group relative">
-          {!isMeasurement && renderSectionHeaderControls('summary', cvLanguage === 'DE' ? 'Berufliches Profil' : 'Professional Profile', result.tailoredCv.summary)}
-          {renderSectionHeading(cvLanguage === 'DE' ? 'Berufliches Profil' : 'Professional Profile', isFirstSection)}
+          {!isMeasurement && renderSectionHeaderControls('summary', title, result.tailoredCv.summary)}
+          {renderSectionHeading(title, isFirstSection)}
           <ContentEditable
             tagName="p"
             value={result.tailoredCv.summary}
@@ -2090,6 +2402,10 @@ export default function TailorWorkspace() {
     }
 
     if (blockId === 'work-history-header') {
+      const title = cvFormatMode === 'bullet-matrix'
+        ? (cvLanguage === 'DE' ? 'BERUFSERFAHRUNG' : 'PROFESSIONAL EXPERIENCES')
+        : (cvLanguage === 'DE' ? 'Berufserfahrung' : 'Work History');
+
       return (
         <div
           key={blockId}
@@ -2100,8 +2416,8 @@ export default function TailorWorkspace() {
             marginBottom: `${sectionSpacing * 0.2}px`
           }}
         >
-          {!isMeasurement && renderSectionHeaderControls('work', cvLanguage === 'DE' ? 'Berufserfahrung' : 'Work History', result.tailoredCv.workExperience)}
-          {renderSectionHeading(cvLanguage === 'DE' ? 'Berufserfahrung' : 'Work History', isFirstSection)}
+          {!isMeasurement && renderSectionHeaderControls('work', title, result.tailoredCv.workExperience)}
+          {renderSectionHeading(title, isFirstSection)}
         </div>
       );
     }
@@ -2110,6 +2426,112 @@ export default function TailorWorkspace() {
       const idx = parseInt(blockId.substring(9));
       const exp = result.tailoredCv.workExperience[idx];
       if (!exp) return null;
+
+      if (cvFormatMode === 'bullet-matrix') {
+        return (
+          <div
+            key={blockId}
+            data-block-id={blockId}
+            className="w-full text-left font-sans flex flex-col group/workitem relative"
+            style={{ marginBottom: `${bulletSpacing * 1.5}px` }}
+          >
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="font-bold text-black uppercase tracking-[0.2px]" style={{ fontSize: `${fontSize + 0.5}px` }}>
+                <ContentEditable
+                  tagName="span"
+                  value={exp.company}
+                  onChange={(val) => handleWorkExperienceChange(idx, 'company', val, true)}
+                  onBlur={(e: any) => handleWorkExperienceChange(idx, 'company', e.target.innerText, false)}
+                  useInnerText={true}
+                  isMeasurement={isMeasurement}
+                  className="focus:outline-none"
+                />
+                {' – '}
+                <ContentEditable
+                  tagName="span"
+                  value={exp.role}
+                  onChange={(val) => handleWorkExperienceChange(idx, 'role', val, true)}
+                  onBlur={(e: any) => handleWorkExperienceChange(idx, 'role', e.target.innerText, false)}
+                  useInnerText={true}
+                  isMeasurement={isMeasurement}
+                  className="focus:outline-none"
+                />
+              </span>
+              <span className="font-bold text-black uppercase text-xs">
+                <ContentEditable
+                  tagName="span"
+                  value={exp.period}
+                  onChange={(val) => handleWorkExperienceChange(idx, 'period', val, true)}
+                  onBlur={(e: any) => handleWorkExperienceChange(idx, 'period', e.target.innerText, false)}
+                  useInnerText={true}
+                  isMeasurement={isMeasurement}
+                  className="focus:outline-none"
+                />
+              </span>
+            </div>
+            <ul
+              className="list-none pl-0 animate-none"
+              style={{ marginTop: `${bulletSpacing * 0.35}px` }}
+            >
+              {getRenderedBullets(exp, bulletStyle, lengthTarget, idx === 0).map((b: string, bIdx: number) => (
+                <li
+                  key={bIdx}
+                  className="group flex items-start gap-1.5 text-black leading-[1.45] relative animate-none"
+                  style={{
+                    fontSize: `${fontSize}px`,
+                    marginTop: `${bulletSpacing}px`
+                  }}
+                >
+                  <span className="text-gray-500 leading-none mt-[2px] select-none">•</span>
+                  <ContentEditable
+                    tagName="span"
+                    value={b}
+                    onChange={(val) => handleWorkExperienceBulletChange(idx, bIdx, val, true)}
+                    onBlur={(e: any) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerHTML, false)}
+                    isMeasurement={isMeasurement}
+                    highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(b) : undefined}
+                    className="focus:outline-none flex-1 text-black"
+                  />
+                  {!isMeasurement && (
+                    <div className="no-print opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex items-center gap-1 ml-1.5 shrink-0 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => handleFetchBulletVariations(idx, bIdx, b)}
+                        className="text-indigo-500 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 cursor-pointer w-4 h-4 rounded-full flex items-center justify-center transition-all duration-150 border border-indigo-200"
+                        title="Polish bullet point with AI"
+                      >
+                        <Wand2 className="w-2.5 h-2.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteWorkExperienceBullet(idx, bIdx)}
+                        className="text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 cursor-pointer w-4 h-4 rounded-full flex items-center justify-center transition-all duration-150 select-none border border-rose-200 font-sans text-[10px]"
+                        title="Delete bullet point"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {!isMeasurement && (
+              <div className="no-print font-sans pt-1">
+                <button
+                  type="button"
+                  onClick={() => handleAddWorkExperienceBullet(idx)}
+                  className="opacity-0 group-hover/workitem:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 inline-flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
+                  title="Add new bullet point to this work experience entry"
+                >
+                  <Plus className="w-3 h-3 text-indigo-600" />
+                  <span>Add Bullet Point</span>
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      }
+
       if (isAtsMode) {
         return (
           <div
@@ -2379,6 +2801,10 @@ export default function TailorWorkspace() {
     }
 
     if (blockId === 'education-header') {
+      const title = cvFormatMode === 'bullet-matrix'
+        ? (cvLanguage === 'DE' ? 'AUSBILDUNG' : 'EDUCATION')
+        : (cvLanguage === 'DE' ? 'Ausbildung' : 'Education');
+
       return (
         <div
           key={blockId}
@@ -2389,8 +2815,8 @@ export default function TailorWorkspace() {
             marginBottom: `${sectionSpacing * 0.2}px`
           }}
         >
-          {!isMeasurement && renderSectionHeaderControls('education', cvLanguage === 'DE' ? 'Ausbildung' : 'Education', result.tailoredCv.education)}
-          {renderSectionHeading(cvLanguage === 'DE' ? 'Ausbildung' : 'Education', isFirstSection)}
+          {!isMeasurement && renderSectionHeaderControls('education', title, result.tailoredCv.education)}
+          {renderSectionHeading(title, isFirstSection)}
         </div>
       );
     }
@@ -2399,6 +2825,63 @@ export default function TailorWorkspace() {
       const idx = parseInt(blockId.substring(4));
       const edu = result.tailoredCv.education[idx];
       if (!edu) return null;
+
+      if (cvFormatMode === 'bullet-matrix') {
+        return (
+          <div key={blockId} data-block-id={blockId} className="w-full text-left font-sans flex flex-col" style={{ marginBottom: `${bulletSpacing * 1.2}px` }}>
+            <p className="font-bold text-black uppercase tracking-[0.2px]" style={{ fontSize: `${fontSize}px` }}>
+              <ContentEditable
+                tagName="span"
+                value={edu.degree}
+                onChange={(val) => handleEducationChange(idx, 'degree', val, true)}
+                onBlur={(e: any) => handleEducationChange(idx, 'degree', e.target.innerText, false)}
+                useInnerText={true}
+                isMeasurement={isMeasurement}
+                className="focus:outline-none"
+              />
+            </p>
+            <div className="flex flex-wrap items-baseline justify-between gap-2 text-black" style={{ fontSize: `${fontSize - 0.5}px` }}>
+              <span>
+                <ContentEditable
+                  tagName="span"
+                  value={edu.institution}
+                  onChange={(val) => handleEducationChange(idx, 'institution', val, true)}
+                  onBlur={(e: any) => handleEducationChange(idx, 'institution', e.target.innerText, false)}
+                  useInnerText={true}
+                  isMeasurement={isMeasurement}
+                  className="focus:outline-none font-medium"
+                />
+                {edu.location && (
+                  <>
+                    {' – '}
+                    <ContentEditable
+                      tagName="span"
+                      value={edu.location}
+                      onChange={(val) => handleEducationChange(idx, 'location', val, true)}
+                      onBlur={(e: any) => handleEducationChange(idx, 'location', e.target.innerText, false)}
+                      useInnerText={true}
+                      isMeasurement={isMeasurement}
+                      className="focus:outline-none"
+                    />
+                  </>
+                )}
+              </span>
+              <span className="font-bold uppercase text-xs">
+                <ContentEditable
+                  tagName="span"
+                  value={edu.period}
+                  onChange={(val) => handleEducationChange(idx, 'period', val, true)}
+                  onBlur={(e: any) => handleEducationChange(idx, 'period', e.target.innerText, false)}
+                  useInnerText={true}
+                  isMeasurement={isMeasurement}
+                  className="focus:outline-none"
+                />
+              </span>
+            </div>
+          </div>
+        );
+      }
+
       if (isAtsMode) {
         return (
           <div
@@ -2550,6 +3033,10 @@ export default function TailorWorkspace() {
     }
 
     if (blockId === 'projects-header') {
+      const title = cvFormatMode === 'bullet-matrix'
+        ? (cvLanguage === 'DE' ? 'PROJEKTE' : 'PROJECTS')
+        : (cvLanguage === 'DE' ? 'Projekte' : 'Projects');
+
       return (
         <div
           key={blockId}
@@ -2560,8 +3047,8 @@ export default function TailorWorkspace() {
             marginBottom: `${sectionSpacing * 0.2}px`
           }}
         >
-          {!isMeasurement && renderSectionHeaderControls('projects', cvLanguage === 'DE' ? 'Projekte' : 'Projects', result.tailoredCv.projects)}
-          {renderSectionHeading(cvLanguage === 'DE' ? 'Projekte' : 'Projects', isFirstSection)}
+          {!isMeasurement && renderSectionHeaderControls('projects', title, result.tailoredCv.projects)}
+          {renderSectionHeading(title, isFirstSection)}
         </div>
       );
     }
@@ -2570,6 +3057,76 @@ export default function TailorWorkspace() {
       const idx = parseInt(blockId.substring(8));
       const proj = result.tailoredCv.projects?.[idx];
       if (!proj) return null;
+
+      if (cvFormatMode === 'bullet-matrix') {
+        return (
+          <div key={blockId} data-block-id={blockId} className="w-full text-left font-sans group relative" style={{ marginBottom: `${bulletSpacing}px` }}>
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-black font-normal leading-[1.45]" style={{ fontSize: `${fontSize}px` }}>
+                <span className="text-gray-500 leading-none mr-1.5 select-none">•</span>
+                <span className="font-semibold">
+                  <ContentEditable
+                    tagName="span"
+                    value={proj.name}
+                    onChange={(val) => handleProjectChange(idx, 'name', val, true)}
+                    onBlur={(e: any) => handleProjectChange(idx, 'name', e.target.innerText, false)}
+                    useInnerText={true}
+                    isMeasurement={isMeasurement}
+                    className="focus:outline-none font-bold text-black"
+                  />
+                </span>
+                {proj.description && (
+                  <>
+                    {' ('}
+                    <ContentEditable
+                      tagName="span"
+                      value={proj.description}
+                      onChange={(val) => handleProjectChange(idx, 'description', val, true)}
+                      onBlur={(e: any) => handleProjectChange(idx, 'description', e.target.innerHTML, false)}
+                      isMeasurement={isMeasurement}
+                      highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(proj.description) : undefined}
+                      className="focus:outline-none"
+                    />
+                    {')'}
+                  </>
+                )}
+              </p>
+              {!isMeasurement && (
+                <div className="no-print opacity-0 group-hover:opacity-100 flex items-center gap-1 shrink-0 transition-opacity">
+                  <button
+                    type="button"
+                    onClick={() => handleMoveProject(idx, 'up')}
+                    disabled={idx === 0}
+                    className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 disabled:opacity-30 cursor-pointer shadow-sm border border-zinc-200"
+                    title="Move Project Up"
+                  >
+                    🔼
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMoveProject(idx, 'down')}
+                    disabled={idx === (result.tailoredCv.projects?.length || 0) - 1}
+                    className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 disabled:opacity-30 cursor-pointer shadow-sm border border-zinc-200"
+                    title="Move Project Down"
+                  >
+                    🔽
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleFetchProjectVariations(idx, proj.description, proj.name)}
+                    className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-600 cursor-pointer flex items-center gap-1 border border-indigo-200 shadow-sm"
+                    title="Polish Project Description with AI (2 Tokens)"
+                  >
+                    <Wand2 className="w-2.5 h-2.5 text-indigo-500" />
+                    <span>Polish</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      }
+
       if (isAtsMode) {
         return (
           <div
@@ -2578,9 +3135,9 @@ export default function TailorWorkspace() {
             className="w-full text-left font-sans flex flex-col group relative"
             style={{ marginBottom: `${bulletSpacing * 1.5}px` }}
           >
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-2 mb-1">
               <p
-                className="font-semibold flex items-center gap-1.5 flex-wrap animate-none"
+                className="font-bold"
                 style={{ fontSize: `${fontSize + 0.5}px`, color: activeTheme.accent }}
               >
                 <ContentEditable
@@ -2590,10 +3147,10 @@ export default function TailorWorkspace() {
                   onBlur={(e: any) => handleProjectChange(idx, 'name', e.target.innerText, false)}
                   useInnerText={true}
                   isMeasurement={isMeasurement}
-                  className="focus:outline-none font-bold"
+                  className="focus:outline-none"
                 />
                 {proj.url && (
-                  <a href={proj.url} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-400 hover:underline no-print font-normal">
+                  <a href={proj.url} target="_blank" rel="noopener noreferrer" style={{ color: activeTheme.accent }} className="text-[10px] hover:underline no-print font-normal ml-2">
                     ({proj.url})
                   </a>
                 )}
@@ -2769,13 +3326,44 @@ export default function TailorWorkspace() {
     }
 
     if (blockId === 'skills') {
+      const isBulletMatrix = cvFormatMode === 'bullet-matrix';
+      const title = isBulletMatrix
+        ? (cvLanguage === 'DE' ? 'TECHNISCHE FÄHIGKEITEN' : 'TECHNICAL SKILLS')
+        : (cvLanguage === 'DE' ? 'Fähigkeiten' : 'Skills');
+
+      const categorized = groupSkillsByCategory(result.tailoredCv.skills);
+
       return (
         <div key={blockId} data-block-id={blockId} className="w-full text-left font-sans group relative">
-          {!isMeasurement && renderSectionHeaderControls('skills', cvLanguage === 'DE' ? 'Fähigkeiten' : 'Skills', result.tailoredCv.skills)}
-          {renderSectionHeading(cvLanguage === 'DE' ? 'Fähigkeiten' : 'Skills', isFirstSection)}
+          {!isMeasurement && renderSectionHeaderControls('skills', title, result.tailoredCv.skills)}
+          {renderSectionHeading(title, isFirstSection)}
           <div style={{ marginTop: `${bulletSpacing * 0.5}px` }}>
             <ul className="list-none pl-0">
-              {skillsLayout === 'level' ? (
+              {isBulletMatrix ? (
+                Object.entries(categorized).map(([cat, names], gIdx) => {
+                  if (names.length === 0) return null;
+                  return (
+                    <li
+                      key={gIdx}
+                      className="flex items-start gap-1.5 text-black leading-[1.45]"
+                      style={{
+                        fontSize: `${fontSize}px`,
+                        marginTop: `${bulletSpacing}px`
+                      }}
+                    >
+                      <span className="text-gray-500 leading-none mt-[2px] shrink-0 select-none">•</span>
+                      <span>
+                        <span className="font-semibold text-black">{cat}: </span>
+                        {isAtsHighlightEnabled ? (
+                          <span className="text-black" dangerouslySetInnerHTML={{ __html: names.map(n => getHighlightedHtml(n)).join(' | ') }} />
+                        ) : (
+                          <span className="text-black">{names.join(' | ')}</span>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })
+              ) : skillsLayout === 'level' ? (
                 Object.entries(getGroupedSkills(result.tailoredCv.skills)).map(([level, names], gIdx) => {
                   if (names.length === 0) return null;
 
@@ -2807,7 +3395,7 @@ export default function TailorWorkspace() {
                   );
                 })
               ) : (
-                Object.entries(groupSkillsByCategory(result.tailoredCv.skills)).map(([cat, names], gIdx) => {
+                Object.entries(categorized).map(([cat, names], gIdx) => {
                   if (names.length === 0) return null;
 
                   return (
@@ -2839,31 +3427,45 @@ export default function TailorWorkspace() {
     }
 
     if (blockId === 'languages') {
+      const isBulletMatrix = cvFormatMode === 'bullet-matrix';
+      const title = isBulletMatrix
+        ? (cvLanguage === 'DE' ? 'SPRACHEN' : 'LANGUAGES')
+        : (cvLanguage === 'DE' ? 'Sprachen' : 'Languages');
+
       return (
         <div
           key={blockId}
           data-block-id={blockId}
           className="text-left w-full font-sans group relative"
-          style={{ marginTop: `${isFirstSection ? 0 : sectionSpacing * 0.5}px` }}
+          style={{ marginTop: `${isFirstSection ? 0 : sectionSpacing * 0.4}px` }}
         >
-          {!isMeasurement && renderSectionHeaderControls('languages', cvLanguage === 'DE' ? 'Sprachen' : 'Languages', result.tailoredCv.languages)}
-          {renderSectionHeading(cvLanguage === 'DE' ? 'Sprachen' : 'Languages', isFirstSection)}
+          {!isMeasurement && renderSectionHeaderControls('languages', title, result.tailoredCv.languages)}
+          {renderSectionHeading(title, isFirstSection)}
           <ul className="list-none pl-0">
             <li
-              className="flex items-start gap-1.5 text-gray-700 leading-[1.55]"
+              className="flex items-start gap-1.5 text-black leading-[1.45]"
               style={{
                 fontSize: `${fontSize}px`,
                 marginTop: `${bulletSpacing}px`
               }}
             >
-              <span className="text-gray-500 leading-none mt-[2px] shrink-0 font-sans">•</span>
+              <span className="text-gray-500 leading-none mt-[2px] shrink-0 font-sans select-none">•</span>
               <span>
-                {result.tailoredCv.languages.map((l: any, i: number) => (
-                  <span key={i}>
-                    <span className="font-semibold text-gray-800">{l.language}</span> ({l.level})
-                    {i < result.tailoredCv.languages.length - 1 ? ', ' : ''}
-                  </span>
-                ))}
+                {isBulletMatrix ? (
+                  result.tailoredCv.languages.map((l: any, i: number) => (
+                    <span key={i}>
+                      <span className="font-semibold text-black">{l.language}</span> – {l.level}
+                      {i < result.tailoredCv.languages.length - 1 ? ' | ' : ''}
+                    </span>
+                  ))
+                ) : (
+                  result.tailoredCv.languages.map((l: any, i: number) => (
+                    <span key={i}>
+                      <span className="font-semibold text-gray-800">{l.language}</span> ({l.level})
+                      {i < result.tailoredCv.languages.length - 1 ? ', ' : ''}
+                    </span>
+                  ))
+                )}
               </span>
             </li>
           </ul>
@@ -6631,31 +7233,7 @@ export default function TailorWorkspace() {
                         lineHeight: cvFormatMode === 'bullet-matrix' ? 1.45 : 1.55,
                       }}
                     >
-                      {cvFormatMode === 'bullet-matrix' ? (
-                        <BulletMatrixCvView
-                          result={result}
-                          profile={profile}
-                          cvLanguage={cvLanguage}
-                          bulletStyle={bulletStyle}
-                          skillsFocus={skillsFocus}
-                          sectionOrder={sectionOrder}
-                          hiddenSections={hiddenSections}
-                          customSections={customSections}
-                          selectedProjects={selectedProjects}
-                          showSignatureSection={showSignatureSection}
-                          showSignatureImage={showSignatureImage}
-                          signingLocation={signingLocation}
-                          fontSize={fontSize}
-                          sectionSpacing={sectionSpacing}
-                          bulletSpacing={bulletSpacing}
-                          pagePaddingTop={pagePaddingTop}
-                          pagePaddingBottom={pagePaddingBottom}
-                          pagePaddingSide={pagePaddingSide}
-                          isMeasurement={true}
-                        />
-                      ) : (
-                        getOrderedBlocks().map(blockId => renderBlock(blockId, true))
-                      )}
+                      {getOrderedBlocks().map(blockId => renderBlock(blockId, true))}
                     </div>
                   )}
 
@@ -6666,121 +7244,49 @@ export default function TailorWorkspace() {
                       id="cv-sheet"
                       className="flex flex-col gap-6 w-full items-center no-print"
                     >
-                      {cvFormatMode === 'bullet-matrix' ? (
-                        (() => {
-                          const a4Width = 794;
-                          const a4Height = 1123;
-                          const containerW = previewWidth > 0 ? previewWidth : (typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 794) : 360);
-                          const rawScale = containerW < a4Width ? (containerW - 16) / a4Width : 1;
-                          const scale = Math.max(0.48, Math.min(1, rawScale));
+                      {pagesToRender.map((pageBlockIds, pageIdx) => {
+                        const a4Width = 794; // A4 width in px (210mm)
+                        const a4Height = 1123; // A4 height in px (297mm)
+                        const containerW = previewWidth > 0 ? previewWidth : (typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 794) : 360);
+                        const rawScale = containerW < a4Width ? (containerW - 16) / a4Width : 1;
+                        const scale = Math.max(0.48, Math.min(1, rawScale));
 
-                          return (
+                        return (
+                          <div
+                            key={pageIdx}
+                            className="cv-page-scale-wrapper flex items-start justify-center no-print"
+                            style={{
+                              width: '100%',
+                              height: `${a4Height * scale}px`,
+                              flexShrink: 0
+                            }}
+                          >
                             <div
-                              className="cv-page-scale-wrapper flex items-start justify-center no-print"
+                              className={`cv-page-box w-[794px] h-[1123px] relative flex flex-col bg-white shadow-lg print:shadow-none ${lengthTarget.includes('1-Page') ? 'strict-1-page' : ''
+                                }`}
                               style={{
-                                width: '100%',
-                                minHeight: `${a4Height * scale}px`,
+                                width: '794px',
+                                height: '1123px',
+                                fontFamily: cvFormatMode === 'bullet-matrix' ? 'Arial, Helvetica, sans-serif' : (LAYOUT_TEMPLATES[cvLayoutTemplateId] || LAYOUT_TEMPLATES['standard']).fontFamily,
+                                fontSize: `${fontSize}px`,
+                                lineHeight: cvFormatMode === 'bullet-matrix' ? 1.45 : 1.55,
+                                color: cvFormatMode === 'bullet-matrix' ? '#000000' : '#1f2937',
+                                padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,
+                                boxSizing: 'border-box',
+                                overflow: 'hidden',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'flex-start',
+                                transform: `scale(${scale})`,
+                                transformOrigin: 'top center',
                                 flexShrink: 0
                               }}
                             >
-                              <div
-                                className="cv-page-box w-[794px] min-h-[1123px] relative flex flex-col bg-white text-black shadow-lg print:shadow-none"
-                                style={{
-                                  width: '794px',
-                                  minHeight: '1123px',
-                                  padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,
-                                  boxSizing: 'border-box',
-                                  fontFamily: 'Arial, Helvetica, sans-serif',
-                                  fontSize: `${fontSize}px`,
-                                  lineHeight: 1.45,
-                                  color: '#000000',
-                                  transform: `scale(${scale})`,
-                                  transformOrigin: 'top center',
-                                  flexShrink: 0
-                                }}
-                              >
-                                <BulletMatrixCvView
-                                  result={result}
-                                  profile={profile}
-                                  cvLanguage={cvLanguage}
-                                  bulletStyle={bulletStyle}
-                                  skillsFocus={skillsFocus}
-                                  sectionOrder={sectionOrder}
-                                  hiddenSections={hiddenSections}
-                                  customSections={customSections}
-                                  selectedProjects={selectedProjects}
-                                  showSignatureSection={showSignatureSection}
-                                  showSignatureImage={showSignatureImage}
-                                  signingLocation={signingLocation}
-                                  fontSize={fontSize}
-                                  sectionSpacing={sectionSpacing}
-                                  bulletSpacing={bulletSpacing}
-                                  pagePaddingTop={pagePaddingTop}
-                                  pagePaddingBottom={pagePaddingBottom}
-                                  pagePaddingSide={pagePaddingSide}
-                                  scale={scale}
-                                  isMeasurement={false}
-                                  handleCvDetailsChange={handleCvDetailsChange}
-                                  handleSummaryChange={handleCvSummaryChange}
-                                  handleBulletChange={handleWorkExperienceBulletChange}
-                                  handleProjectChange={(projIdx, field, val, isPartial) => handleProjectChange(projIdx, field as any, val, isPartial)}
-                                  handleOpenRegenModal={handleOpenRegenModal}
-                                  handleFetchBulletVariations={handleFetchBulletVariations}
-                                  handleFetchProjectVariations={handleFetchProjectVariations}
-                                />
-                              </div>
+                              {pageBlockIds.map((blockId) => renderBlock(blockId, false))}
                             </div>
-                          );
-                        })()
-                      ) : (
-                        pagesToRender.map((pageBlockIds, pageIdx) => {
-                          const a4Width = 794; // A4 width in px (210mm)
-                          const a4Height = 1123; // A4 height in px (297mm)
-                          const containerW = previewWidth > 0 ? previewWidth : (typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 794) : 360);
-                          const rawScale = containerW < a4Width ? (containerW - 16) / a4Width : 1;
-                          const scale = Math.max(0.48, Math.min(1, rawScale));
-
-                          return (
-                            <div
-                              key={pageIdx}
-                              className="cv-page-scale-wrapper flex items-start justify-center no-print"
-                              style={{
-                                width: '100%',
-                                height: `${a4Height * scale}px`,
-                                flexShrink: 0
-                              }}
-                            >
-                              <div
-                                className={`cv-page-box w-[794px] h-[1123px] relative flex flex-col bg-white text-gray-800 shadow-lg print:shadow-none ${lengthTarget.includes('1-Page') ? 'strict-1-page' : ''
-                                  }`}
-                                style={{
-                                  width: '794px',
-                                  height: '1123px',
-                                  fontFamily: (LAYOUT_TEMPLATES[cvLayoutTemplateId] || LAYOUT_TEMPLATES['standard']).fontFamily,
-                                  fontSize: `${fontSize}px`,
-                                  lineHeight: 1.55,
-                                  padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,
-                                  boxSizing: 'border-box',
-                                  overflow: 'hidden',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  justifyContent: 'flex-start',
-                                  transform: `scale(${scale})`,
-                                  transformOrigin: 'top center',
-                                  flexShrink: 0
-                                }}
-                              >
-                                {pageBlockIds.map(blockId => renderBlock(blockId, false))}
-
-                                {/* Page Number Indicator */}
-                                <div className="absolute bottom-4 right-6 text-[10px] text-zinc-400 font-sans select-none no-print">
-                                  Page {pageIdx + 1} of {pagesToRender.length}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 
