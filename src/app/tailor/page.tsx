@@ -4350,31 +4350,31 @@ export default function TailorWorkspace() {
   };
 
   const saveToApplicationsTracker = async () => {
-    if (!result) return;
+    if (!result && !interviewPrepData && !outreachData) return;
     setIsSaving(true);
     setSaveSuccess(false);
 
     const payload = {
-      company: companyName,
-      role: roleName,
+      company: companyName || 'Target Company',
+      role: roleName || 'Target Role',
       salaryExpectation,
       noticePeriod,
       signingLocation,
       customNotes,
-      rawJobDescription: jobDescription,
-      matchScore: result.matchScore,
-      gapAnalysis: result.gapAnalysis,
+      rawJobDescription: jobDescription || 'No job description provided',
+      matchScore: result?.matchScore || 0,
+      gapAnalysis: result?.gapAnalysis || {},
       targetLanguage: cvLanguage,
-      techStack: result.jobMetadata?.techStack || '',
-      mainRequirements: result.jobMetadata?.mainRequirements || '',
-      recruiterName: result.jobMetadata?.recruiterName || '',
-      contactInfo: result.jobMetadata?.contactInfo || '',
-      jobType: result.jobMetadata?.jobType || '',
-      location: result.jobMetadata?.location || '',
-      remoteOrPhysical: result.jobMetadata?.remoteOrPhysical || '',
+      techStack: result?.jobMetadata?.techStack || '',
+      mainRequirements: result?.jobMetadata?.mainRequirements || '',
+      recruiterName: result?.jobMetadata?.recruiterName || outreachRecruiterName || '',
+      contactInfo: result?.jobMetadata?.contactInfo || '',
+      jobType: result?.jobMetadata?.jobType || '',
+      location: result?.jobMetadata?.location || '',
+      remoteOrPhysical: result?.jobMetadata?.remoteOrPhysical || '',
       documents: [
-        { type: 'CV', content: JSON.stringify({ ...result.tailoredCv, sectionOrder }) },
-        { type: 'COVER_LETTER', content: JSON.stringify(result.tailoredCoverLetter) },
+        ...(result?.tailoredCv ? [{ type: 'CV', content: JSON.stringify({ ...result.tailoredCv, sectionOrder }) }] : []),
+        ...(result?.tailoredCoverLetter ? [{ type: 'COVER_LETTER', content: JSON.stringify(result.tailoredCoverLetter) }] : []),
         ...(interviewPrepData ? [{ type: 'INTERVIEW_PREP', content: JSON.stringify(interviewPrepData) }] : []),
         ...(outreachData ? [{ type: 'OUTREACH', content: JSON.stringify(outreachData) }] : [])
       ]
@@ -5572,55 +5572,55 @@ export default function TailorWorkspace() {
                 )}
               </div>
 
-              {/* Top Row Right: Height badge & Export Format button (Shown on CV & Cover Letter) */}
-              {(previewTab === 'cv' || previewTab === 'coverLetter') && (
-                <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-1.5 sm:pt-0 border-t sm:border-t-0 border-white/5">
-                  {result && (
-                    <span className="text-[10px] font-semibold px-2 py-1 rounded-md bg-zinc-900 border border-white/5 flex items-center gap-1.5 font-sans">
-                      <span>Height:</span>
-                      <span className={numPages > 1 ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"}>
-                        {numPages} {numPages === 1 ? 'Page' : 'Pages'}
-                      </span>
-                      {numPages > 1 && lengthTarget === 'Strict 1-Page (concise)' && previewTab === 'cv' && (
-                        <span className="hidden md:inline text-amber-500 font-normal">
-                          (Spillover warning: try reducing bullets to fit on 1 Page)
-                        </span>
-                      )}
+              {/* Top Row Right: Height badge & Export Format button (Height & Export on CV/CL, Tracker button on all tabs) */}
+              <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-1.5 sm:pt-0 border-t sm:border-t-0 border-white/5">
+                {(previewTab === 'cv' || previewTab === 'coverLetter') && result && (
+                  <span className="text-[10px] font-semibold px-2 py-1 rounded-md bg-zinc-900 border border-white/5 flex items-center gap-1.5 font-sans">
+                    <span>Height:</span>
+                    <span className={numPages > 1 ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"}>
+                      {numPages} {numPages === 1 ? 'Page' : 'Pages'}
                     </span>
-                  )}
+                    {numPages > 1 && lengthTarget === 'Strict 1-Page (concise)' && previewTab === 'cv' && (
+                      <span className="hidden md:inline text-amber-500 font-normal">
+                        (Spillover warning: try reducing bullets to fit on 1 Page)
+                      </span>
+                    )}
+                  </span>
+                )}
 
-                  {result && (
-                    <div className="flex items-center gap-2 relative no-print font-sans z-50">
-                      {/* Save/Update to Applications Tracker */}
-                      <button
-                        type="button"
-                        onClick={saveToApplicationsTracker}
-                        disabled={isSaving}
-                        className={`px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-md transition-all cursor-pointer flex items-center gap-1.5 ${
-                          saveSuccess
-                            ? 'bg-emerald-600 text-white shadow-emerald-500/20'
-                            : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-white/10 hover:text-white hover:border-indigo-500/40'
-                        }`}
-                        title={editingAppId ? 'Update this application in your Kanban tracker' : 'Save tailored application into your Kanban tracker'}
-                      >
-                        {isSaving ? (
-                          <>
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400" />
-                            <span>Saving...</span>
-                          </>
-                        ) : saveSuccess ? (
-                          <>
-                            <Check className="w-3.5 h-3.5 text-emerald-300" />
-                            <span>{editingAppId ? 'Updated in Tracker!' : 'Saved to Tracker!'}</span>
-                          </>
-                        ) : (
-                          <>
-                            <Bookmark className="w-3.5 h-3.5 text-indigo-400" />
-                            <span>{editingAppId ? 'Update Tracker' : 'Add to Tracker'}</span>
-                          </>
-                        )}
-                      </button>
+                {(result || interviewPrepData || outreachData || editingAppId) && (
+                  <div className="flex items-center gap-2 relative no-print font-sans z-50">
+                    {/* Save/Update to Applications Tracker */}
+                    <button
+                      type="button"
+                      onClick={saveToApplicationsTracker}
+                      disabled={isSaving}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-md transition-all cursor-pointer flex items-center gap-1.5 ${
+                        saveSuccess
+                          ? 'bg-emerald-600 text-white shadow-emerald-500/20'
+                          : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-white/10 hover:text-white hover:border-indigo-500/40'
+                      }`}
+                      title={editingAppId ? 'Update this application in your Kanban tracker' : 'Save tailored application into your Kanban tracker'}
+                    >
+                      {isSaving ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400" />
+                          <span>Saving...</span>
+                        </>
+                      ) : saveSuccess ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-300" />
+                          <span>{editingAppId ? 'Updated in Tracker!' : 'Saved to Tracker!'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Bookmark className="w-3.5 h-3.5 text-indigo-400" />
+                          <span>{editingAppId ? 'Update Tracker' : 'Add to Tracker'}</span>
+                        </>
+                      )}
+                    </button>
 
+                    {(previewTab === 'cv' || previewTab === 'coverLetter') && result && (
                       <div className="relative">
                         <button
                           onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
@@ -5690,10 +5690,10 @@ export default function TailorWorkspace() {
                           </>
                         )}
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Row 2: Layout Presets & ATS Toolbar (Sticky on top of document) */}
