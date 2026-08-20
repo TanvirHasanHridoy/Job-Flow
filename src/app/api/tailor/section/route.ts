@@ -18,6 +18,7 @@ export async function POST(req: Request) {
       sectionKey,
       mode = 'section',
       targetLanguage = 'EN',
+      cvFormat = 'visual', // 'visual' | 'ats' | 'bullet-matrix'
       jobDescription,
       profile,
       currentContent,
@@ -38,6 +39,7 @@ export async function POST(req: Request) {
       sectionKey,
       mode,
       targetLanguage,
+      cvFormat,
       jobDescription,
       currentContent,
       userInstruction,
@@ -144,11 +146,20 @@ Respond strictly with a raw JSON object matching this schema:
 }`;
     } else {
       // Mode === 'section'
-      let schemaGuide = '';
-      if (sectionKey === 'summary') {
-        schemaGuide = `{
+      let schemaGuide = '';      if (sectionKey === 'summary') {
+        if (cvFormat === 'bullet-matrix') {
+          schemaGuide = `{
+  "summary": "<newline-separated capability bullets starting with '• ', in ${targetLanguage === 'DE' ? 'German' : 'English'}>",
+  "summaryBullets": [
+    "<discrete capability bullet 1 in ${targetLanguage === 'DE' ? 'German' : 'English'}>",
+    "<discrete capability bullet 2 in ${targetLanguage === 'DE' ? 'German' : 'English'}>"
+  ]
+}`;
+        } else {
+          schemaGuide = `{
   "summary": "<tailored professional summary in ${targetLanguage === 'DE' ? 'German' : 'English'}>"
 }`;
+        }
       } else if (sectionKey === 'work') {
         schemaGuide = `{
   "workExperience": [
@@ -168,7 +179,7 @@ Respond strictly with a raw JSON object matching this schema:
   "projects": [
     {
       "name": "<project name>",
-      "description": "<tailored project description>",
+      "description": "<tailored project description in ${targetLanguage === 'DE' ? 'German' : 'English'}>",
       "technologies": [<array of tech strings>]
     }
   ]
@@ -211,12 +222,22 @@ Respond strictly with a raw JSON object matching this schema:
 }`;
       }
 
+      const formatSpecificDirectives = cvFormat === 'bullet-matrix'
+        ? `
+BULLET MATRIX FORMAT CONSTRAINTS:
+1. SUMMARY: If regenerating summary, output 3 to 8 discrete capability bullet strings scaled to the candidate's verified profile depth. Do NOT output a single narrative paragraph.
+2. SKILLS: Categorize skills strictly into 4 pillars: Frontend, Backend, Database, Tools.
+3. PROJECTS: Highlight technical stack and organization context in a concise 1-line format.
+`
+        : '';
+
       systemPrompt = `You are an elite recruitment expert and ATS optimization engine. Re-generate ONLY the section '${sectionKey}' of the user's document tailored to the target job description.
 
 TARGET LANGUAGE: Write entirely in ${targetLanguage === 'DE' ? 'German' : 'English'}.
 CURRENT TODAY'S DATE: ${currentDateStr} (Ensure any dates generated use this current date!).
 TONE / STYLE: ${tone}
 PREFERRED BULLET STYLE: ${bulletStyle}
+${formatSpecificDirectives}
 
 USER CUSTOM INSTRUCTION / REVISION DIRECTIVE:
 "${userInstruction || 'Regenerate and optimize this section for maximum alignment with the target job.'}"

@@ -6,6 +6,7 @@ import { getUserTokens, deductTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
 import { getAiConfig } from '@/lib/ai';
 import { formatCityCountry } from '@/lib/customSections';
+import { buildBulletMatrixSystemPrompt } from '@/lib/bulletMatrixPrompts';
 
 // === DeepSeek API Configuration (Preserved / Commented as requested) ===
 // const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
@@ -21,6 +22,7 @@ export async function POST(req: Request) {
       targetLanguage, // legacy fallback
       cvLanguage = targetLanguage || 'EN',
       clLanguage = targetLanguage || 'EN',
+      cvFormat = 'visual', // 'visual' | 'ats' | 'bullet-matrix'
       tone = 'Bold & Action-oriented',
       lengthTarget = 'Strict 1-Page (concise)',
       bulletStyle = 'STAR Method',
@@ -50,6 +52,7 @@ export async function POST(req: Request) {
       jobDescription,
       cvLanguage,
       clLanguage,
+      cvFormat,
       tone,
       lengthTarget,
       bulletStyle,
@@ -347,10 +350,28 @@ You must respond with a raw JSON object containing these exact keys:
   }
 }`;
 
+    const activeSystemPrompt = cvFormat === 'bullet-matrix'
+      ? buildBulletMatrixSystemPrompt({
+          cvLanguage,
+          clLanguage,
+          tone,
+          lengthTarget,
+          bulletStyle,
+          skillsFocus: typeof skillsFocus === 'string' ? [skillsFocus] : (skillsFocus || []),
+          salaryExpectation,
+          noticePeriod,
+          signingLocation,
+          customNotes,
+          themeDirective,
+          matchStrategy,
+          currentDateStr
+        })
+      : systemPrompt;
+
     const payload = {
       model: aiConfig.model,
       messages: [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: activeSystemPrompt },
         {
           role: 'user',
           content: `Here is the user profile:
