@@ -15,6 +15,7 @@ import { generateAtsPlainText } from '@/lib/atsPlainText';
 import { useTokens } from '@/context/TokenContext';
 import { useAlertModal } from '@/context/AlertModalContext';
 import SectionControlsPanel from './components/SectionControlsPanel';
+import BulletMatrixCvView from './components/BulletMatrixCvView';
 
 interface WorkExperience {
   company: string;
@@ -626,8 +627,17 @@ export default function TailorWorkspace() {
   const [matchStrategy, setMatchStrategy] = useState<'TACTICAL_PIVOT' | 'AGGRESIVE_BRIDGING'>('TACTICAL_PIVOT');
   const [styleTemplate, setStyleTemplate] = useState<'CLASSIC_CORPORATE' | 'MODERN_MINIMALIST' | 'TECH_CREATIVE'>('CLASSIC_CORPORATE');
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
+  const [cvFormatMode, setCvFormatMode] = useState<'visual' | 'ats' | 'bullet-matrix'>('visual');
   const [isAtsMode, setIsAtsMode] = useState(false);
   const [isNudgeEnabled, setIsNudgeEnabled] = useState<boolean>(true);
+
+  const handleSetCvFormatMode = (mode: 'visual' | 'ats' | 'bullet-matrix') => {
+    setCvFormatMode(mode);
+    setIsAtsMode(mode === 'ats');
+    if (mode === 'bullet-matrix') {
+      applyPreset('default');
+    }
+  };
 
   // Project Description Polish Modal State
   const [projectPolishModal, setProjectPolishModal] = useState<{
@@ -925,6 +935,7 @@ export default function TailorWorkspace() {
           sectionKey: regenModal.sectionKey,
           mode: 'section',
           targetLanguage: previewTab === 'coverLetter' ? clLanguage : cvLanguage,
+          cvFormat: cvFormatMode,
           jobDescription: jobDescription || result?.jobMetadata?.rawJobDescription || '',
           profile,
           currentContent: regenModal.currentContent,
@@ -945,8 +956,13 @@ export default function TailorWorkspace() {
         setResult((prev: any) => {
           if (!prev) return prev;
           const newResult = { ...prev };
-          if (regenModal.sectionKey === 'summary' && data.data.summary) {
-            newResult.tailoredCv = { ...newResult.tailoredCv, summary: data.data.summary };
+          if (regenModal.sectionKey === 'summary') {
+            if (data.data.summary) {
+              newResult.tailoredCv = { ...newResult.tailoredCv, summary: data.data.summary };
+            }
+            if (data.data.summaryBullets) {
+              newResult.tailoredCv = { ...newResult.tailoredCv, summaryBullets: data.data.summaryBullets };
+            }
           } else if (regenModal.sectionKey === 'work' && data.data.workExperience) {
             newResult.tailoredCv = { ...newResult.tailoredCv, workExperience: data.data.workExperience };
           } else if (regenModal.sectionKey === 'projects' && data.data.projects) {
@@ -1140,6 +1156,35 @@ export default function TailorWorkspace() {
   const [showSignatureImage, setShowSignatureImage] = useState(true);
 
   const applyPreset = (preset: 'default' | 'compact' | 'tight') => {
+    if (cvFormatMode === 'bullet-matrix') {
+      if (preset === 'default') {
+        setFontSize(13.33); // 10pt
+        setSectionSpacing(16);
+        setBulletSpacing(4.5);
+        setPagePaddingTop(14);
+        setPagePaddingBottom(14);
+        setPagePaddingSide(16);
+        setHeaderSpacing(6);
+      } else if (preset === 'compact') {
+        setFontSize(12.5); // 9.5pt
+        setSectionSpacing(11);
+        setBulletSpacing(3.5);
+        setPagePaddingTop(12);
+        setPagePaddingBottom(12);
+        setPagePaddingSide(14);
+        setHeaderSpacing(5);
+      } else if (preset === 'tight') {
+        setFontSize(12); // 9pt
+        setSectionSpacing(8);
+        setBulletSpacing(2.5);
+        setPagePaddingTop(10);
+        setPagePaddingBottom(10);
+        setPagePaddingSide(12);
+        setHeaderSpacing(4);
+      }
+      return;
+    }
+
     if (preset === 'default') {
       setSectionSpacing(24);
       setPagePaddingTop(28);
@@ -3451,6 +3496,7 @@ export default function TailorWorkspace() {
           jobDescription,
           cvLanguage,
           clLanguage,
+          cvFormat: cvFormatMode,
           tone,
           lengthTarget,
           bulletStyle,
@@ -3827,6 +3873,13 @@ export default function TailorWorkspace() {
         const isLastPage = pageIdx === pageElements.length - 1;
         const clone = preparePrintClone(pageEl as HTMLElement, 'cv');
 
+        const isBulletMatrix = cvFormatMode === 'bullet-matrix';
+        const fontFamily = isBulletMatrix
+          ? 'Arial, Helvetica, sans-serif'
+          : (LAYOUT_TEMPLATES[cvLayoutTemplateId] || LAYOUT_TEMPLATES['standard']).fontFamily;
+        const color = isBulletMatrix ? '#000000' : '#1F2937';
+        const lineHeight = isBulletMatrix ? '1.45' : '1.55';
+
         // Apply CV page styles directly in style attribute (without scaling)
         clone.setAttribute('style', `
           width: 210mm !important;
@@ -3839,10 +3892,10 @@ export default function TailorWorkspace() {
           break-after: ${isLastPage ? 'auto' : 'page'} !important;
           background-color: #FFFFFF !important;
           position: relative !important;
-          font-family: ${(LAYOUT_TEMPLATES[cvLayoutTemplateId] || LAYOUT_TEMPLATES['standard']).fontFamily} !important;
+          font-family: ${fontFamily} !important;
           font-size: ${fontSize}px !important;
-          line-height: 1.55 !important;
-          color: #1F2937 !important;
+          line-height: ${lineHeight} !important;
+          color: ${color} !important;
           display: block !important;
         `);
         pagesHtml += clone.outerHTML;
@@ -4915,6 +4968,34 @@ export default function TailorWorkspace() {
                   Tailoring Customizations
                 </h3>
 
+                {/* CV Style & Format 3-Way Selector */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Format & Prompting Style</label>
+                  <div className="grid grid-cols-3 gap-1 p-1 bg-zinc-900 border border-white/10 rounded-lg text-xs font-sans">
+                    <button
+                      type="button"
+                      onClick={() => handleSetCvFormatMode('visual')}
+                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'visual' ? 'bg-zinc-800 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
+                    >
+                      Visual Layout
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetCvFormatMode('ats')}
+                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'ats' ? 'bg-zinc-800 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
+                    >
+                      Strict ATS
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetCvFormatMode('bullet-matrix')}
+                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'bullet-matrix' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
+                    >
+                      Bullet Matrix
+                    </button>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Tone</label>
@@ -5699,13 +5780,13 @@ export default function TailorWorkspace() {
 
             {result && previewTab === 'cv' && (
               <div className="pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-2.5 text-white font-sans text-xs">
-                {/* Top Group */}
+                {/* Top Group: 3-Way CV Format Mode Selector */}
                 {previewTab === 'cv' && (
                   <div className="flex bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-0.5 font-sans w-full sm:w-auto">
                     <button
                       type="button"
-                      onClick={() => setIsAtsMode(false)}
-                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${!isAtsMode
+                      onClick={() => handleSetCvFormatMode('visual')}
+                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'visual'
                         ? 'bg-zinc-800 text-white shadow-sm'
                         : 'text-zinc-400 hover:text-zinc-200'
                         }`}
@@ -5714,13 +5795,23 @@ export default function TailorWorkspace() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setIsAtsMode(true)}
-                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${isAtsMode
+                      onClick={() => handleSetCvFormatMode('ats')}
+                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'ats'
                         ? 'bg-zinc-800 text-white shadow-sm'
                         : 'text-zinc-400 hover:text-zinc-200'
                         }`}
                     >
                       Strict ATS
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetCvFormatMode('bullet-matrix')}
+                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'bullet-matrix'
+                        ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                    >
+                      Bullet Matrix
                     </button>
                   </div>
                 )}
@@ -6511,12 +6602,36 @@ export default function TailorWorkspace() {
                         width: '794px',
                         padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,
                         boxSizing: 'border-box',
-                        fontFamily: (LAYOUT_TEMPLATES[cvLayoutTemplateId] || LAYOUT_TEMPLATES['standard']).fontFamily,
+                        fontFamily: cvFormatMode === 'bullet-matrix' ? 'Arial, Helvetica, sans-serif' : (LAYOUT_TEMPLATES[cvLayoutTemplateId] || LAYOUT_TEMPLATES['standard']).fontFamily,
                         fontSize: `${fontSize}px`,
-                        lineHeight: 1.55,
+                        lineHeight: cvFormatMode === 'bullet-matrix' ? 1.45 : 1.55,
                       }}
                     >
-                      {getOrderedBlocks().map(blockId => renderBlock(blockId, true))}
+                      {cvFormatMode === 'bullet-matrix' ? (
+                        <BulletMatrixCvView
+                          result={result}
+                          profile={profile}
+                          cvLanguage={cvLanguage}
+                          bulletStyle={bulletStyle}
+                          skillsFocus={skillsFocus}
+                          sectionOrder={sectionOrder}
+                          hiddenSections={hiddenSections}
+                          customSections={customSections}
+                          selectedProjects={selectedProjects}
+                          showSignatureSection={showSignatureSection}
+                          showSignatureImage={showSignatureImage}
+                          signingLocation={signingLocation}
+                          fontSize={fontSize}
+                          sectionSpacing={sectionSpacing}
+                          bulletSpacing={bulletSpacing}
+                          pagePaddingTop={pagePaddingTop}
+                          pagePaddingBottom={pagePaddingBottom}
+                          pagePaddingSide={pagePaddingSide}
+                          isMeasurement={true}
+                        />
+                      ) : (
+                        getOrderedBlocks().map(blockId => renderBlock(blockId, true))
+                      )}
                     </div>
                   )}
 
@@ -6527,53 +6642,121 @@ export default function TailorWorkspace() {
                       id="cv-sheet"
                       className="flex flex-col gap-6 w-full items-center no-print"
                     >
-                      {pagesToRender.map((pageBlockIds, pageIdx) => {
-                        const a4Width = 794; // A4 width in px (210mm)
-                        const a4Height = 1123; // A4 height in px (297mm)
-                        const containerW = previewWidth > 0 ? previewWidth : (typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 794) : 360);
-                        const rawScale = containerW < a4Width ? (containerW - 16) / a4Width : 1;
-                        const scale = Math.max(0.48, Math.min(1, rawScale));
+                      {cvFormatMode === 'bullet-matrix' ? (
+                        (() => {
+                          const a4Width = 794;
+                          const a4Height = 1123;
+                          const containerW = previewWidth > 0 ? previewWidth : (typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 794) : 360);
+                          const rawScale = containerW < a4Width ? (containerW - 16) / a4Width : 1;
+                          const scale = Math.max(0.48, Math.min(1, rawScale));
 
-                        return (
-                          <div
-                            key={pageIdx}
-                            className="cv-page-scale-wrapper flex items-start justify-center no-print"
-                            style={{
-                              width: '100%',
-                              height: `${a4Height * scale}px`,
-                              flexShrink: 0
-                            }}
-                          >
+                          return (
                             <div
-                              className={`cv-page-box w-[794px] h-[1123px] relative flex flex-col bg-white text-gray-800 shadow-lg print:shadow-none ${lengthTarget.includes('1-Page') ? 'strict-1-page' : ''
-                                }`}
+                              className="cv-page-scale-wrapper flex items-start justify-center no-print"
                               style={{
-                                width: '794px',
-                                height: '1123px',
-                                fontFamily: (LAYOUT_TEMPLATES[cvLayoutTemplateId] || LAYOUT_TEMPLATES['standard']).fontFamily,
-                                fontSize: `${fontSize}px`,
-                                lineHeight: 1.55,
-                                padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,
-                                boxSizing: 'border-box',
-                                overflow: 'hidden',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                justifyContent: 'flex-start',
-                                transform: `scale(${scale})`,
-                                transformOrigin: 'top center',
+                                width: '100%',
+                                minHeight: `${a4Height * scale}px`,
                                 flexShrink: 0
                               }}
                             >
-                              {pageBlockIds.map(blockId => renderBlock(blockId, false))}
-
-                              {/* Page Number Indicator */}
-                              <div className="absolute bottom-4 right-6 text-[10px] text-zinc-400 font-sans select-none no-print">
-                                Page {pageIdx + 1} of {pagesToRender.length}
+                              <div
+                                className="cv-page-box w-[794px] min-h-[1123px] relative flex flex-col bg-white text-black shadow-lg print:shadow-none"
+                                style={{
+                                  width: '794px',
+                                  minHeight: '1123px',
+                                  padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,
+                                  boxSizing: 'border-box',
+                                  fontFamily: 'Arial, Helvetica, sans-serif',
+                                  fontSize: `${fontSize}px`,
+                                  lineHeight: 1.45,
+                                  color: '#000000',
+                                  transform: `scale(${scale})`,
+                                  transformOrigin: 'top center',
+                                  flexShrink: 0
+                                }}
+                              >
+                                <BulletMatrixCvView
+                                  result={result}
+                                  profile={profile}
+                                  cvLanguage={cvLanguage}
+                                  bulletStyle={bulletStyle}
+                                  skillsFocus={skillsFocus}
+                                  sectionOrder={sectionOrder}
+                                  hiddenSections={hiddenSections}
+                                  customSections={customSections}
+                                  selectedProjects={selectedProjects}
+                                  showSignatureSection={showSignatureSection}
+                                  showSignatureImage={showSignatureImage}
+                                  signingLocation={signingLocation}
+                                  fontSize={fontSize}
+                                  sectionSpacing={sectionSpacing}
+                                  bulletSpacing={bulletSpacing}
+                                  pagePaddingTop={pagePaddingTop}
+                                  pagePaddingBottom={pagePaddingBottom}
+                                  pagePaddingSide={pagePaddingSide}
+                                  scale={scale}
+                                  isMeasurement={false}
+                                  handleCvDetailsChange={handleCvDetailsChange}
+                                  handleSummaryChange={handleCvSummaryChange}
+                                  handleBulletChange={handleWorkExperienceBulletChange}
+                                  handleProjectChange={(projIdx, field, val, isPartial) => handleProjectChange(projIdx, field as any, val, isPartial)}
+                                  handleOpenRegenModal={handleOpenRegenModal}
+                                  handleFetchBulletVariations={handleFetchBulletVariations}
+                                  handleFetchProjectVariations={handleFetchProjectVariations}
+                                />
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })()
+                      ) : (
+                        pagesToRender.map((pageBlockIds, pageIdx) => {
+                          const a4Width = 794; // A4 width in px (210mm)
+                          const a4Height = 1123; // A4 height in px (297mm)
+                          const containerW = previewWidth > 0 ? previewWidth : (typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 794) : 360);
+                          const rawScale = containerW < a4Width ? (containerW - 16) / a4Width : 1;
+                          const scale = Math.max(0.48, Math.min(1, rawScale));
+
+                          return (
+                            <div
+                              key={pageIdx}
+                              className="cv-page-scale-wrapper flex items-start justify-center no-print"
+                              style={{
+                                width: '100%',
+                                height: `${a4Height * scale}px`,
+                                flexShrink: 0
+                              }}
+                            >
+                              <div
+                                className={`cv-page-box w-[794px] h-[1123px] relative flex flex-col bg-white text-gray-800 shadow-lg print:shadow-none ${lengthTarget.includes('1-Page') ? 'strict-1-page' : ''
+                                  }`}
+                                style={{
+                                  width: '794px',
+                                  height: '1123px',
+                                  fontFamily: (LAYOUT_TEMPLATES[cvLayoutTemplateId] || LAYOUT_TEMPLATES['standard']).fontFamily,
+                                  fontSize: `${fontSize}px`,
+                                  lineHeight: 1.55,
+                                  padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,
+                                  boxSizing: 'border-box',
+                                  overflow: 'hidden',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  justifyContent: 'flex-start',
+                                  transform: `scale(${scale})`,
+                                  transformOrigin: 'top center',
+                                  flexShrink: 0
+                                }}
+                              >
+                                {pageBlockIds.map(blockId => renderBlock(blockId, false))}
+
+                                {/* Page Number Indicator */}
+                                <div className="absolute bottom-4 right-6 text-[10px] text-zinc-400 font-sans select-none no-print">
+                                  Page {pageIdx + 1} of {pagesToRender.length}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   )}
 
