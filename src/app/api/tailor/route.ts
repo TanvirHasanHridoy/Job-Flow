@@ -597,6 +597,22 @@ ${contextStr}`
         })
       : [];
 
+    if (cvFormat === 'bullet-matrix') {
+      let bullets: string[] = [];
+      if (Array.isArray(tailoredResult.tailoredCv?.summaryBullets)) {
+        bullets = tailoredResult.tailoredCv.summaryBullets;
+      } else if (typeof tailoredResult.tailoredCv?.summary === 'string') {
+        bullets = tailoredResult.tailoredCv.summary
+          .split('\n')
+          .map((s: string) => s.replace(/^[•\-\*]\s*/, '').trim())
+          .filter(Boolean);
+      }
+      if (bullets.length > 0) {
+        tailoredResult.tailoredCv.summaryBullets = bullets;
+        tailoredResult.tailoredCv.summary = bullets.map((b: string) => `• ${b}`).join('\n');
+      }
+    }
+
     tailoredResult.tailoredCv = {
       ...tailoredResult.tailoredCv,
       personalDetails,
@@ -616,7 +632,7 @@ ${contextStr}`
           rawJobDescription: jobDescription,
           userProfileSnapshot: JSON.stringify(formattedProfile),
           matchStrategyUsed: matchStrategy,
-          systemPromptSent: systemPrompt,
+          systemPromptSent: activeSystemPrompt,
           rawLlmResponse: generatedText
         }
       });
