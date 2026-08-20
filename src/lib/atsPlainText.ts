@@ -85,14 +85,37 @@ export function generateAtsPlainText(tailoredCv: any, targetLanguage: 'EN' | 'DE
     lines.push(isDe ? 'FÄHIGKEITEN & KENNTNISSE' : 'TECHNICAL SKILLS');
     lines.push('-'.repeat(30));
     const categories: Record<string, string[]> = {};
-    skills.forEach((s: any) => {
-      const cat = s.category || (isDe ? 'Technologien' : 'Core Skills');
+
+    const addSkill = (name: string, category?: string) => {
+      if (!name || typeof name !== 'string') return;
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      const cat = category || (isDe ? 'Technologien' : 'Core Skills');
       if (!categories[cat]) categories[cat] = [];
-      categories[cat].push(s.name || s);
+      if (!categories[cat].includes(trimmed)) {
+        categories[cat].push(trimmed);
+      }
+    };
+
+    skills.forEach((s: any) => {
+      if (typeof s === 'string') {
+        addSkill(s);
+      } else if (s && typeof s === 'object') {
+        if (Array.isArray(s.skills)) {
+          s.skills.forEach((sub: any) => {
+            const subName = typeof sub === 'string' ? sub : sub?.name || '';
+            addSkill(subName, s.category);
+          });
+        } else if (s.name) {
+          addSkill(s.name, s.category);
+        }
+      }
     });
 
     Object.entries(categories).forEach(([cat, list]) => {
-      lines.push(`${cat}: ${list.join(', ')}`);
+      if (list.length > 0) {
+        lines.push(`${cat}: ${list.join(', ')}`);
+      }
     });
     lines.push('');
   }

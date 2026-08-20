@@ -259,21 +259,37 @@ const getGroupedSkills = (skills: any[]) => {
 
   if (!Array.isArray(skills)) return groups;
 
-  skills.forEach(s => {
-    let name = '';
-    let level = 'Intermediate';
-    if (typeof s === 'string') {
-      name = s;
-    } else if (s && typeof s === 'object') {
-      name = s.name || '';
-      level = s.level || 'Intermediate';
+  const addSkill = (name: string, level: string = 'Intermediate') => {
+    if (!name || typeof name !== 'string') return;
+    const trimmed = name.trim();
+    if (!trimmed) return;
+
+    let targetLevel = level;
+    if (!groups[targetLevel]) {
+      const l = (level || '').toLowerCase();
+      if (l.includes('expert')) targetLevel = 'Expert';
+      else if (l.includes('adv')) targetLevel = 'Advanced';
+      else if (l.includes('beg') || l.includes('basic')) targetLevel = 'Beginner';
+      else targetLevel = 'Intermediate';
     }
 
-    if (name) {
-      if (groups[level]) {
-        groups[level].push(name);
-      } else {
-        groups['Intermediate'].push(name);
+    if (!groups[targetLevel].includes(trimmed)) {
+      groups[targetLevel].push(trimmed);
+    }
+  };
+
+  skills.forEach(s => {
+    if (typeof s === 'string') {
+      addSkill(s);
+    } else if (s && typeof s === 'object') {
+      if (Array.isArray(s.skills)) {
+        s.skills.forEach((sub: any) => {
+          const subName = typeof sub === 'string' ? sub : sub?.name || '';
+          const subLevel = typeof sub === 'object' && sub?.level ? sub.level : 'Intermediate';
+          addSkill(subName, subLevel);
+        });
+      } else if (s.name) {
+        addSkill(s.name, s.level || 'Intermediate');
       }
     }
   });
@@ -4228,7 +4244,14 @@ export default function TailorWorkspace() {
         else if (section === 'skills' && cv.skills && cv.skills.length > 0) {
           textContent += `SKILLS\n`;
           textContent += `--------------------------------------------------\n`;
-          const skillNames = cv.skills.map((s: any) => typeof s === 'string' ? s : s.name);
+          const skillNames = cv.skills.flatMap((s: any) => {
+            if (typeof s === 'string') return [s];
+            if (s && typeof s === 'object') {
+              if (Array.isArray(s.skills)) return s.skills.map((sub: any) => typeof sub === 'string' ? sub : sub?.name || '');
+              if (s.name) return [s.name];
+            }
+            return [];
+          }).filter(Boolean);
           textContent += `${skillNames.join(', ')}\n\n`;
         }
         else if (section === 'languages' && cv.languages && cv.languages.length > 0) {
@@ -4976,14 +4999,14 @@ export default function TailorWorkspace() {
                     <button
                       type="button"
                       onClick={() => handleSetCvFormatMode('visual')}
-                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'visual' ? 'bg-zinc-800 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
+                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'visual' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
                     >
                       Visual Layout
                     </button>
                     <button
                       type="button"
                       onClick={() => handleSetCvFormatMode('ats')}
-                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'ats' ? 'bg-zinc-800 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
+                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'ats' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
                     >
                       Strict ATS
                     </button>

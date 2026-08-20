@@ -30,44 +30,47 @@ export const classifySkillCategory = (name: string): SkillCategory => {
   return 'Tools';
 };
 
-export const groupSkillsByCategory = (skills: any[]) => {
-  const groups: Record<SkillCategory, string[]> = {
-    Frontend: [],
-    Backend: [],
-    Database: [],
-    Tools: []
-  };
+export const groupSkillsByCategory = (skills: any[]): Record<string, string[]> => {
+  const groups: Record<string, string[]> = {};
 
   if (!Array.isArray(skills)) return groups;
 
-  skills.forEach(s => {
-    let name = '';
-    let category = '';
-    if (typeof s === 'string') {
-      name = s;
-    } else if (s && typeof s === 'object') {
-      name = s.name || '';
-      category = s.category || '';
+  const addSkill = (name: string, rawCategory?: string) => {
+    if (!name || typeof name !== 'string') return;
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
+
+    let targetCategory = (rawCategory || '').trim();
+    if (!targetCategory) {
+      targetCategory = classifySkillCategory(trimmedName);
+    } else {
+      // Normalize common synonyms to standard Title Case if they match
+      const c = targetCategory.toLowerCase();
+      if (c === 'frontend' || c === 'front-end') targetCategory = 'Frontend';
+      else if (c === 'backend' || c === 'back-end') targetCategory = 'Backend';
+      else if (c === 'database' || c === 'databases' || c === 'db') targetCategory = 'Database';
+      else if (c === 'tools' || c === 'tool' || c === 'tools & cloud' || c === 'tools and cloud') targetCategory = 'Tools & Cloud';
     }
 
-    if (name) {
-      // Normalize or classify category
-      let matchedCat: SkillCategory = 'Tools';
-      
-      const c = category.toLowerCase().trim();
-      if (c === 'frontend') matchedCat = 'Frontend';
-      else if (c === 'backend') matchedCat = 'Backend';
-      else if (c === 'database' || c === 'db') matchedCat = 'Database';
-      else if (c === 'tools' || c === 'tool') matchedCat = 'Tools';
-      else {
-        // Fallback to local name-based classifier
-        matchedCat = classifySkillCategory(name);
-      }
+    if (!groups[targetCategory]) {
+      groups[targetCategory] = [];
+    }
+    if (!groups[targetCategory].includes(trimmedName)) {
+      groups[targetCategory].push(trimmedName);
+    }
+  };
 
-      if (groups[matchedCat]) {
-        groups[matchedCat].push(name);
-      } else {
-        groups['Tools'].push(name);
+  skills.forEach(s => {
+    if (typeof s === 'string') {
+      addSkill(s);
+    } else if (s && typeof s === 'object') {
+      if (Array.isArray(s.skills)) {
+        s.skills.forEach((sub: any) => {
+          const subName = typeof sub === 'string' ? sub : sub?.name || '';
+          addSkill(subName, s.category);
+        });
+      } else if (s.name) {
+        addSkill(s.name, s.category);
       }
     }
   });

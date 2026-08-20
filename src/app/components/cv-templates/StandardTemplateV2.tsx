@@ -445,6 +445,15 @@ export function CvDocument({ cv, options }: { cv: any; options: any }) {
             }
 
             if (sectionKey === 'skills' && cv.skills && cv.skills.length > 0) {
+              const flatSkills = cv.skills.flatMap((s: any) => {
+                if (typeof s === 'string') return [{ name: s, level: 'Intermediate' }];
+                if (s && typeof s === 'object') {
+                  if (Array.isArray(s.skills)) return s.skills.map((sub: any) => typeof sub === 'string' ? { name: sub, level: 'Intermediate' } : { name: sub.name || sub, level: sub.level || 'Intermediate' });
+                  if (s.name) return [s];
+                }
+                return [];
+              });
+
               return (
                 <View key="skills">
                   <View style={cvStyles.sectionTitleContainer}>
@@ -453,7 +462,7 @@ export function CvDocument({ cv, options }: { cv: any; options: any }) {
                     </Text>
                   </View>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                    {cv.skills.map((skill: any, idx: number) => (
+                    {flatSkills.map((skill: any, idx: number) => (
                       <View key={idx} style={{ width: '50%', marginBottom: 4, flexDirection: 'row' }}>
                         <Text style={{ fontFamily: 'Inter', fontWeight: 700 }}>{skill.name}: </Text>
                         <Text style={{ color: '#4B5563' }}>{skill.level}</Text>

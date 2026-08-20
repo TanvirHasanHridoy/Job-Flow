@@ -448,7 +448,13 @@ export default function SectionControlsPanel({
       rawSkills.forEach((s: any) => {
         if (s && typeof s === 'object') {
           if (s.category && Array.isArray(s.skills)) {
-            map[s.category] = [...s.skills];
+            if (!map[s.category]) map[s.category] = [];
+            s.skills.forEach((sub: any) => {
+              const subName = typeof sub === 'string' ? sub : sub?.name;
+              if (subName && !map[s.category].includes(subName)) {
+                map[s.category].push(subName);
+              }
+            });
           } else if (s.name) {
             const cat = s.category || 'Tools & Cloud';
             if (!map[cat]) map[cat] = [];
@@ -464,11 +470,44 @@ export default function SectionControlsPanel({
     return map;
   };
 
-  const updateCategorizedSkillsMap = (newMap: Record<string, string[]>) => {
-    const nextSkillsArray: Array<{ category: string; skills: string[] }> = Object.entries(newMap).map(([category, skills]) => ({
-      category,
-      skills
-    }));
+  const updateCategorizedSkillsMap = (newMap: Record<string, string[]>, customLevels?: Record<string, string>) => {
+    const rawSkills = result?.tailoredCv?.skills || [];
+    const levelMap = new Map<string, string>();
+    if (Array.isArray(rawSkills)) {
+      rawSkills.forEach((s: any) => {
+        if (s && typeof s === 'object') {
+          if (s.name) {
+            levelMap.set(s.name.toLowerCase(), s.level || 'Intermediate');
+          } else if (Array.isArray(s.skills)) {
+            s.skills.forEach((sub: any) => {
+              if (typeof sub === 'object' && sub?.name) {
+                levelMap.set(sub.name.toLowerCase(), sub.level || 'Intermediate');
+              }
+            });
+          }
+        }
+      });
+    }
+    if (customLevels) {
+      Object.entries(customLevels).forEach(([name, lvl]) => {
+        levelMap.set(name.toLowerCase(), lvl);
+      });
+    }
+
+    const nextSkillsArray: Array<{ name: string; level: string; category: string }> = [];
+    Object.entries(newMap).forEach(([category, skillsList]) => {
+      skillsList.forEach((skillName: string) => {
+        const trimmed = typeof skillName === 'string' ? skillName.trim() : '';
+        if (trimmed) {
+          nextSkillsArray.push({
+            name: trimmed,
+            level: levelMap.get(trimmed.toLowerCase()) || 'Intermediate',
+            category
+          });
+        }
+      });
+    });
+
     setResult({
       ...result,
       tailoredCv: {
@@ -564,7 +603,7 @@ export default function SectionControlsPanel({
     if (!currentMap[cat].includes(newSkillName.trim())) {
       currentMap[cat].push(newSkillName.trim());
     }
-    updateCategorizedSkillsMap(currentMap);
+    updateCategorizedSkillsMap(currentMap, { [newSkillName.trim()]: newSkillLevel });
 
     if (saveToVaultOnAdd && profile) {
       const currentSkills = Array.isArray(profile.skills) ? profile.skills : [];

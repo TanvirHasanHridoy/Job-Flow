@@ -162,21 +162,45 @@ export default function BulletMatrixCvView({
 
   // Helper to group skills by category for pipe clusters
   const getCategorizedSkills = () => {
-    const rawSkills: Array<{ name: string; category?: string; level?: string }> = Array.isArray(cv.skills) ? cv.skills : [];
-    const categories: Record<string, string[]> = {
-      'Frontend': [],
-      'Backend': [],
-      'Database': [],
-      'Tools & Cloud': []
+    const rawSkills: any[] = Array.isArray(cv.skills) ? cv.skills : [];
+    const categories: Record<string, string[]> = {};
+
+    const addSkill = (name: string, category?: string) => {
+      if (!name || typeof name !== 'string') return;
+      const trimmed = name.trim();
+      if (!trimmed) return;
+
+      let cat = (category || '').trim();
+      if (!cat) {
+        cat = 'Tools & Cloud';
+      } else {
+        const c = cat.toLowerCase();
+        if (c === 'frontend' || c === 'front-end') cat = 'Frontend';
+        else if (c === 'backend' || c === 'back-end') cat = 'Backend';
+        else if (c === 'database' || c === 'databases' || c === 'db') cat = 'Database';
+        else if (c === 'tools' || c === 'tool' || c === 'tools & cloud' || c === 'tools and cloud') cat = 'Tools & Cloud';
+      }
+
+      if (!categories[cat]) {
+        categories[cat] = [];
+      }
+      if (!categories[cat].includes(trimmed)) {
+        categories[cat].push(trimmed);
+      }
     };
 
-    rawSkills.forEach(s => {
-      const cat = s.category || 'Tools & Cloud';
-      if (categories[cat]) {
-        categories[cat].push(s.name);
-      } else {
-        const matchingKey = Object.keys(categories).find(k => k.toLowerCase().includes(cat.toLowerCase())) || 'Tools & Cloud';
-        categories[matchingKey].push(s.name);
+    rawSkills.forEach((s: any) => {
+      if (typeof s === 'string') {
+        addSkill(s);
+      } else if (s && typeof s === 'object') {
+        if (Array.isArray(s.skills)) {
+          s.skills.forEach((sub: any) => {
+            const subName = typeof sub === 'string' ? sub : sub?.name || '';
+            addSkill(subName, s.category);
+          });
+        } else if (s.name) {
+          addSkill(s.name, s.category);
+        }
       }
     });
 
