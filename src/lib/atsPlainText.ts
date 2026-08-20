@@ -138,6 +138,18 @@ export function generateAtsPlainText(tailoredCv: any, targetLanguage: 'EN' | 'DE
     lines.push('');
   }
 
+  // Certifications
+  const certs = tailoredCv.certifications || [];
+  if (certs && certs.length > 0) {
+    lines.push(isDe ? 'ZERTIFIZIERUNGEN' : 'CERTIFICATIONS');
+    lines.push('-'.repeat(30));
+    certs.forEach((c: any) => {
+      const certTitle = typeof c === 'string' ? c : c?.name || '';
+      if (certTitle) lines.push(`  * ${certTitle}`);
+    });
+    lines.push('');
+  }
+
   // Custom Sections
   if (customSections && customSections.length > 0) {
     customSections.forEach((sec: any) => {
