@@ -3297,10 +3297,10 @@ export default function TailorWorkspace() {
 
         // Restore interview prep and outreach if previously saved
         if (interviewDoc) {
-          try { setInterviewPrepData(JSON.parse(interviewDoc.content)); } catch {}
+          try { setInterviewPrepData(JSON.parse(interviewDoc.content)); } catch { }
         }
         if (outreachDoc) {
-          try { setOutreachData(JSON.parse(outreachDoc.content)); } catch {}
+          try { setOutreachData(JSON.parse(outreachDoc.content)); } catch { }
         }
       }
     } catch (err) {
@@ -5546,7 +5546,7 @@ export default function TailorWorkspace() {
                   </button>
                 </div>
 
-                {previewTab === 'cv' && (
+                {/* {previewTab === 'cv' && (
                   <div className="flex bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-0.5 font-sans w-full sm:w-auto">
                     <button
                       type="button"
@@ -5569,7 +5569,7 @@ export default function TailorWorkspace() {
                       Strict ATS
                     </button>
                   </div>
-                )}
+                )} */}
               </div>
 
               {/* Top Row Right: Height badge & Export Format button (Height & Export on CV/CL, Tracker button on all tabs) */}
@@ -5595,11 +5595,10 @@ export default function TailorWorkspace() {
                       type="button"
                       onClick={saveToApplicationsTracker}
                       disabled={isSaving}
-                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-md transition-all cursor-pointer flex items-center gap-1.5 ${
-                        saveSuccess
-                          ? 'bg-emerald-600 text-white shadow-emerald-500/20'
-                          : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-white/10 hover:text-white hover:border-indigo-500/40'
-                      }`}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-md transition-all cursor-pointer flex items-center gap-1.5 ${saveSuccess
+                        ? 'bg-emerald-600 text-white shadow-emerald-500/20'
+                        : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-white/10 hover:text-white hover:border-indigo-500/40'
+                        }`}
                       title={editingAppId ? 'Update this application in your Kanban tracker' : 'Save tailored application into your Kanban tracker'}
                     >
                       {isSaving ? (
@@ -5697,8 +5696,34 @@ export default function TailorWorkspace() {
             </div>
 
             {/* Row 2: Layout Presets & ATS Toolbar (Sticky on top of document) */}
+
             {result && previewTab === 'cv' && (
               <div className="pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-2.5 text-white font-sans text-xs">
+                {/* Top Group */}
+                {previewTab === 'cv' && (
+                  <div className="flex bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-0.5 font-sans w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => setIsAtsMode(false)}
+                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${!isAtsMode
+                        ? 'bg-zinc-800 text-white shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                    >
+                      Visual Layout
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsAtsMode(true)}
+                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${isAtsMode
+                        ? 'bg-zinc-800 text-white shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                    >
+                      Strict ATS
+                    </button>
+                  </div>
+                )}
                 {/* Left Group: Layout & Spacing Presets */}
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="flex items-center gap-1.5">
@@ -5777,8 +5802,8 @@ export default function TailorWorkspace() {
                           onClick={() => setColorThemeId(theme.id)}
                           style={{ backgroundColor: theme.previewColor }}
                           className={`w-3.5 h-3.5 rounded-full transition-all cursor-pointer border ${colorThemeId === theme.id
-                              ? 'ring-2 ring-white ring-offset-1 ring-offset-zinc-900 scale-110 border-white'
-                              : 'border-white/20 opacity-70 hover:opacity-100'
+                            ? 'ring-2 ring-white ring-offset-1 ring-offset-zinc-900 scale-110 border-white'
+                            : 'border-white/20 opacity-70 hover:opacity-100'
                             }`}
                           title={`${theme.name} Palette`}
                         />
