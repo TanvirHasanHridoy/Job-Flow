@@ -117,6 +117,11 @@ export default function SectionControlsPanel({
   // Drag-and-drop state for skill categories / skills
   const [draggedSkillCategory, setDraggedSkillCategory] = useState<string | null>(null);
   const [dragOverSkillCategory, setDragOverSkillCategory] = useState<string | null>(null);
+  const [draggedSkill, setDraggedSkill] = useState<{ name: string; category: string } | null>(null);
+  const [dragOverSkill, setDragOverSkill] = useState<{ name: string; category: string } | null>(null);
+
+  // Empty Category tracking (prevents new/cleared categories from vanishing)
+  const [emptyCategories, setEmptyCategories] = useState<string[]>([]);
 
   // New Category input state in skills
   const [isAddingNewCategory, setIsAddingNewCategory] = useState(false);
@@ -153,6 +158,10 @@ export default function SectionControlsPanel({
   const [newSkillName, setNewSkillName] = useState('');
   const [newSkillLevel, setNewSkillLevel] = useState('Intermediate');
   const [newSkillCategory, setNewSkillCategory] = useState('Tools & Cloud');
+
+  const [isAddLanguageModalOpen, setIsAddLanguageModalOpen] = useState(false);
+  const [newLanguageName, setNewLanguageName] = useState('');
+  const [newLanguageLevel, setNewLanguageLevel] = useState('Professional working proficiency (C1)');
 
   // Toggle Accordion Collapse
   const toggleAccordion = (secKey: string) => {
@@ -444,6 +453,11 @@ export default function SectionControlsPanel({
     const rawSkills = result?.tailoredCv?.skills || [];
     const map: Record<string, string[]> = {};
 
+    // Retain explicitly created empty categories
+    emptyCategories.forEach(cat => {
+      if (!map[cat]) map[cat] = [];
+    });
+
     if (Array.isArray(rawSkills)) {
       rawSkills.forEach((s: any) => {
         if (s && typeof s === 'object') {
@@ -538,7 +552,7 @@ export default function SectionControlsPanel({
     updateCategorizedSkillsMap(newMap);
   };
 
-  // Reorder Individual Skill Tag inside Category
+  // Reorder Individual Skill Tag inside Category (Left/Right)
   const handleMoveSkillInsideCategory = (category: string, skillIdx: number, direction: 'left' | 'right') => {
     const currentMap = getCategorizedSkillsMap();
     const list = currentMap[category] ? [...currentMap[category]] : [];
@@ -553,11 +567,64 @@ export default function SectionControlsPanel({
     updateCategorizedSkillsMap(currentMap);
   };
 
+  // Drag and Drop Skills (Between categories or reorder within category)
+  const handleDropSkillOnSkill = (sourceSkill: string, sourceCat: string, targetCat: string, targetIdx: number) => {
+    const currentMap = getCategorizedSkillsMap();
+    if (!currentMap[sourceCat]) return;
+    if (!currentMap[targetCat]) currentMap[targetCat] = [];
+
+    // Remove from source
+    currentMap[sourceCat] = currentMap[sourceCat].filter(s => s !== sourceSkill);
+    if (currentMap[sourceCat].length === 0) {
+      setEmptyCategories(prev => prev.includes(sourceCat) ? prev : [...prev, sourceCat]);
+    }
+
+    // Insert at targetIdx in target
+    const targetList = [...currentMap[targetCat]];
+    targetList.splice(targetIdx, 0, sourceSkill);
+    currentMap[targetCat] = targetList;
+    setEmptyCategories(prev => prev.filter(c => c !== targetCat));
+
+    updateCategorizedSkillsMap(currentMap);
+  };
+
+  const handleDropSkillOnCategory = (sourceSkill: string, sourceCat: string, targetCat: string) => {
+    if (sourceCat === targetCat) return;
+    const currentMap = getCategorizedSkillsMap();
+    if (!currentMap[sourceCat]) return;
+    if (!currentMap[targetCat]) currentMap[targetCat] = [];
+
+    // Remove from source
+    currentMap[sourceCat] = currentMap[sourceCat].filter(s => s !== sourceSkill);
+    if (currentMap[sourceCat].length === 0) {
+      setEmptyCategories(prev => prev.includes(sourceCat) ? prev : [...prev, sourceCat]);
+    }
+
+    // Add to target if not already there
+    if (!currentMap[targetCat].includes(sourceSkill)) {
+      currentMap[targetCat].push(sourceSkill);
+    }
+    setEmptyCategories(prev => prev.filter(c => c !== targetCat));
+
+    updateCategorizedSkillsMap(currentMap);
+  };
+
   // Remove Skill from Category
   const handleRemoveSkillFromCategory = (category: string, skillName: string) => {
     const currentMap = getCategorizedSkillsMap();
     if (!currentMap[category]) return;
     currentMap[category] = currentMap[category].filter(s => s !== skillName);
+    if (currentMap[category].length === 0) {
+      setEmptyCategories(prev => prev.includes(category) ? prev : [...prev, category]);
+    }
+    updateCategorizedSkillsMap(currentMap);
+  };
+
+  // Delete an entire category
+  const handleDeleteSkillCategory = (catName: string) => {
+    setEmptyCategories(prev => prev.filter(c => c !== catName));
+    const currentMap = getCategorizedSkillsMap();
+    delete currentMap[catName];
     updateCategorizedSkillsMap(currentMap);
   };
 
@@ -573,6 +640,7 @@ export default function SectionControlsPanel({
     if (!currentMap[category].includes(val)) {
       currentMap[category].push(val);
     }
+    setEmptyCategories(prev => prev.filter(c => c !== category));
     updateCategorizedSkillsMap(currentMap);
     setNewSkillInCategoryInput('');
     setAddingSkillToCategory(null);
@@ -585,6 +653,7 @@ export default function SectionControlsPanel({
       setIsAddingNewCategory(false);
       return;
     }
+    setEmptyCategories(prev => prev.includes(val) ? prev : [...prev, val]);
     const currentMap = getCategorizedSkillsMap();
     if (!currentMap[val]) {
       currentMap[val] = [];
@@ -598,6 +667,7 @@ export default function SectionControlsPanel({
   const handleAddSkill = async () => {
     if (!newSkillName.trim() || !result) return;
     const cat = newSkillCategory.trim() || 'Tools & Cloud';
+    setEmptyCategories(prev => prev.filter(c => c !== cat));
     const currentMap = getCategorizedSkillsMap();
     if (!currentMap[cat]) currentMap[cat] = [];
     if (!currentMap[cat].includes(newSkillName.trim())) {
@@ -623,6 +693,63 @@ export default function SectionControlsPanel({
 
     setIsAddSkillModalOpen(false);
     setNewSkillName('');
+    setSaveToVaultOnAdd(false);
+  };
+
+  // Languages Operations
+  const handleMoveLanguage = (idx: number, direction: 'up' | 'down') => {
+    if (!result?.tailoredCv?.languages) return;
+    const target = direction === 'up' ? idx - 1 : idx + 1;
+    if (target < 0 || target >= result.tailoredCv.languages.length) return;
+    const list = [...result.tailoredCv.languages];
+    const temp = list[idx];
+    list[idx] = list[target];
+    list[target] = temp;
+    setResult({ ...result, tailoredCv: { ...result.tailoredCv, languages: list } });
+  };
+
+  const handleDeleteLanguage = (idx: number) => {
+    if (!result?.tailoredCv?.languages) return;
+    const list = result.tailoredCv.languages.filter((_: any, i: number) => i !== idx);
+    setResult({ ...result, tailoredCv: { ...result.tailoredCv, languages: list } });
+  };
+
+  const handleUpdateLanguage = (idx: number, field: 'language' | 'level', value: string) => {
+    if (!result?.tailoredCv?.languages) return;
+    const list = [...result.tailoredCv.languages];
+    list[idx] = { ...list[idx], [field]: value };
+    setResult({ ...result, tailoredCv: { ...result.tailoredCv, languages: list } });
+  };
+
+  const handleAddLanguage = async () => {
+    if (!newLanguageName.trim() || !result) return;
+    const newEntry = {
+      language: newLanguageName.trim(),
+      level: newLanguageLevel.trim() || 'Professional working proficiency (C1)'
+    };
+
+    const currentLanguages = Array.isArray(result.tailoredCv.languages) ? result.tailoredCv.languages : [];
+    const updatedLanguages = [...currentLanguages, newEntry];
+    setResult({ ...result, tailoredCv: { ...result.tailoredCv, languages: updatedLanguages } });
+
+    if (saveToVaultOnAdd && profile) {
+      const profileLanguages = Array.isArray(profile.languages) ? profile.languages : [];
+      const updatedProfile = {
+        ...profile,
+        languages: [
+          ...profileLanguages,
+          {
+            name: newEntry.language,
+            proficiency: newEntry.level
+          }
+        ]
+      };
+      await syncToVault(updatedProfile);
+    }
+
+    setIsAddLanguageModalOpen(false);
+    setNewLanguageName('');
+    setNewLanguageLevel('Professional working proficiency (C1)');
     setSaveToVaultOnAdd(false);
   };
 
@@ -1341,10 +1468,18 @@ export default function SectionControlsPanel({
                                 onDrop={(e) => {
                                   e.preventDefault();
                                   setDragOverSkillCategory(null);
-                                  const sourceCat = e.dataTransfer.getData('text/skill-category') || draggedSkillCategory;
-                                  if (sourceCat && sourceCat !== catName) {
+                                  const sourceSkill = e.dataTransfer.getData('text/skill-name') || draggedSkill?.name;
+                                  const sourceCat = e.dataTransfer.getData('text/source-category') || draggedSkill?.category;
+                                  if (sourceSkill && sourceCat) {
+                                    handleDropSkillOnCategory(sourceSkill, sourceCat, catName);
+                                    setDraggedSkill(null);
+                                    return;
+                                  }
+
+                                  const sourceCategory = e.dataTransfer.getData('text/skill-category') || draggedSkillCategory;
+                                  if (sourceCategory && sourceCategory !== catName) {
                                     const nextCats = [...skillCategories];
-                                    const srcIdx = nextCats.indexOf(sourceCat);
+                                    const srcIdx = nextCats.indexOf(sourceCategory);
                                     const tgtIdx = nextCats.indexOf(catName);
                                     if (srcIdx !== -1 && tgtIdx !== -1) {
                                       const [moved] = nextCats.splice(srcIdx, 1);
@@ -1370,7 +1505,7 @@ export default function SectionControlsPanel({
                                         setDraggedSkillCategory(catName);
                                       }}
                                       onDragEnd={() => setDraggedSkillCategory(null)}
-                                      className="cursor-grab p-0.5 text-zinc-500 hover:text-white"
+                                      className="cursor-grab active:cursor-grabbing p-0.5 text-zinc-500 hover:text-white"
                                       title="Drag category up/down"
                                     >
                                       <GripVertical className="w-3.5 h-3.5" />
@@ -1400,11 +1535,7 @@ export default function SectionControlsPanel({
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => {
-                                        const newMap = { ...categorizedSkills };
-                                        delete newMap[catName];
-                                        updateCategorizedSkillsMap(newMap);
-                                      }}
+                                      onClick={() => handleDeleteSkillCategory(catName)}
                                       className="p-1 text-zinc-600 hover:text-rose-400 rounded"
                                       title="Delete category"
                                     >
@@ -1413,45 +1544,94 @@ export default function SectionControlsPanel({
                                   </div>
                                 </div>
 
-                                {/* Skills Chips (Reorderable) */}
-                                <div className="flex flex-wrap gap-1.5 items-center pt-1">
-                                  {skillsInCat.map((skillText, sIdx) => (
-                                    <div
-                                      key={sIdx}
-                                      className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-800 border border-zinc-700/80 text-zinc-200 text-[11px] group/chip"
-                                    >
-                                      <button
-                                        type="button"
-                                        disabled={sIdx === 0}
-                                        onClick={() => handleMoveSkillInsideCategory(catName, sIdx, 'left')}
-                                        className="text-zinc-500 hover:text-white disabled:opacity-20"
-                                        title="Move skill first"
+                                {/* Skills Chips (Draggable & Reorderable) */}
+                                <div className="flex flex-wrap gap-1.5 items-center pt-1 min-h-[28px]">
+                                  {skillsInCat.length === 0 && (
+                                    <span className="text-[10px] text-zinc-500 italic py-0.5">
+                                      Empty category. Drag skills here or click + Add.
+                                    </span>
+                                  )}
+                                  {skillsInCat.map((skillText, sIdx) => {
+                                    const isItemDragging = draggedSkill?.name === skillText && draggedSkill?.category === catName;
+                                    const isItemOver = dragOverSkill?.name === skillText && dragOverSkill?.category === catName;
+                                    return (
+                                      <div
+                                        key={sIdx}
+                                        draggable={true}
+                                        onDragStart={(e) => {
+                                          e.stopPropagation();
+                                          e.dataTransfer.setData('text/skill-name', skillText);
+                                          e.dataTransfer.setData('text/source-category', catName);
+                                          setDraggedSkill({ name: skillText, category: catName });
+                                        }}
+                                        onDragEnd={() => {
+                                          setDraggedSkill(null);
+                                          setDragOverSkill(null);
+                                        }}
+                                        onDragOver={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          if (dragOverSkill?.name !== skillText || dragOverSkill?.category !== catName) {
+                                            setDragOverSkill({ name: skillText, category: catName });
+                                          }
+                                        }}
+                                        onDragLeave={(e) => {
+                                          if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                                          setDragOverSkill(null);
+                                        }}
+                                        onDrop={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setDragOverSkill(null);
+                                          const sourceSkill = e.dataTransfer.getData('text/skill-name') || draggedSkill?.name;
+                                          const sourceCat = e.dataTransfer.getData('text/source-category') || draggedSkill?.category;
+                                          if (sourceSkill && sourceCat) {
+                                            handleDropSkillOnSkill(sourceSkill, sourceCat, catName, sIdx);
+                                            setDraggedSkill(null);
+                                          }
+                                        }}
+                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-800 border text-zinc-200 text-[11px] group/chip cursor-grab active:cursor-grabbing transition-all ${
+                                          isItemDragging ? 'opacity-30 border-dashed border-indigo-400 scale-95' :
+                                          isItemOver ? 'border-indigo-400 bg-indigo-500/20 scale-105 shadow-md' :
+                                          'border-zinc-700/80 hover:border-zinc-500'
+                                        }`}
+                                        title="Drag to reorder or move across categories"
                                       >
-                                        <ArrowLeft className="w-2.5 h-2.5" />
-                                      </button>
+                                        <GripVertical className="w-2.5 h-2.5 text-zinc-500 opacity-60 group-hover/chip:opacity-100 shrink-0" />
 
-                                      <span>{skillText}</span>
+                                        <button
+                                          type="button"
+                                          disabled={sIdx === 0}
+                                          onClick={() => handleMoveSkillInsideCategory(catName, sIdx, 'left')}
+                                          className="text-zinc-500 hover:text-white disabled:opacity-20"
+                                          title="Move skill first"
+                                        >
+                                          <ArrowLeft className="w-2.5 h-2.5" />
+                                        </button>
 
-                                      <button
-                                        type="button"
-                                        disabled={sIdx === skillsInCat.length - 1}
-                                        onClick={() => handleMoveSkillInsideCategory(catName, sIdx, 'right')}
-                                        className="text-zinc-500 hover:text-white disabled:opacity-20"
-                                        title="Move skill later"
-                                      >
-                                        <ArrowRight className="w-2.5 h-2.5" />
-                                      </button>
+                                        <span className="select-none">{skillText}</span>
 
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveSkillFromCategory(catName, skillText)}
-                                        className="text-zinc-500 hover:text-rose-400 ml-0.5"
-                                        title="Remove skill"
-                                      >
-                                        ×
-                                      </button>
-                                    </div>
-                                  ))}
+                                        <button
+                                          type="button"
+                                          disabled={sIdx === skillsInCat.length - 1}
+                                          onClick={() => handleMoveSkillInsideCategory(catName, sIdx, 'right')}
+                                          className="text-zinc-500 hover:text-white disabled:opacity-20"
+                                          title="Move skill later"
+                                        >
+                                          <ArrowRight className="w-2.5 h-2.5" />
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveSkillFromCategory(catName, skillText)}
+                                          className="text-zinc-500 hover:text-rose-400 ml-0.5"
+                                          title="Remove skill"
+                                        >
+                                          ×
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
 
                                   {/* Add Skill to this Category */}
                                   {addingSkillToCategory === catName ? (
@@ -1505,6 +1685,83 @@ export default function SectionControlsPanel({
                       )}
                     </div>
                   )}
+
+                  {/* LANGUAGES SECTION */}
+                  {secKey === 'languages' && (
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[11px] font-semibold text-zinc-400">Languages & Proficiencies:</span>
+                        <button
+                          type="button"
+                          onClick={() => setIsAddLanguageModalOpen(true)}
+                          className="px-2 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Add Language
+                        </button>
+                      </div>
+
+                      {(!result?.tailoredCv?.languages || result.tailoredCv.languages.length === 0) && (
+                        <div className="p-3 rounded-xl bg-white/[0.02] border border-dashed border-white/10 text-center text-zinc-500 text-[11px]">
+                          No languages added yet. Click &quot;Add Language&quot; above to include your language proficiencies.
+                        </div>
+                      )}
+
+                      {(result?.tailoredCv?.languages || []).map((lang: any, lIdx: number) => (
+                        <div key={lIdx} className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
+                          <div className="flex justify-between items-center gap-2">
+                            <input
+                              type="text"
+                              value={lang.language || ''}
+                              onChange={(e) => handleUpdateLanguage(lIdx, 'language', e.target.value)}
+                              placeholder="Language (e.g. English, German)"
+                              className="glass-input px-2.5 py-1 text-xs font-bold text-white flex-1"
+                            />
+                            <div className="flex items-center gap-1">
+                              <button
+                                type="button"
+                                disabled={lIdx === 0}
+                                onClick={() => handleMoveLanguage(lIdx, 'up')}
+                                className="p-1 text-zinc-500 hover:text-white disabled:opacity-20 rounded"
+                                title="Move language up"
+                              >
+                                <ChevronUp className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={lIdx === (result.tailoredCv.languages.length - 1)}
+                                onClick={() => handleMoveLanguage(lIdx, 'down')}
+                                className="p-1 text-zinc-500 hover:text-white disabled:opacity-20 rounded"
+                                title="Move language down"
+                              >
+                                <ChevronDown className="w-3 h-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteLanguage(lIdx)}
+                                className="p-1 text-zinc-500 hover:text-rose-400 rounded"
+                                title="Delete language"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-zinc-400 uppercase font-semibold">Proficiency:</span>
+                            <input
+                              type="text"
+                              value={lang.level || ''}
+                              onChange={(e) => handleUpdateLanguage(lIdx, 'level', e.target.value)}
+                              placeholder="e.g. C1 / Native / Fluent"
+                              className="glass-input px-2.5 py-1 text-[11px] flex-1 text-zinc-300"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
 
                   {/* CUSTOM SECTIONS (CERTIFICATIONS, SUBGROUPS, BULLETS, PARAGRAPH) */}
                   {isCustom && customSec && (
@@ -2051,6 +2308,91 @@ export default function SectionControlsPanel({
           </div>
         </div>
       )}
+
+      {/* 5. Add Language Modal */}
+      {isAddLanguageModalOpen && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="glass-panel p-5 rounded-2xl w-full max-w-md space-y-4 border border-white/10 bg-zinc-900 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-white/10 pb-3">
+              <span className="font-bold text-white text-sm">Add Language</span>
+              <button onClick={() => setIsAddLanguageModalOpen(false)} className="text-zinc-400 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Language</label>
+                <input
+                  type="text"
+                  value={newLanguageName}
+                  onChange={e => setNewLanguageName(e.target.value)}
+                  placeholder="e.g. German, English, French"
+                  className="glass-input px-3 py-2 text-xs text-white"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Proficiency Level</label>
+                <select
+                  value={newLanguageLevel}
+                  onChange={e => setNewLanguageLevel(e.target.value)}
+                  className="glass-input px-3 py-2 text-xs bg-zinc-900 border border-white/10 text-white"
+                >
+                  <option value="Native / Bilingual">Native / Bilingual</option>
+                  <option value="Full professional proficiency (C2)">Full professional proficiency (C2)</option>
+                  <option value="Professional working proficiency (C1)">Professional working proficiency (C1)</option>
+                  <option value="Working proficiency (B2)">Working proficiency (B2)</option>
+                  <option value="Intermediate (B1)">Intermediate (B1)</option>
+                  <option value="Elementary (A2)">Elementary (A2)</option>
+                  <option value="Beginner (A1)">Beginner (A1)</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Custom Proficiency Description (Optional)</label>
+                <input
+                  type="text"
+                  value={newLanguageLevel}
+                  onChange={e => setNewLanguageLevel(e.target.value)}
+                  placeholder="e.g. C1 – Fluent or Business Fluent"
+                  className="glass-input px-3 py-2 text-xs text-white"
+                />
+              </div>
+
+              <label className="flex items-center gap-2 pt-1 text-xs text-zinc-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={saveToVaultOnAdd}
+                  onChange={e => setSaveToVaultOnAdd(e.target.checked)}
+                  className="rounded bg-zinc-950 border-zinc-700 text-indigo-600 focus:ring-0 cursor-pointer"
+                />
+                <span>Save this language to Profile Vault</span>
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-white/5">
+              <button
+                type="button"
+                onClick={() => setIsAddLanguageModalOpen(false)}
+                className="px-3.5 py-1.5 rounded-lg bg-zinc-800 text-zinc-300 text-xs font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!newLanguageName.trim()}
+                onClick={handleAddLanguage}
+                className="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold disabled:opacity-50"
+              >
+                Add Language
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
