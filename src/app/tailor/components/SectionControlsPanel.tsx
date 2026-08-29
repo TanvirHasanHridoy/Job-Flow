@@ -102,8 +102,8 @@ export default function SectionControlsPanel({
   showAlert
 }: SectionControlsPanelProps) {
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-    summary: true,
-    work: true,
+    summary: false,
+    work: false,
     education: false,
     projects: false,
     skills: false,
@@ -1008,20 +1008,20 @@ export default function SectionControlsPanel({
 
           let label = secKey === 'summary' ? (cvLanguage === 'DE' ? 'Berufliches Profil' : 'Professional Profile')
             : secKey === 'work' ? (cvLanguage === 'DE' ? 'Berufserfahrung' : 'Work Experience')
-            : secKey === 'education' ? (cvLanguage === 'DE' ? 'Ausbildung' : 'Education')
-            : secKey === 'projects' ? (cvLanguage === 'DE' ? 'Projekte' : 'Projects')
-            : secKey === 'skills' ? (cvLanguage === 'DE' ? 'Kenntnisse & Fähigkeiten' : 'Skills & Tech Stack')
-            : secKey === 'languages' ? (cvLanguage === 'DE' ? 'Sprachen' : 'Languages')
-            : secKey === 'signature' ? (cvLanguage === 'DE' ? 'Unterschrift' : 'Signature & Date')
-            : customSec?.title || 'Custom Section';
+              : secKey === 'education' ? (cvLanguage === 'DE' ? 'Ausbildung' : 'Education')
+                : secKey === 'projects' ? (cvLanguage === 'DE' ? 'Projekte' : 'Projects')
+                  : secKey === 'skills' ? (cvLanguage === 'DE' ? 'Kenntnisse & Fähigkeiten' : 'Skills & Tech Stack')
+                    : secKey === 'languages' ? (cvLanguage === 'DE' ? 'Sprachen' : 'Languages')
+                      : secKey === 'signature' ? (cvLanguage === 'DE' ? 'Unterschrift' : 'Signature & Date')
+                        : customSec?.title || 'Custom Section';
 
           let icon = secKey === 'summary' ? <FileText className="w-3.5 h-3.5 text-indigo-400" />
             : secKey === 'work' ? <Briefcase className="w-3.5 h-3.5 text-blue-400" />
-            : secKey === 'education' ? <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
-            : secKey === 'projects' ? <FolderGit className="w-3.5 h-3.5 text-purple-400" />
-            : secKey === 'skills' ? <Code2 className="w-3.5 h-3.5 text-amber-400" />
-            : secKey === 'signature' ? <PenTool className="w-3.5 h-3.5 text-rose-400" />
-            : <Award className="w-3.5 h-3.5 text-cyan-400" />;
+              : secKey === 'education' ? <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
+                : secKey === 'projects' ? <FolderGit className="w-3.5 h-3.5 text-purple-400" />
+                  : secKey === 'skills' ? <Code2 className="w-3.5 h-3.5 text-amber-400" />
+                    : secKey === 'signature' ? <PenTool className="w-3.5 h-3.5 text-rose-400" />
+                      : <Award className="w-3.5 h-3.5 text-cyan-400" />;
 
           return (
             <div
@@ -1044,12 +1044,11 @@ export default function SectionControlsPanel({
                 }
                 setDraggedSectionKey(null);
               }}
-              className={`rounded-2xl border transition-all duration-200 overflow-hidden ${
-                isOver ? 'border-indigo-500 bg-indigo-500/10 shadow-lg shadow-indigo-500/10'
-                : isHidden ? 'border-zinc-800 bg-zinc-950/20 opacity-60'
-                : isDragging ? 'opacity-40 border-indigo-500/50 scale-98'
-                : 'border-white/10 bg-zinc-900/60 hover:border-white/20'
-              }`}
+              className={`rounded-2xl border transition-all duration-200 overflow-hidden ${isOver ? 'border-indigo-500 bg-indigo-500/10 shadow-lg shadow-indigo-500/10'
+                  : isHidden ? 'border-zinc-800 bg-zinc-950/20 opacity-60'
+                    : isDragging ? 'opacity-40 border-indigo-500/50 scale-98'
+                      : 'border-white/10 bg-zinc-900/60 hover:border-white/20'
+                }`}
             >
               {/* Section Card Header */}
               <div className="flex items-center justify-between p-3 gap-2 select-none">
@@ -1120,9 +1119,8 @@ export default function SectionControlsPanel({
                   <button
                     type="button"
                     onClick={() => handleToggleHideSection(secKey)}
-                    className={`p-1 rounded cursor-pointer transition-colors ${
-                      isHidden ? 'text-amber-400 hover:bg-amber-500/10' : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                    }`}
+                    className={`p-1 rounded cursor-pointer transition-colors ${isHidden ? 'text-amber-400 hover:bg-amber-500/10' : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                      }`}
                     title={isHidden ? 'Unhide section in CV' : 'Hide section from CV'}
                   >
                     {isHidden ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
@@ -1390,18 +1388,16 @@ export default function SectionControlsPanel({
                           <button
                             type="button"
                             onClick={() => setSkillsLayout('category')}
-                            className={`px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer transition-all ${
-                              skillsLayout === 'category' ? 'bg-indigo-600 text-white' : 'text-zinc-400 hover:text-white'
-                            }`}
+                            className={`px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer transition-all ${skillsLayout === 'category' ? 'bg-indigo-600 text-white' : 'text-zinc-400 hover:text-white'
+                              }`}
                           >
                             By Category
                           </button>
                           <button
                             type="button"
                             onClick={() => setSkillsLayout('level')}
-                            className={`px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer transition-all ${
-                              skillsLayout === 'level' ? 'bg-indigo-600 text-white' : 'text-zinc-400 hover:text-white'
-                            }`}
+                            className={`px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer transition-all ${skillsLayout === 'level' ? 'bg-indigo-600 text-white' : 'text-zinc-400 hover:text-white'
+                              }`}
                           >
                             By Level
                           </button>
@@ -1491,9 +1487,8 @@ export default function SectionControlsPanel({
                                   }
                                   setDraggedSkillCategory(null);
                                 }}
-                                className={`p-3 rounded-xl border transition-all ${
-                                  isCatOver ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/5 bg-white/[0.02]'
-                                } space-y-2`}
+                                className={`p-3 rounded-xl border transition-all ${isCatOver ? 'border-indigo-500 bg-indigo-500/10' : 'border-white/5 bg-white/[0.02]'
+                                  } space-y-2`}
                               >
                                 {/* Category Header */}
                                 <div className="flex justify-between items-center">
@@ -1590,11 +1585,10 @@ export default function SectionControlsPanel({
                                             setDraggedSkill(null);
                                           }
                                         }}
-                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-800 border text-zinc-200 text-[11px] group/chip cursor-grab active:cursor-grabbing transition-all ${
-                                          isItemDragging ? 'opacity-30 border-dashed border-indigo-400 scale-95' :
-                                          isItemOver ? 'border-indigo-400 bg-indigo-500/20 scale-105 shadow-md' :
-                                          'border-zinc-700/80 hover:border-zinc-500'
-                                        }`}
+                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-800 border text-zinc-200 text-[11px] group/chip cursor-grab active:cursor-grabbing transition-all ${isItemDragging ? 'opacity-30 border-dashed border-indigo-400 scale-95' :
+                                            isItemOver ? 'border-indigo-400 bg-indigo-500/20 scale-105 shadow-md' :
+                                              'border-zinc-700/80 hover:border-zinc-500'
+                                          }`}
                                         title="Drag to reorder or move across categories"
                                       >
                                         <GripVertical className="w-2.5 h-2.5 text-zinc-500 opacity-60 group-hover/chip:opacity-100 shrink-0" />
