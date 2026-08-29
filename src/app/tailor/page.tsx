@@ -16,6 +16,9 @@ import { useTokens } from '@/context/TokenContext';
 import { useAlertModal } from '@/context/AlertModalContext';
 import SectionControlsPanel from './components/SectionControlsPanel';
 import BulletMatrixCvView from './components/BulletMatrixCvView';
+import CanvasViewport from './components/CanvasViewport';
+import CanvasFloatingHud from './components/CanvasFloatingHud';
+import MobileToolBottomSheet from './components/MobileToolBottomSheet';
 
 interface WorkExperience {
   company: string;
@@ -578,11 +581,15 @@ export default function TailorWorkspace() {
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [sectionOrder, setSectionOrder] = useState<string[]>(['summary', 'work', 'education', 'projects', 'skills', 'languages']);
   const [isAdjustSpacingOpen, setIsAdjustSpacingOpen] = useState<boolean>(false);
+  const [isAutoFit, setIsAutoFit] = useState<boolean>(true);
+  const [manualScale, setManualScale] = useState<number>(1.0);
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState<boolean>(false);
+  const [isDesktopPanelCollapsed, setIsDesktopPanelCollapsed] = useState<boolean>(false);
   const { tokens, setIsTokenModalOpen, fetchTokens } = useTokens();
   const { showAlert } = useAlertModal();
 
   // Navigation Sub-tab inside Left Side Panel: Generation, ATS Intelligence, Customization & Spacing
-  const [sidePanelTab, setSidePanelTab] = useState<'generation' | 'ats' | 'customization'>('generation');
+  const [sidePanelTab, setSidePanelTab] = useState<'generation' | 'ats' | 'customization' | 'spacing'>('generation');
 
   // Section Margins & Custom Sections State
   const [customSections, setCustomSections] = useState<CustomSection[]>([]);
@@ -5461,9 +5468,10 @@ export default function TailorWorkspace() {
       </div>
 
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 w-full overflow-hidden">
-        {/* Left Input Pane: Col 5 */}
-        <div className={`w-full col-span-1 lg:col-span-5 border-r border-white/5 bg-zinc-950/40 p-4 sm:p-6 md:p-8 overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] space-y-6 ${activeMobileTab === 'edit' ? 'block' : 'hidden lg:block'
-          }`}>
+        {/* Left Input Pane: Collapsible on Desktop & Full-screen on Mobile Edit */}
+        <div className={`w-full border-r border-white/5 bg-zinc-950/40 p-4 sm:p-6 md:p-8 overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] space-y-6 ${
+          isDesktopPanelCollapsed ? 'hidden' : 'hidden lg:block lg:col-span-5'
+        } ${activeMobileTab === 'edit' ? '!block' : ''}`}>
           <div>
             <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-indigo-400" />
@@ -6245,18 +6253,29 @@ export default function TailorWorkspace() {
           )}
         </div>
 
-        {/* Right Preview Pane: Col 7 */}
-        <div className={`w-full col-span-1 lg:col-span-7 bg-[var(--layout-surface-card-bg)]/30 flex flex-col overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] ${activeMobileTab === 'preview' ? 'block' : 'hidden lg:block'
+        {/* Right Preview Pane */}
+        <div className={`w-full ${isDesktopPanelCollapsed ? 'col-span-1 lg:col-span-12' : 'col-span-1 lg:col-span-7'} bg-[var(--layout-surface-card-bg)]/30 flex flex-col overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] transition-all duration-300 ${activeMobileTab === 'preview' ? 'block' : 'hidden lg:block'
           }`}>
-          {/* Multi-Row Sticky Responsive Toolbar */}
-          <div className="sticky top-[49px] sm:top-0 z-40 no-print flex flex-col gap-2.5 px-3 sm:px-6 py-2.5 sm:py-3 bg-[var(--layout-surface-panel-bg)]/95 backdrop-blur-md border-b border-white/5 font-sans">
-            {/* Top Row: Document Tabs & Layout Modes & Export Button */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-wrap w-full sm:w-auto">
-                <div className="flex gap-1.5 font-sans w-full sm:w-auto flex-wrap">
+          {/* Multi-Row Sticky Responsive Toolbar with HUD */}
+          <div className="sticky top-[49px] sm:top-0 z-40 no-print flex flex-col gap-2 px-3 sm:px-6 py-2 bg-[var(--layout-surface-panel-bg)]/95 backdrop-blur-md border-b border-white/5 font-sans">
+            {/* Top Row: Document Switcher & Floating HUD */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Desktop Sidebar Collapse Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setIsDesktopPanelCollapsed(!isDesktopPanelCollapsed)}
+                  className="hidden lg:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-white/10 text-xs font-semibold cursor-pointer transition-all shadow-sm"
+                  title={isDesktopPanelCollapsed ? 'Show Strategy Panel' : 'Collapse Strategy Panel'}
+                >
+                  <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isDesktopPanelCollapsed ? '' : 'rotate-180'}`} />
+                  <span>{isDesktopPanelCollapsed ? 'Show Strategy' : 'Hide Strategy'}</span>
+                </button>
+
+                <div className="flex gap-1.5 font-sans overflow-x-auto no-scrollbar py-0.5">
                   <button
                     onClick={() => setPreviewTab('cv')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${previewTab === 'cv'
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${previewTab === 'cv'
                       ? 'bg-zinc-800 text-white shadow-sm'
                       : 'text-zinc-400 hover:text-white hover:bg-white/5'
                       }`}
@@ -6266,7 +6285,7 @@ export default function TailorWorkspace() {
                   </button>
                   <button
                     onClick={() => setPreviewTab('coverLetter')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${previewTab === 'coverLetter'
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${previewTab === 'coverLetter'
                       ? 'bg-zinc-800 text-white shadow-sm'
                       : 'text-zinc-400 hover:text-white hover:bg-white/5'
                       }`}
@@ -6276,7 +6295,7 @@ export default function TailorWorkspace() {
                   </button>
                   <button
                     onClick={() => setPreviewTab('outreach')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${previewTab === 'outreach'
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${previewTab === 'outreach'
                       ? 'bg-indigo-600 text-white shadow-sm'
                       : 'text-zinc-400 hover:text-white hover:bg-white/5'
                       }`}
@@ -6287,7 +6306,7 @@ export default function TailorWorkspace() {
                   </button>
                   <button
                     onClick={() => setPreviewTab('interviewPrep')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${previewTab === 'interviewPrep'
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${previewTab === 'interviewPrep'
                       ? 'bg-indigo-600 text-white shadow-sm'
                       : 'text-zinc-400 hover:text-white hover:bg-white/5'
                       }`}
@@ -6297,154 +6316,34 @@ export default function TailorWorkspace() {
                     {interviewPrepData && <span className="w-2 h-2 rounded-full bg-emerald-400"></span>}
                   </button>
                 </div>
-
-                {/* {previewTab === 'cv' && (
-                  <div className="flex bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-0.5 font-sans w-full sm:w-auto">
-                    <button
-                      type="button"
-                      onClick={() => setIsAtsMode(false)}
-                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${!isAtsMode
-                        ? 'bg-zinc-800 text-white shadow-sm'
-                        : 'text-zinc-400 hover:text-zinc-200'
-                        }`}
-                    >
-                      Visual Layout
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsAtsMode(true)}
-                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${isAtsMode
-                        ? 'bg-zinc-800 text-white shadow-sm'
-                        : 'text-zinc-400 hover:text-zinc-200'
-                        }`}
-                    >
-                      Strict ATS
-                    </button>
-                  </div>
-                )} */}
               </div>
 
-              {/* Top Row Right: Height badge & Export Format button (Height & Export on CV/CL, Tracker button on all tabs) */}
-              <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-1.5 sm:pt-0 border-t sm:border-t-0 border-white/5">
-                {(previewTab === 'cv' || previewTab === 'coverLetter') && result && (
-                  <span className="text-[10px] font-semibold px-2 py-1 rounded-md bg-zinc-900 border border-white/5 flex items-center gap-1.5 font-sans">
-                    <span>Height:</span>
-                    <span className={numPages > 1 ? "text-amber-400 font-bold" : "text-emerald-400 font-bold"}>
-                      {numPages} {numPages === 1 ? 'Page' : 'Pages'}
-                    </span>
-                    {numPages > 1 && lengthTarget === 'Strict 1-Page (concise)' && previewTab === 'cv' && (
-                      <span className="hidden md:inline text-amber-500 font-normal">
-                        (Spillover warning: try reducing bullets to fit on 1 Page)
-                      </span>
-                    )}
-                  </span>
-                )}
-
-                {(result || interviewPrepData || outreachData || editingAppId) && (
-                  <div className="flex items-center gap-2 relative no-print font-sans z-50">
-                    {/* Save/Update to Applications Tracker */}
-                    <button
-                      type="button"
-                      onClick={saveToApplicationsTracker}
-                      disabled={isSaving}
-                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-md transition-all cursor-pointer flex items-center gap-1.5 ${saveSuccess
-                        ? 'bg-emerald-600 text-white shadow-emerald-500/20'
-                        : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-white/10 hover:text-white hover:border-indigo-500/40'
-                        }`}
-                      title={editingAppId ? 'Update this application in your Kanban tracker' : 'Save tailored application into your Kanban tracker'}
-                    >
-                      {isSaving ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-400" />
-                          <span>Saving...</span>
-                        </>
-                      ) : saveSuccess ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-emerald-300" />
-                          <span>{editingAppId ? 'Updated in Tracker!' : 'Saved to Tracker!'}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Bookmark className="w-3.5 h-3.5 text-indigo-400" />
-                          <span>{editingAppId ? 'Update Tracker' : 'Add to Tracker'}</span>
-                        </>
-                      )}
-                    </button>
-
-                    {(previewTab === 'cv' || previewTab === 'coverLetter') && result && (
-                      <div className="relative">
-                        <button
-                          onClick={() => setExportDropdownOpen(!exportDropdownOpen)}
-                          className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-500/25 flex items-center gap-1.5 transition-colors cursor-pointer"
-                        >
-                          <Download className="w-3.5 h-3.5" />
-                          <span>Export ▼</span>
-                        </button>
-
-                        {exportDropdownOpen && (
-                          <>
-                            <div className="fixed inset-0 z-40" onClick={() => setExportDropdownOpen(false)}></div>
-                            <div className="absolute right-0 mt-2 w-64 bg-zinc-900 border border-white/15 rounded-xl shadow-2xl z-50 py-1.5 text-xs text-zinc-300 backdrop-blur-xl">
-                              <button
-                                onClick={() => {
-                                  setExportDropdownOpen(false);
-                                  handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl');
-                                }}
-                                className="w-full text-left px-4 py-2.5 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2.5"
-                              >
-                                <FileText className="w-4 h-4 text-indigo-400 shrink-0" />
-                                <div>
-                                  <span className="font-semibold block text-white">Download Vector PDF</span>
-                                  <span className="text-[10px] text-zinc-400">High-res vector print for recruiters</span>
-                                </div>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setExportDropdownOpen(false);
-                                  handleExportDocx();
-                                }}
-                                className="w-full text-left px-4 py-2.5 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2.5 border-t border-white/5"
-                              >
-                                <Download className="w-4 h-4 text-blue-400 shrink-0" />
-                                <div>
-                                  <span className="font-semibold block text-white">Download Word Document (.docx)</span>
-                                  <span className="text-[10px] text-zinc-400">Standard editable Microsoft Word</span>
-                                </div>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setExportDropdownOpen(false);
-                                  handleCopyAtsPlainText();
-                                }}
-                                className="w-full text-left px-4 py-2.5 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2.5 border-t border-white/5"
-                              >
-                                <CheckSquare className="w-4 h-4 text-emerald-400 shrink-0" />
-                                <div>
-                                  <span className="font-semibold block text-white">Copy ATS Plain-Text</span>
-                                  <span className="text-[10px] text-zinc-400">1-Click clipboard for online portals</span>
-                                </div>
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setExportDropdownOpen(false);
-                                  handleExportText();
-                                }}
-                                className="w-full text-left px-4 py-2.5 hover:bg-white/10 hover:text-white transition-colors cursor-pointer flex items-center gap-2.5 border-t border-white/5"
-                              >
-                                <FileText className="w-4 h-4 text-zinc-400 shrink-0" />
-                                <div>
-                                  <span className="font-semibold block text-white">Download Plain Text (.txt)</span>
-                                  <span className="text-[10px] text-zinc-400">ASCII text file download</span>
-                                </div>
-                              </button>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              {/* Pinned Canvas Controls HUD */}
+              <CanvasFloatingHud
+                scale={manualScale}
+                isAutoFit={isAutoFit}
+                onZoomIn={() => {
+                  setIsAutoFit(false);
+                  setManualScale((s) => Math.min(1.5, Math.round((s + 0.1) * 10) / 10));
+                }}
+                onZoomOut={() => {
+                  setIsAutoFit(false);
+                  setManualScale((s) => Math.max(0.4, Math.round((s - 0.1) * 10) / 10));
+                }}
+                onToggleAutoFit={() => setIsAutoFit(!isAutoFit)}
+                numPages={numPages}
+                isStrictOnePage={lengthTarget.includes('1-Page')}
+                isAtsHighlightEnabled={isAtsHighlightEnabled}
+                onToggleAtsHighlight={() => setIsAtsHighlightEnabled(!isAtsHighlightEnabled)}
+                onExportPdf={() => handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl')}
+                onExportDocx={() => handleExportDocx()}
+                onExportPlainText={() => handleCopyAtsPlainText()}
+                onSaveToTracker={saveToApplicationsTracker}
+                isSavingToTracker={isSaving}
+                saveTrackerSuccess={saveSuccess}
+                editingAppId={editingAppId}
+                hasResult={!!result}
+              />
             </div>
 
             {/* Row 2: Layout Presets & ATS Toolbar (Sticky on top of document) */}
@@ -7284,289 +7183,266 @@ export default function TailorWorkspace() {
 
                   {/* CV Preview Page */}
                   {previewTab === 'cv' && (
-                    <div
-                      ref={cvPreviewRef}
-                      id="cv-sheet"
-                      className="flex flex-col gap-6 w-full items-center no-print"
+                    <CanvasViewport
+                      scale={manualScale}
+                      isAutoFit={isAutoFit}
+                      onAutoFitScaleChange={(scale) => setManualScale(scale)}
+                      className="no-print"
                     >
-                      {pagesToRender.map((pageBlockIds, pageIdx) => {
-                        const a4Width = 794; // A4 width in px (210mm)
-                        const a4Height = 1123; // A4 height in px (297mm)
-                        const containerW = previewWidth > 0 ? previewWidth : (typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 794) : 360);
-                        const rawScale = containerW < a4Width ? (containerW - 16) / a4Width : 1;
-                        const scale = Math.max(0.48, Math.min(1, rawScale));
-
-                        return (
+                      <div
+                        ref={cvPreviewRef}
+                        id="cv-sheet"
+                        className="flex flex-col gap-6 w-full items-center no-print"
+                      >
+                        {pagesToRender.map((pageBlockIds, pageIdx) => (
                           <div
                             key={pageIdx}
-                            className="cv-page-scale-wrapper flex items-start justify-center no-print"
+                            className={`cv-page-box w-[794px] h-[1123px] relative flex flex-col bg-white shadow-2xl print:shadow-none ${lengthTarget.includes('1-Page') ? 'strict-1-page' : ''
+                              }`}
                             style={{
-                              width: '100%',
-                              height: `${a4Height * scale}px`,
+                              width: '794px',
+                              height: '1123px',
+                              fontFamily: cvFormatMode === 'bullet-matrix' ? 'Arial, Helvetica, sans-serif' : (LAYOUT_TEMPLATES[cvLayoutTemplateId] || LAYOUT_TEMPLATES['standard']).fontFamily,
+                              fontSize: `${fontSize}px`,
+                              lineHeight: cvFormatMode === 'bullet-matrix' ? 1.45 : 1.55,
+                              color: cvFormatMode === 'bullet-matrix' ? '#000000' : '#1f2937',
+                              padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,
+                              boxSizing: 'border-box',
+                              overflow: 'hidden',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              justifyContent: 'flex-start',
                               flexShrink: 0
                             }}
                           >
-                            <div
-                              className={`cv-page-box w-[794px] h-[1123px] relative flex flex-col bg-white shadow-lg print:shadow-none ${lengthTarget.includes('1-Page') ? 'strict-1-page' : ''
-                                }`}
-                              style={{
-                                width: '794px',
-                                height: '1123px',
-                                fontFamily: cvFormatMode === 'bullet-matrix' ? 'Arial, Helvetica, sans-serif' : (LAYOUT_TEMPLATES[cvLayoutTemplateId] || LAYOUT_TEMPLATES['standard']).fontFamily,
-                                fontSize: `${fontSize}px`,
-                                lineHeight: cvFormatMode === 'bullet-matrix' ? 1.45 : 1.55,
-                                color: cvFormatMode === 'bullet-matrix' ? '#000000' : '#1f2937',
-                                padding: `${pagePaddingTop}mm ${pagePaddingSide}mm ${pagePaddingBottom}mm ${pagePaddingSide}mm`,
-                                boxSizing: 'border-box',
-                                overflow: 'hidden',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                justifyContent: 'flex-start',
-                                transform: `scale(${scale})`,
-                                transformOrigin: 'top center',
-                                flexShrink: 0
-                              }}
-                            >
-                              {pageBlockIds.map((blockId) => renderBlock(blockId, false))}
-                            </div>
+                            {pageBlockIds.map((blockId) => renderBlock(blockId, false))}
                           </div>
-                        );
-                      })}
-                    </div>
+                        ))}
+                      </div>
+                    </CanvasViewport>
                   )}
 
                   {/* Cover Letter Preview Page */}
-                  {previewTab === 'coverLetter' && (() => {
-                    const a4Width = 794;
-                    const a4Height = 1123;
-                    const containerW = previewWidth > 0 ? previewWidth : (typeof window !== 'undefined' ? Math.min(window.innerWidth - 24, 794) : 360);
-                    const rawScale = containerW < a4Width ? (containerW - 16) / a4Width : 1;
-                    const scale = Math.max(0.48, Math.min(1, rawScale));
-                    return (
+                  {previewTab === 'coverLetter' && (
+                    <CanvasViewport
+                      scale={manualScale}
+                      isAutoFit={isAutoFit}
+                      onAutoFitScaleChange={(scale) => setManualScale(scale)}
+                      className="no-print"
+                    >
                       <div
-                        className="cl-page-scale-wrapper flex items-start justify-center no-print"
+                        ref={clPreviewRef}
+                        id="cl-sheet"
+                        className="w-[794px] min-h-[1123px] relative flex flex-col justify-between bg-white text-[#1a1a1a] mx-auto shadow-2xl print:shadow-none group"
                         style={{
-                          width: '100%',
-                          height: `${a4Height * scale}px`,
+                          width: '794px',
+                          minHeight: '1123px',
+                          fontFamily: '"Inter", "Calibri", "Segoe UI", system-ui, sans-serif',
+                          fontSize: '11.5px',
+                          lineHeight: 1.65,
+                          padding: '32mm 28mm 24mm 28mm',
                           flexShrink: 0
                         }}
                       >
-                        <div
-                          ref={clPreviewRef}
-                          id="cl-sheet"
-                          className="w-[794px] min-h-[1123px] relative flex flex-col justify-between bg-white text-[#1a1a1a] mx-auto shadow-lg print:shadow-none group"
-                          style={{
-                            width: '794px',
-                            minHeight: '1123px',
-                            fontFamily: '"Inter", "Calibri", "Segoe UI", system-ui, sans-serif',
-                            fontSize: '11.5px',
-                            lineHeight: 1.65,
-                            padding: '32mm 28mm 24mm 28mm',
-                            transform: `scale(${scale})`,
-                            transformOrigin: 'top center',
-                            flexShrink: 0
-                          }}
-                        >
-                          {/* Cover Letter Header AI Action Bar */}
-                          <div className="absolute right-6 top-6 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-all duration-200 flex items-center gap-1 bg-zinc-900/95 border border-zinc-700/80 rounded-xl p-1.5 text-xs shadow-2xl backdrop-blur-md z-30 font-sans no-print">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenRegenModal('coverLetter', clLanguage === 'DE' ? 'Anschreiben' : 'Cover Letter', result.tailoredCoverLetter);
-                              }}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 rounded-lg text-white font-bold cursor-pointer transition-all text-xs shadow-md"
-                              title="Regenerate Cover Letter with AI"
-                            >
-                              <Sparkles className="w-3.5 h-3.5 text-indigo-200 animate-pulse" />
-                              <span>Regenerate Cover Letter (AI)</span>
-                            </button>
+                        {/* Cover Letter Header AI Action Bar */}
+                        <div className="absolute right-6 top-6 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-all duration-200 flex items-center gap-1 bg-zinc-900/95 border border-zinc-700/80 rounded-xl p-1.5 text-xs shadow-2xl backdrop-blur-md z-30 font-sans no-print">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenRegenModal('coverLetter', clLanguage === 'DE' ? 'Anschreiben' : 'Cover Letter', result.tailoredCoverLetter);
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 rounded-lg text-white font-bold cursor-pointer transition-all text-xs shadow-md"
+                            title="Regenerate Cover Letter with AI"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-indigo-200 animate-pulse" />
+                            <span>Regenerate Cover Letter (AI)</span>
+                          </button>
+                        </div>
+                        <div className="text-xs">
+                          {/* Sender block */}
+                          <div className={`${isAtsMode ? 'text-left' : 'text-right'} text-[11.5px] leading-[1.7]`}>
+                            <ContentEditable
+                              tagName="pre"
+                              data-cl-field="senderAddress"
+                              value={result.tailoredCoverLetter.senderAddress}
+                              onChange={(val) => handleClChange('senderAddress', val, true)}
+                              onBlur={(e: any) => handleClChange('senderAddress', e.target.innerText, false)}
+                              useInnerText={true}
+                              isMeasurement={false}
+                              className={`font-sans text-[11.5px] leading-[1.7] whitespace-pre-wrap inline-block ${isAtsMode ? 'text-left w-full' : 'text-right'}`}
+                            />
                           </div>
-                          <div className="text-xs">
-                            {/* Sender block */}
-                            <div className={`${isAtsMode ? 'text-left' : 'text-right'} text-[11.5px] leading-[1.7]`}>
+
+                          {/* Recipient address + Date row */}
+                          <div className={isAtsMode ? "mt-10 flex flex-col items-start gap-y-4 text-left font-sans" : "mt-10 flex justify-between items-end text-left font-sans"}>
+                            <div>
                               <ContentEditable
                                 tagName="pre"
-                                data-cl-field="senderAddress"
-                                value={result.tailoredCoverLetter.senderAddress}
-                                onChange={(val) => handleClChange('senderAddress', val, true)}
-                                onBlur={(e: any) => handleClChange('senderAddress', e.target.innerText, false)}
+                                data-cl-field="recipientAddress"
+                                value={result.tailoredCoverLetter.recipientAddress}
+                                onChange={(val) => handleClChange('recipientAddress', val, true)}
+                                onBlur={(e: any) => handleClChange('recipientAddress', e.target.innerText, false)}
                                 useInnerText={true}
                                 isMeasurement={false}
-                                className={`font-sans text-[11.5px] leading-[1.7] whitespace-pre-wrap inline-block ${isAtsMode ? 'text-left w-full' : 'text-right'}`}
+                                className="font-sans text-[11.5px] leading-[1.7] whitespace-pre-wrap"
                               />
                             </div>
-
-                            {/* Recipient address + Date row */}
-                            <div className={isAtsMode ? "mt-10 flex flex-col items-start gap-y-4 text-left font-sans" : "mt-10 flex justify-between items-end text-left font-sans"}>
-                              <div>
-                                <ContentEditable
-                                  tagName="pre"
-                                  data-cl-field="recipientAddress"
-                                  value={result.tailoredCoverLetter.recipientAddress}
-                                  onChange={(val) => handleClChange('recipientAddress', val, true)}
-                                  onBlur={(e: any) => handleClChange('recipientAddress', e.target.innerText, false)}
-                                  useInnerText={true}
-                                  isMeasurement={false}
-                                  className="font-sans text-[11.5px] leading-[1.7] whitespace-pre-wrap"
-                                />
-                              </div>
-                              <ContentEditable
-                                tagName="div"
-                                value={result.tailoredCoverLetter.dateLine}
-                                onChange={(val) => handleClChange('dateLine', val, true)}
-                                onBlur={(e: any) => handleClChange('dateLine', e.target.innerText, false)}
-                                useInnerText={true}
-                                isMeasurement={false}
-                                className="text-[11.5px]"
-                              />
-                            </div>
-
-                            {/* Subject line */}
                             <ContentEditable
-                              tagName="p"
-                              value={result.tailoredCoverLetter.subjectLine}
-                              onChange={(val) => handleClChange('subjectLine', val, true)}
-                              onBlur={(e: any) => handleClChange('subjectLine', e.target.innerText, false)}
+                              tagName="div"
+                              value={result.tailoredCoverLetter.dateLine}
+                              onChange={(val) => handleClChange('dateLine', val, true)}
+                              onBlur={(e: any) => handleClChange('dateLine', e.target.innerText, false)}
                               useInnerText={true}
                               isMeasurement={false}
-                              className="mt-12 font-bold text-[12px] text-left font-sans"
+                              className="text-[11.5px]"
                             />
-
-                            {/* Salutation */}
-                            <ContentEditable
-                              tagName="p"
-                              value={result.tailoredCoverLetter.salutation}
-                              onChange={(val) => handleClChange('salutation', val, true)}
-                              onBlur={(e: any) => handleClChange('salutation', e.target.innerText, false)}
-                              useInnerText={true}
-                              isMeasurement={false}
-                              className="mt-8 text-[11.5px] text-left font-sans"
-                            />
-
-                            {/* Body paragraphs */}
-                            <div className="mt-5 space-y-4 text-[11.5px] leading-[1.65] text-left font-sans">
-                              {getRenderedParagraphs(result.tailoredCoverLetter, clLength).map((p: string, i: number) => (
-                                <div key={i} className="group relative">
-                                  <ContentEditable
-                                    tagName="p"
-                                    value={p}
-                                    onChange={(val) => handleClParagraphChange(i, val, true)}
-                                    onBlur={(e: any) => handleClParagraphChange(i, e.target.innerHTML, false)}
-                                    isMeasurement={false}
-                                    highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(p) : undefined}
-                                    className="focus:outline-none"
-                                  />
-                                  <div className="no-print opacity-0 group-hover:opacity-100 absolute -right-2 top-0 flex items-center gap-1 shrink-0 transition-opacity">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleFetchClParagraphVariations(i, p)}
-                                      className="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 cursor-pointer px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-all border border-indigo-200 shadow-sm"
-                                      title="Polish paragraph with AI (2 Tokens)"
-                                    >
-                                      <Wand2 className="w-3 h-3 text-indigo-500" />
-                                      <span>Polish</span>
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-
-                            {/* Closing */}
-                            <ContentEditable
-                              tagName="p"
-                              value={result.tailoredCoverLetter.closing}
-                              onChange={(val) => handleClChange('closing', val, true)}
-                              onBlur={(e: any) => handleClChange('closing', e.target.innerText, false)}
-                              useInnerText={true}
-                              isMeasurement={false}
-                              className="mt-8 text-[11.5px] text-left font-sans"
-                            />
-
-                            {/* Signature */}
-                            <div className="mt-3 h-[32px] flex items-end select-none" aria-hidden="true">
-                              {result.tailoredCv.personalDetails.signature ? (
-                                <img
-                                  src={result.tailoredCv.personalDetails.signature}
-                                  alt=""
-                                  aria-hidden="true"
-                                  className="max-h-full max-w-[120px] object-contain"
-                                />
-                              ) : (
-                                <svg
-                                  width="80"
-                                  height="32"
-                                  viewBox="0 0 80 32"
-                                  fill="none"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  aria-hidden="true"
-                                  className="text-[#1a1a1a]"
-                                >
-                                  <path
-                                    d="M 10 24 C 10 8, 22 2, 22 14 C 22 20, 16 26, 12 24 C 10 22, 14 18, 20 18 C 24 18, 26 22, 28 20 C 30 18, 30 20, 32 20 C 34 20, 34 22, 36 20 C 44 8, 48 2, 46 16 C 45 24, 40 28, 43 28 C 46 28, 52 14, 56 16 C 58 17, 58 20, 60 20 C 62 20, 62 18, 64 18 C 66 18, 67 22, 70 20"
-                                    stroke="currentColor"
-                                    strokeWidth="1.5"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
-                              )}
-                            </div>
-
-                            {/* Printed Name */}
-                            <ContentEditable
-                              tagName="p"
-                              value={result.tailoredCoverLetter.signatureName}
-                              onChange={(val) => handleClChange('signatureName', val, true)}
-                              onBlur={(e: any) => handleClChange('signatureName', e.target.innerText, false)}
-                              useInnerText={true}
-                              isMeasurement={false}
-                              className="mt-1.5 text-[11.5px] text-left font-sans"
-                            />
-
-                            {/* Enclosures */}
-                            <div className="mt-8 text-[11.5px] text-left font-sans">
-                              <p>Enclosure:</p>
-                              <ContentEditable
-                                tagName="div"
-                                data-cl-field="enclosure"
-                                value={
-                                  result.tailoredCoverLetter.enclosure !== undefined
-                                    ? result.tailoredCoverLetter.enclosure
-                                    : "- Curriculum Vitae\n- Bachelor Degree Diploma\n- Reference letter from previous employers"
-                                }
-                                onChange={(val) => handleClChange('enclosure', val, true)}
-                                onBlur={(e: any) => handleClChange('enclosure', e.target.innerText, false)}
-                                useInnerText={true}
-                                isMeasurement={false}
-                                className="ml-4 mt-1 whitespace-pre-wrap outline-none font-sans text-[11.5px] leading-[1.7] text-left"
-                              />
-                            </div>
                           </div>
 
-                          {/* Page Break Guide Lines */}
-                          {Array.from({ length: numPages - 1 }).map((_, i) => (
-                            <div
-                              key={i}
-                              className="absolute left-0 right-0 border-t-2 border-dashed border-rose-400 z-10 no-print flex items-center justify-between pointer-events-none select-none font-sans"
-                              style={{
-                                top: `${120.9 + (i + 1) * 910.9}px`,
-                                margin: 0,
-                                padding: '4px 8px'
-                              }}
-                            >
-                              <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded shadow-md font-bold">
-                                Page {i + 1} Cutoff (A4 Height)
-                              </span>
-                              <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded shadow-md font-medium opacity-80">
-                                Content below overflows to Page {i + 2}
-                              </span>
-                            </div>
-                          ))}
+                          {/* Subject */}
+                          <ContentEditable
+                            tagName="h2"
+                            value={result.tailoredCoverLetter.subjectLine}
+                            onChange={(val) => handleClChange('subjectLine', val, true)}
+                            onBlur={(e: any) => handleClChange('subjectLine', e.target.innerText, false)}
+                            useInnerText={true}
+                            isMeasurement={false}
+                            className="text-[13px] font-bold mt-8 mb-4 text-left font-sans"
+                          />
+
+                          {/* Salutation */}
+                          <ContentEditable
+                            tagName="p"
+                            value={result.tailoredCoverLetter.salutation}
+                            onChange={(val) => handleClChange('salutation', val, true)}
+                            onBlur={(e: any) => handleClChange('salutation', e.target.innerText, false)}
+                            useInnerText={true}
+                            isMeasurement={false}
+                            className="mb-4 text-[11.5px] text-left font-sans"
+                          />
+
+                          {/* Body Paragraphs */}
+                          <div className="space-y-4 text-[11.5px] leading-[1.7] text-justify font-sans">
+                            {getRenderedParagraphs(result.tailoredCoverLetter, clLength).map((p: string, i: number) => (
+                              <div key={i} className="group relative">
+                                <ContentEditable
+                                  tagName="p"
+                                  value={p}
+                                  onChange={(val) => handleClParagraphChange(i, val, true)}
+                                  onBlur={(e: any) => handleClParagraphChange(i, e.target.innerHTML, false)}
+                                  isMeasurement={false}
+                                  highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(p) : undefined}
+                                  className="focus:outline-none"
+                                />
+                                <div className="no-print opacity-0 group-hover:opacity-100 absolute -right-2 top-0 flex items-center gap-1 shrink-0 transition-opacity">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleFetchClParagraphVariations(i, p)}
+                                    className="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 cursor-pointer px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-all border border-indigo-200 shadow-sm"
+                                    title="Polish paragraph with AI (2 Tokens)"
+                                  >
+                                    <Wand2 className="w-3 h-3 text-indigo-500" />
+                                    <span>Polish</span>
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Closing */}
+                          <ContentEditable
+                            tagName="p"
+                            value={result.tailoredCoverLetter.closing}
+                            onChange={(val) => handleClChange('closing', val, true)}
+                            onBlur={(e: any) => handleClChange('closing', e.target.innerText, false)}
+                            useInnerText={true}
+                            isMeasurement={false}
+                            className="mt-8 text-[11.5px] text-left font-sans"
+                          />
+
+                          {/* Signature */}
+                          <div className="mt-3 h-[32px] flex items-end select-none" aria-hidden="true">
+                            {result.tailoredCv.personalDetails.signature ? (
+                              <img
+                                src={result.tailoredCv.personalDetails.signature}
+                                alt=""
+                                aria-hidden="true"
+                                className="max-h-full max-w-[120px] object-contain"
+                              />
+                            ) : (
+                              <svg
+                                width="80"
+                                height="32"
+                                viewBox="0 0 80 32"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                                aria-hidden="true"
+                                className="text-[#1a1a1a]"
+                              >
+                                <path
+                                  d="M 10 24 C 10 8, 22 2, 22 14 C 22 20, 16 26, 12 24 C 10 22, 14 18, 20 18 C 24 18, 26 22, 28 20 C 30 18, 30 20, 32 20 C 34 20, 34 22, 36 20 C 44 8, 48 2, 46 16 C 45 24, 40 28, 43 28 C 46 28, 52 14, 56 16 C 58 17, 58 20, 60 20 C 62 20, 62 18, 64 18 C 66 18, 67 22, 70 20"
+                                  stroke="currentColor"
+                                  strokeWidth="1.5"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            )}
+                          </div>
+
+                          {/* Printed Name */}
+                          <ContentEditable
+                            tagName="p"
+                            value={result.tailoredCoverLetter.signatureName}
+                            onChange={(val) => handleClChange('signatureName', val, true)}
+                            onBlur={(e: any) => handleClChange('signatureName', e.target.innerText, false)}
+                            useInnerText={true}
+                            isMeasurement={false}
+                            className="mt-1.5 text-[11.5px] text-left font-sans"
+                          />
+
+                          {/* Enclosures */}
+                          <div className="mt-8 text-[11.5px] text-left font-sans">
+                            <p>Enclosure:</p>
+                            <ContentEditable
+                              tagName="div"
+                              data-cl-field="enclosure"
+                              value={
+                                result.tailoredCoverLetter.enclosure !== undefined
+                                  ? result.tailoredCoverLetter.enclosure
+                                  : "- Curriculum Vitae\n- Bachelor Degree Diploma\n- Reference letter from previous employers"
+                              }
+                              onChange={(val) => handleClChange('enclosure', val, true)}
+                              onBlur={(e: any) => handleClChange('enclosure', e.target.innerText, false)}
+                              useInnerText={true}
+                              isMeasurement={false}
+                              className="ml-4 mt-1 whitespace-pre-wrap outline-none font-sans text-[11.5px] leading-[1.7] text-left"
+                            />
+                          </div>
                         </div>
+
+                        {/* Page Break Guide Lines */}
+                        {Array.from({ length: numPages - 1 }).map((_, i) => (
+                          <div
+                            key={i}
+                            className="absolute left-0 right-0 border-t-2 border-dashed border-rose-400 z-10 no-print flex items-center justify-between pointer-events-none select-none font-sans"
+                            style={{
+                              top: `${120.9 + (i + 1) * 910.9}px`,
+                              margin: 0,
+                              padding: '4px 8px'
+                            }}
+                          >
+                            <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded shadow-md font-bold">
+                              Page {i + 1} Cutoff (A4 Height)
+                            </span>
+                            <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded shadow-md font-medium opacity-80">
+                              Content below overflows to Page {i + 2}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    );
-                  })()}
+                    </CanvasViewport>
+                  )}
                 </div>
               </div>
             ) : (
@@ -7580,8 +7456,229 @@ export default function TailorWorkspace() {
             )}
           </div>
         </div>
-
       </div>
+
+      {/* Canva-style Mobile Bottom Sheet (Active on Mobile Preview) */}
+      {activeMobileTab === 'preview' && (
+        <MobileToolBottomSheet
+          activeTab={sidePanelTab}
+          onTabChange={(tab) => setSidePanelTab(tab)}
+          matchScore={result?.matchScore}
+          isOpen={isMobileSheetOpen}
+          onToggleOpen={() => setIsMobileSheetOpen(!isMobileSheetOpen)}
+        >
+          {sidePanelTab === 'generation' && (
+            <div className="space-y-3 font-sans text-xs">
+              <div className="p-3.5 rounded-xl bg-zinc-900 border border-white/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-white uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                    Target Job Summary
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMobileSheetOpen(false);
+                      setActiveMobileTab('edit');
+                    }}
+                    className="text-[10px] text-indigo-400 font-bold hover:underline cursor-pointer"
+                  >
+                    Edit Details →
+                  </button>
+                </div>
+                <p className="text-zinc-300 text-xs font-medium">
+                  {roleName || 'Custom Role'} {companyName ? `@ ${companyName}` : ''}
+                </p>
+                <div className="flex gap-2 text-[10px] text-zinc-400">
+                  <span>CV: <strong>{cvLanguage}</strong></span>
+                  <span>•</span>
+                  <span>Tone: <strong>{tone}</strong></span>
+                  <span>•</span>
+                  <span>Mode: <strong>{cvFormatMode}</strong></span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleTailor}
+                disabled={loading}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 text-white font-bold text-xs shadow-lg flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Tailoring Documents...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                    <span>Re-Tailor Application (20 Tokens)</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {sidePanelTab === 'ats' && (
+            <div className="space-y-3 font-sans text-xs">
+              {result ? (
+                <>
+                  <div className="flex items-center justify-between p-3 bg-zinc-900 border border-white/10 rounded-xl">
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-xl font-extrabold text-emerald-400">{result.matchScore}%</span>
+                      <div>
+                        <span className="font-bold text-white block text-xs">ATS Match Score</span>
+                        <span className="text-[10px] text-zinc-400">{result.gapAnalysis.matchingKeywords.length} matching / {result.gapAnalysis.missingSkills.length} missing</span>
+                      </div>
+                    </div>
+                    {result.gapAnalysis.missingSkills.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const missing = [...result.gapAnalysis.missingSkills];
+                          missing.forEach(s => handleAddSkillInteractive(s, true));
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold cursor-pointer"
+                      >
+                        + Add All Missing
+                      </button>
+                    )}
+                  </div>
+
+                  {result.gapAnalysis.missingSkills.length > 0 && (
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">Tap to add missing skill:</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {result.gapAnalysis.missingSkills.map((s, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => handleAddSkillInteractive(s, false)}
+                            className="text-[10px] px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 font-medium cursor-pointer"
+                          >
+                            + {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="p-4 text-center text-zinc-400 text-xs">
+                  Tailor your application first to view real-time ATS keyword matching.
+                </div>
+              )}
+            </div>
+          )}
+
+          {sidePanelTab === 'customization' && (
+            <div className="space-y-3 font-sans text-xs">
+              <div className="p-3 bg-zinc-900 border border-white/10 rounded-xl space-y-2">
+                <span className="font-bold text-white uppercase tracking-wider text-[10px] block">CV Template Style</span>
+                <select
+                  value={cvLayoutTemplateId}
+                  onChange={(e) => setCvLayoutTemplateId(e.target.value as CvLayoutTemplateId)}
+                  className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs rounded-lg px-2.5 py-1.5 w-full focus:outline-none focus:border-indigo-500"
+                >
+                  {Object.values(LAYOUT_TEMPLATES).map((tmpl) => (
+                    <option key={tmpl.id} value={tmpl.id}>
+                      {tmpl.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="p-3 bg-zinc-900 border border-white/10 rounded-xl space-y-2">
+                <span className="font-bold text-white uppercase tracking-wider text-[10px] block">Section Hierarchy</span>
+                <select
+                  value={sectionOrder[1] === 'work' ? 'work' : sectionOrder[1] === 'skills' ? 'skills' : 'education'}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === 'work') setSectionOrder(['summary', 'work', 'projects', 'education', 'skills', 'languages']);
+                    else if (val === 'skills') setSectionOrder(['summary', 'skills', 'projects', 'work', 'education', 'languages']);
+                    else if (val === 'education') setSectionOrder(['summary', 'education', 'work', 'projects', 'skills', 'languages']);
+                  }}
+                  className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs rounded-lg px-2.5 py-1.5 w-full focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="work">Work History First (Standard)</option>
+                  <option value="skills">Technical Skills First</option>
+                  <option value="education">Academic / Education First</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {sidePanelTab === 'spacing' && (
+            <div className="space-y-3 font-sans text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-400">Section Spacing:</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="4"
+                    max="36"
+                    value={sectionSpacing}
+                    onChange={e => setSectionSpacing(parseInt(e.target.value))}
+                    className="w-28 h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                  <span className="text-zinc-200 font-semibold w-8 text-right">{sectionSpacing}px</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-400">Font Size:</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="9"
+                    max="14"
+                    step="0.5"
+                    value={fontSize}
+                    onChange={e => setFontSize(parseFloat(e.target.value))}
+                    className="w-28 h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                  <span className="text-zinc-200 font-semibold w-8 text-right">{fontSize}px</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-400">Bullet Spacing:</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="1"
+                    max="14"
+                    value={bulletSpacing}
+                    onChange={e => setBulletSpacing(parseInt(e.target.value))}
+                    className="w-28 h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                  <span className="text-zinc-200 font-semibold w-8 text-right">{bulletSpacing}px</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-zinc-400">Page Margins:</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min="10"
+                    max="40"
+                    value={pagePaddingTop}
+                    onChange={e => {
+                      const val = parseInt(e.target.value);
+                      setPagePaddingTop(val);
+                      setPagePaddingBottom(Math.max(10, Math.floor(val * 0.7)));
+                      setPagePaddingSide(Math.max(10, Math.floor(val * 0.85)));
+                    }}
+                    className="w-28 h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                  />
+                  <span className="text-zinc-200 font-semibold w-8 text-right">{pagePaddingTop}mm</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </MobileToolBottomSheet>
+      )}
 
       {/* Premium Skill Confirmation Modal Overlay */}
       {skillModal.isOpen && (
