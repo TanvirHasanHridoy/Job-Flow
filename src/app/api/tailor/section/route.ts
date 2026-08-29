@@ -144,15 +144,15 @@ Respond strictly with a raw JSON object matching this schema:
     "concise": "<string>"
   }
 }`;
-    } else {      // Mode === 'section'
-      let schemaGuide = '';
-      if (sectionKey === 'summary') {
+    } else {
+      // Mode === 'section'
+      let schemaGuide = '';      if (sectionKey === 'summary') {
         if (cvFormat === 'bullet-matrix') {
           schemaGuide = `{
+  "summary": "<newline-separated capability bullets starting with '• ', in ${targetLanguage === 'DE' ? 'German' : 'English'}>",
   "summaryBullets": [
     "<discrete capability bullet 1 in ${targetLanguage === 'DE' ? 'German' : 'English'}>",
-    "<discrete capability bullet 2 in ${targetLanguage === 'DE' ? 'German' : 'English'}>",
-    "<discrete capability bullet 3 in ${targetLanguage === 'DE' ? 'German' : 'English'}>"
+    "<discrete capability bullet 2 in ${targetLanguage === 'DE' ? 'German' : 'English'}>"
   ]
 }`;
         } else {
@@ -161,23 +161,7 @@ Respond strictly with a raw JSON object matching this schema:
 }`;
         }
       } else if (sectionKey === 'work') {
-        if (cvFormat === 'bullet-matrix') {
-          schemaGuide = `{
-  "workExperience": [
-    {
-      "company": "<company name>",
-      "role": "<tailored job title>",
-      "location": "<city, country>",
-      "period": "<period>",
-      "bullets": [
-        "<tailored action-first STAR metric bullet 1 in ${targetLanguage === 'DE' ? 'German' : 'English'}>",
-        "<tailored action-first STAR metric bullet 2 in ${targetLanguage === 'DE' ? 'German' : 'English'}>"
-      ]
-    }
-  ]
-}`;
-        } else {
-          schemaGuide = `{
+        schemaGuide = `{
   "workExperience": [
     {
       "company": "<company name>",
@@ -190,7 +174,6 @@ Respond strictly with a raw JSON object matching this schema:
     }
   ]
 }`;
-        }
       } else if (sectionKey === 'projects') {
         schemaGuide = `{
   "projects": [
@@ -207,7 +190,7 @@ Respond strictly with a raw JSON object matching this schema:
     {
       "name": "<skill name>",
       "level": "Expert | Advanced | Intermediate | Beginner",
-      "category": "${cvFormat === 'bullet-matrix' ? 'Frontend | Backend | Database | Tools & Cloud' : 'Frontend | Backend | Database | Tools'}"
+      "category": "Frontend | Backend | Database | Tools"
     }
   ]
 }`;
@@ -221,22 +204,6 @@ Respond strictly with a raw JSON object matching this schema:
     }
   ]
 }`;
-      } else if (sectionKey === 'certifications') {
-        schemaGuide = `{
-  "certifications": [
-    "<certification 1 (Issuer / Platform)>",
-    "<certification 2 (Issuer / Platform)>"
-  ]
-}`;
-      } else if (sectionKey === 'languages') {
-        schemaGuide = `{
-  "languages": [
-    {
-      "language": "<language name>",
-      "level": "<proficiency level>"
-    }
-  ]
-}`;
       } else if (sectionKey === 'coverLetter') {
         schemaGuide = `{
   "tailoredCoverLetter": {
@@ -245,14 +212,10 @@ Respond strictly with a raw JSON object matching this schema:
     "dateLine": "${signingLocation}, ${currentDateStr}",
     "subjectLine": "<string>",
     "salutation": "<string>",
-    "paragraphs": ${cvFormat === 'bullet-matrix' ? `[
-      "<Opening paragraph in ${targetLanguage === 'DE' ? 'German' : 'English'}>",
-      "<Core achievements paragraph in ${targetLanguage === 'DE' ? 'German' : 'English'}>",
-      "<Closing paragraph in ${targetLanguage === 'DE' ? 'German' : 'English'}>"
-    ]` : `{
+    "paragraphs": {
       "short": [<array of 2 paragraphs>],
       "detailed": [<array of 3-4 paragraphs>]
-    }`},
+    },
     "closing": "<string>",
     "signatureName": "<string>"
   }
@@ -262,10 +225,9 @@ Respond strictly with a raw JSON object matching this schema:
       const formatSpecificDirectives = cvFormat === 'bullet-matrix'
         ? `
 BULLET MATRIX FORMAT CONSTRAINTS:
-1. SUMMARY: Output 4 to 8 discrete capability bullet strings ('summaryBullets') covering full-stack architecture, frontend frameworks, testing, security/SSO, backend/APIs, databases, and CI/CD. Do NOT output a single narrative paragraph.
-2. WORK EXPERIENCE: Output direct high-impact STAR metric bullet strings under 'bullets' for each role.
-3. SKILLS: Categorize skills strictly into 4 pillars: Frontend, Backend, Database, Tools & Cloud.
-4. PROJECTS: Highlight technical stack and organization context in a concise 1-line format.
+1. SUMMARY: If regenerating summary, output 3 to 8 discrete capability bullet strings scaled to the candidate's verified profile depth. Do NOT output a single narrative paragraph.
+2. SKILLS: Categorize skills strictly into 4 pillars: Frontend, Backend, Database, Tools.
+3. PROJECTS: Highlight technical stack and organization context in a concise 1-line format.
 `
         : '';
 
@@ -346,35 +308,7 @@ ${JSON.stringify(profile || {}, null, 2)}`
 
     try {
       const parsedData = JSON.parse(contentStr);
-
-      if (parsedData.summaryBullets && Array.isArray(parsedData.summaryBullets)) {
-        parsedData.summary = parsedData.summaryBullets.map((b: string) => `• ${b}`).join('\n');
-      }
-
-      if (parsedData.workExperience && Array.isArray(parsedData.workExperience)) {
-        parsedData.workExperience = parsedData.workExperience.map((job: any) => {
-          if (Array.isArray(job.bullets)) {
-            return {
-              ...job,
-              bullets: {
-                star: job.bullets,
-                punchy: job.bullets,
-                standard: job.bullets
-              }
-            };
-          }
-          return job;
-        });
-      }
-
       if (sectionKey === 'coverLetter' && parsedData.tailoredCoverLetter) {
-        if (Array.isArray(parsedData.tailoredCoverLetter.paragraphs)) {
-          parsedData.tailoredCoverLetter.paragraphs = {
-            short: parsedData.tailoredCoverLetter.paragraphs.slice(0, 2),
-            detailed: parsedData.tailoredCoverLetter.paragraphs
-          };
-        }
-
         let senderAddr = parsedData.tailoredCoverLetter.senderAddress || '';
         if (!senderAddr || !senderAddr.includes('\n')) {
           const lines: string[] = [];
@@ -390,7 +324,6 @@ ${JSON.stringify(profile || {}, null, 2)}`
           }
         }
       }
-
       aiResponseCache.set(cacheKey, parsedData);
       return NextResponse.json({ success: true, data: parsedData, remainingTokens: deduction.tokens });
     } catch (parseErr) {

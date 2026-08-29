@@ -119,6 +119,7 @@ Respond strictly with a valid raw JSON object matching this exact schema:
     "recommendations": "<detailed analysis in markdown: ### Positives\\n- ...\\n\\n### Negatives\\n- ...\\n\\n### Actionable Advice\\n...>"
   },
   "tailoredCv": {
+    "summary": "<newline-separated capability bullets starting with '• ', e.g. '• 6 years of experience as a Software Engineer...\\n• Expertise in React.js, TypeScript...'>",
     "summaryBullets": [
       "<distinct capability bullet 1 in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
       "<distinct capability bullet 2 in ${cvLanguage === 'DE' ? 'German' : 'English'}>"
@@ -127,13 +128,11 @@ Respond strictly with a valid raw JSON object matching this exact schema:
       {
         "company": "<exact original company name from profile>",
         "role": "<tailored job title in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
-        "location": "<city, country>",
-        "period": "<e.g. 2021 - Present>",
-        "bullets": [
-          "<tailored action-first STAR metric bullet 1 (Action Verb + Metric/Result + Tech Stack + Business Context) in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
-          "<tailored action-first STAR metric bullet 2 in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
-          "<tailored action-first STAR metric bullet 3 in ${cvLanguage === 'DE' ? 'German' : 'English'}>"
-        ]
+        "bullets": {
+          "star": [<array of STAR achievement strings in ${cvLanguage === 'DE' ? 'German' : 'English'}>],
+          "punchy": [<array of short highlight strings in ${cvLanguage === 'DE' ? 'German' : 'English'}>],
+          "standard": [<array of standard responsibility strings in ${cvLanguage === 'DE' ? 'German' : 'English'}>]
+        }
       }
     ],
     "skills": [
@@ -146,22 +145,14 @@ Respond strictly with a valid raw JSON object matching this exact schema:
     "projects": [
       {
         "name": "<project name>",
-        "description": "<concise 1-line tailored project scope and architecture in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
+        "description": "<tailored project description in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
         "technologies": [<array of tech stack strings>]
-      }
-    ],
-    "education": [
-      {
-        "degree": "<degree title in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
-        "institution": "<institution name>",
-        "location": "<city, country>",
-        "period": "<period>"
       }
     ],
     "languages": [
       {
         "language": "<language name>",
-        "level": "<e.g. C1 – Professional | A2 – Elementary | Native>"
+        "level": "<e.g. C1 | A2 | Native | Proficient>"
       }
     ],
     "certifications": [
@@ -176,11 +167,10 @@ Respond strictly with a valid raw JSON object matching this exact schema:
     "dateLine": "${signingLocation}, ${currentDateStr}",
     "subjectLine": "<string>",
     "salutation": "<string>",
-    "paragraphs": [
-      "<Opening paragraph stating role, core qualification, and motivation in ${clLanguage === 'DE' ? 'German' : 'English'}>",
-      "<Core technical achievements paragraph matching key requirements of the target job in ${clLanguage === 'DE' ? 'German' : 'English'}>",
-      "<Value proposition and closing paragraph with availability and next steps in ${clLanguage === 'DE' ? 'German' : 'English'}>"
-    ],
+    "paragraphs": {
+      "short": [<array of 2 paragraphs>],
+      "detailed": [<array of 3-4 paragraphs>]
+    },
     "closing": "<string>",
     "signatureName": "<string>"
   },
