@@ -24,6 +24,16 @@ export default function UserMenu() {
     const supabase = createClient();
 
     const getUser = async () => {
+      const hasDevCookie = typeof document !== 'undefined' && document.cookie.includes('jobmaster_dev_auth=');
+      if (hasDevCookie) {
+        setUser({
+          email: 'dev@jobmaster.local',
+          name: 'Dev Tester',
+          avatar: '',
+        });
+        setLoading(false);
+        return;
+      }
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUser({
@@ -46,7 +56,8 @@ export default function UserMenu() {
           avatar: session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || '',
         });
       } else {
-        setUser(null);
+        const hasDev = typeof document !== 'undefined' && document.cookie.includes('jobmaster_dev_auth=');
+        if (!hasDev) setUser(null);
       }
     });
 
@@ -65,6 +76,9 @@ export default function UserMenu() {
   }, []);
 
   const handleSignOut = async () => {
+    try {
+      await fetch('/api/auth/dev-logout', { method: 'POST' });
+    } catch {}
     const supabase = createClient();
     await supabase.auth.signOut();
     window.location.href = '/';

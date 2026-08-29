@@ -9,6 +9,12 @@ import { NextResponse } from 'next/server';
 export async function getAuthUserId(): Promise<{ userId: string } | { error: NextResponse }> {
   const cookieStore = await cookies();
 
+  // Check dev auth cookie
+  const devCookie = cookieStore.get('jobmaster_dev_auth')?.value;
+  if (devCookie) {
+    return { userId: devCookie };
+  }
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

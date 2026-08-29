@@ -40,6 +40,12 @@ export function TokenProvider({ children }: { children: React.ReactNode }) {
   // Listen for user sign-in/out to fetch tokens
   useEffect(() => {
     const checkUser = async () => {
+      const hasDevCookie = typeof document !== 'undefined' && document.cookie.includes('jobmaster_dev_auth=');
+      if (hasDevCookie) {
+        setIsAuthenticated(true);
+        fetchTokens();
+        return;
+      }
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setIsAuthenticated(true);

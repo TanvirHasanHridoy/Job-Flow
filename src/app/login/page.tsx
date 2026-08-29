@@ -90,36 +90,13 @@ export default function LoginPage() {
     setIsDevLoggingIn(true);
     setError(null);
     try {
-      const supabase = createClient();
-      const testEmail = 'dev@jobmaster.local';
-      const testPassword = 'DevTestPassword2026!';
-
-      // Attempt sign in
-      let { error: signInError } = await supabase.auth.signInWithPassword({
-        email: testEmail,
-        password: testPassword,
-      });
-
-      if (signInError) {
-        // If user doesn't exist, sign up
-        const { error: signUpError } = await supabase.auth.signUp({
-          email: testEmail,
-          password: testPassword,
-          options: {
-            data: {
-              full_name: 'Dev Tester',
-              avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80',
-            },
-          },
-        });
-        if (signUpError) {
-          setError(signUpError.message);
-          setIsDevLoggingIn(false);
-          return;
-        }
+      const res = await fetch('/api/auth/dev-login', { method: 'POST' });
+      if (res.ok) {
+        window.location.href = '/dashboard';
+      } else {
+        setError('Failed to create dev session');
+        setIsDevLoggingIn(false);
       }
-
-      window.location.href = '/dashboard';
     } catch (err: any) {
       setError(err?.message || 'Dev login failed');
       setIsDevLoggingIn(false);

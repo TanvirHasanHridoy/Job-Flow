@@ -29,9 +29,13 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  const devAuthCookie = request.cookies.get('jobmaster_dev_auth')?.value;
+
   const {
-    data: { user },
+    data: { user: supabaseUser },
   } = await supabase.auth.getUser();
+
+  const user = supabaseUser || (devAuthCookie ? { id: devAuthCookie, email: 'dev@jobmaster.local' } : null);
 
   const { pathname } = request.nextUrl;
 
