@@ -5479,8 +5479,10 @@ export default function TailorWorkspace() {
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 w-full overflow-hidden">
         {/* Left Input Pane: Collapsible on Desktop & Full-screen on Mobile Edit */}
         <div className={`w-full border-r border-white/5 bg-zinc-950/40 p-4 sm:p-6 md:p-8 overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] space-y-6 ${
-          isDesktopPanelCollapsed ? 'hidden' : 'hidden lg:block lg:col-span-5'
-        } ${activeMobileTab === 'edit' ? '!block' : ''}`}>
+          activeMobileTab === 'edit' ? 'block' : 'hidden'
+        } ${
+          isDesktopPanelCollapsed ? 'lg:!hidden' : 'lg:!block lg:col-span-5'
+        }`}>
           <div>
             <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-indigo-400" />
