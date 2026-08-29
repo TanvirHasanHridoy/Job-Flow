@@ -39,6 +39,10 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'localhost:3000';
+  const protocol = request.headers.get('x-forwarded-proto') || (host.startsWith('localhost') || host.startsWith('192.168.') || host.startsWith('127.0.0.1') ? 'http' : 'https');
+  const origin = `${protocol}://${host}`;
+
   const isPublicRoute =
     pathname === '/' ||
     pathname === '/login' ||
@@ -52,16 +56,12 @@ export async function proxy(request: NextRequest) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const url = request.nextUrl.clone();
-    url.pathname = '/';
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(new URL('/', origin));
   }
 
   // Redirect authenticated users away from public-only pages (landing + login)
   if (user && (pathname === '/' || pathname === '/login')) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
-    return NextResponse.redirect(url);
+    return NextResponse.redirect(new URL('/dashboard', origin));
   }
 
   return response;
