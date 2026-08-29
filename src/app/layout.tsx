@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Outfit, Inter } from "next/font/google";
 import AppHeader from "./components/AppHeader";
 import MobileBottomNav from "./components/MobileBottomNav";
@@ -19,6 +19,14 @@ const inter = Inter({
   display: 'swap',
 });
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  themeColor: '#030014',
+};
+
 export const metadata: Metadata = {
   title: "JobFlow AI - International CV & Resume Tailor",
   description: "Generate culturally tailored, high-impact German Lebenslauf (DIN 5008) and English Resumes natively with DeepSeek AI.",
@@ -31,8 +39,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${outfit.variable} ${inter.variable} h-full scroll-smooth`}>
+    <html lang="en" className={`${outfit.variable} ${inter.variable} h-full w-full max-w-full overflow-x-hidden scroll-smooth`}>
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
         <script dangerouslySetInnerHTML={{__html: `
           (function() {
             try {
@@ -46,7 +55,7 @@ export default function RootLayout({
           })();
         `}} />
       </head>
-      <body className="font-sans antialiased text-[var(--foreground)] min-h-screen flex flex-col bg-[var(--background)]">
+      <body className="font-sans antialiased text-[var(--foreground)] min-h-screen w-full max-w-full overflow-x-hidden flex flex-col bg-[var(--background)]">
         <TokenProvider>
           <AlertModalProvider>
             <ThemeSync />

@@ -9,16 +9,16 @@ import {
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[var(--layout-backdrop-bg)] text-zinc-100 overflow-hidden">
+    <div className="min-h-screen w-full max-w-full bg-[var(--layout-backdrop-bg)] text-zinc-100 overflow-x-hidden">
       {/* Animated background */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute -top-40 -left-40 w-[700px] h-[700px] rounded-full bg-indigo-600/10 blur-[140px] animate-pulse" />
-        <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full bg-purple-600/10 blur-[140px] animate-pulse" style={{ animationDelay: '1.5s' }} />
-        <div className="absolute top-1/3 right-1/4 w-[400px] h-[400px] rounded-full bg-cyan-600/8 blur-[120px] animate-pulse" style={{ animationDelay: '3s' }} />
+      <div className="fixed inset-0 overflow-hidden pointer-events-none max-w-full">
+        <div className="absolute -top-40 -left-40 w-[min(700px,90vw)] h-[min(700px,90vw)] rounded-full bg-indigo-600/10 blur-[140px] animate-pulse" />
+        <div className="absolute -bottom-40 -right-40 w-[min(600px,80vw)] h-[min(600px,80vw)] rounded-full bg-purple-600/10 blur-[140px] animate-pulse" style={{ animationDelay: '1.5s' }} />
+        <div className="absolute top-1/3 right-1/4 w-[min(400px,60vw)] h-[min(400px,60vw)] rounded-full bg-cyan-600/8 blur-[120px] animate-pulse" style={{ animationDelay: '3s' }} />
       </div>
 
       {/* Grid overlay */}
-      <div className="fixed inset-0 opacity-[0.02]" style={{
+      <div className="fixed inset-0 overflow-hidden opacity-[0.02] pointer-events-none max-w-full" style={{
         backgroundImage: 'linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)',
         backgroundSize: '80px 80px'
       }} />

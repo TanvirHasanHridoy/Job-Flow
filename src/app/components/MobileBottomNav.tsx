@@ -40,7 +40,7 @@ export default function MobileBottomNav() {
   return (
     <nav
       aria-label="Mobile Navigation Bar"
-      className="no-print fixed bottom-0 left-0 right-0 z-40 lg:hidden glass-panel bg-zinc-950/90 dark:bg-zinc-950/90 light:bg-white/95 backdrop-blur-xl border-t border-white/10 light:border-slate-200/80 px-4 py-1.5 flex items-center justify-around shadow-2xl transition-all duration-300"
+      className="no-print fixed bottom-0 left-0 right-0 z-40 lg:hidden glass-panel bg-zinc-950/90 dark:bg-zinc-950/90 light:bg-white/95 backdrop-blur-xl border-t border-white/10 light:border-slate-200/80 px-4 py-1.5 flex items-center justify-around shadow-2xl transition-all duration-300 w-full max-w-full overflow-hidden"
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 6px), 8px)' }}
     >
       {navItems.map((item) => {

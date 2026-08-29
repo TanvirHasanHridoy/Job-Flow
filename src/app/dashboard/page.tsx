@@ -506,7 +506,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 min-w-0 flex-1 flex flex-col">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 min-w-0 flex-1 flex flex-col overflow-x-hidden">
       {/* Welcome Banner */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
         <div>
@@ -653,8 +653,8 @@ export default function Dashboard() {
 
       {/* Main Kanban Board Layout */}
       {currentView === 'kanban' && (
-        <div className="flex-1 overflow-x-auto pb-4">
-          <div className="flex flex-col lg:flex-row gap-4 min-w-full lg:min-w-[1000px] min-h-[calc(100vh-340px)]">
+        <div className="flex-1 w-full max-w-full overflow-x-auto pb-4">
+          <div className="flex flex-col lg:flex-row gap-4 w-full lg:w-auto lg:min-w-[1000px] min-h-[calc(100vh-340px)]">
             {COLUMNS.filter(col => mobileStatusTab === 'ALL' || col.id === mobileStatusTab).map(col => {
               const columnApps = applications.filter(app => app.status === col.id);
               const isOver = dragOverColumnId === col.id;
