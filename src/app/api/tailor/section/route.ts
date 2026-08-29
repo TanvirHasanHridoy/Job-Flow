@@ -185,12 +185,15 @@ Respond strictly with a raw JSON object matching this schema:
   ]
 }`;
       } else if (sectionKey === 'skills') {
+        const categories = cvFormat === 'bullet-matrix'
+          ? "Frontend | Backend | Database | Tools & Cloud"
+          : "Frontend | Backend | Database | Tools";
         schemaGuide = `{
   "skills": [
     {
       "name": "<skill name>",
       "level": "Expert | Advanced | Intermediate | Beginner",
-      "category": "Frontend | Backend | Database | Tools"
+      "category": "${categories}"
     }
   ]
 }`;
@@ -308,6 +311,28 @@ ${JSON.stringify(profile || {}, null, 2)}`
 
     try {
       const parsedData = JSON.parse(contentStr);
+
+      if (sectionKey === 'summary') {
+        if (cvFormat === 'bullet-matrix') {
+          let bullets: string[] = [];
+          if (Array.isArray(parsedData.summaryBullets)) {
+            bullets = parsedData.summaryBullets.map((s: any) => String(s).replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean);
+          } else if (typeof parsedData.summary === 'string') {
+            bullets = parsedData.summary.split('\n').map((s: string) => s.replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean);
+          }
+          if (bullets.length > 0) {
+            parsedData.summaryBullets = bullets;
+            parsedData.summary = bullets.map(b => `• ${b}`).join('\n');
+          }
+        } else {
+          if (typeof parsedData.summary === 'string') {
+            parsedData.summary = parsedData.summary.replace(/^[•\-\*]\s*/gm, '').replace(/\n+/g, ' ').trim();
+          } else if (Array.isArray(parsedData.summaryBullets)) {
+            parsedData.summary = parsedData.summaryBullets.join(' ');
+          }
+        }
+      }
+
       if (sectionKey === 'coverLetter' && parsedData.tailoredCoverLetter) {
         let senderAddr = parsedData.tailoredCoverLetter.senderAddress || '';
         if (!senderAddr || !senderAddr.includes('\n')) {

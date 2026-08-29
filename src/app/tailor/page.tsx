@@ -2262,6 +2262,8 @@ export default function TailorWorkspace() {
         ? result.tailoredCv.summaryBullets
         : rawSummary.includes('•') || rawSummary.includes('\n')
         ? rawSummary.split('\n').map((s: string) => s.replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean)
+        : rawSummary.length > 0
+        ? rawSummary.split(/(?<=[.!?])\s+/).filter((s: string) => s.trim().length > 10)
         : [];
 
       const title = isBulletMatrix
@@ -2376,19 +2378,26 @@ export default function TailorWorkspace() {
         <div key={blockId} data-block-id={blockId} className="w-full text-left group relative">
           {!isMeasurement && renderSectionHeaderControls('summary', title, result.tailoredCv.summary)}
           {renderSectionHeading(title, isFirstSection)}
-          <ContentEditable
-            tagName="p"
-            value={result.tailoredCv.summary}
-            onChange={(val) => handleCvSummaryChange(val, true)}
-            onBlur={(e: any) => handleCvSummaryChange(e.target.innerHTML, false)}
-            isMeasurement={isMeasurement}
-            highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(result.tailoredCv.summary) : undefined}
-            className="text-gray-700 text-left font-sans focus:outline-none"
-            style={{
-              fontSize: `${fontSize}px`,
-              lineHeight: 1.55
-            }}
-          />
+          {(() => {
+            const cleanSummary = typeof result.tailoredCv.summary === 'string'
+              ? result.tailoredCv.summary.replace(/^[•\-\*]\s*/gm, '').replace(/\n+/g, ' ')
+              : '';
+            return (
+              <ContentEditable
+                tagName="p"
+                value={cleanSummary}
+                onChange={(val) => handleCvSummaryChange(val, true)}
+                onBlur={(e: any) => handleCvSummaryChange(e.target.innerHTML, false)}
+                isMeasurement={isMeasurement}
+                highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(cleanSummary) : undefined}
+                className="text-gray-700 text-left font-sans focus:outline-none"
+                style={{
+                  fontSize: `${fontSize}px`,
+                  lineHeight: 1.55
+                }}
+              />
+            );
+          })()}
         </div>
       );
     }

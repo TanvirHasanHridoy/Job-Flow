@@ -600,7 +600,7 @@ ${contextStr}`
     if (cvFormat === 'bullet-matrix') {
       let bullets: string[] = [];
       if (Array.isArray(tailoredResult.tailoredCv?.summaryBullets)) {
-        bullets = tailoredResult.tailoredCv.summaryBullets;
+        bullets = tailoredResult.tailoredCv.summaryBullets.map((s: any) => String(s).replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean);
       } else if (typeof tailoredResult.tailoredCv?.summary === 'string') {
         bullets = tailoredResult.tailoredCv.summary
           .split('\n')
@@ -610,6 +610,16 @@ ${contextStr}`
       if (bullets.length > 0) {
         tailoredResult.tailoredCv.summaryBullets = bullets;
         tailoredResult.tailoredCv.summary = bullets.map((b: string) => `• ${b}`).join('\n');
+      }
+    } else {
+      // For Visual and Strict ATS formats: Guarantee clean narrative summary paragraph
+      if (typeof tailoredResult.tailoredCv?.summary === 'string') {
+        tailoredResult.tailoredCv.summary = tailoredResult.tailoredCv.summary
+          .replace(/^[•\-\*]\s*/gm, '')
+          .replace(/\n+/g, ' ')
+          .trim();
+      } else if (Array.isArray(tailoredResult.tailoredCv?.summaryBullets)) {
+        tailoredResult.tailoredCv.summary = tailoredResult.tailoredCv.summaryBullets.join(' ');
       }
     }
 
