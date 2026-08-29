@@ -157,6 +157,7 @@ export default function Dashboard() {
   const [selectedApp, setSelectedApp] = useState<JobApplication | null>(null);
   const [currentView, setCurrentView] = useState<'kanban' | 'spreadsheet' | 'calendar'>('kanban');
   const [calendarDate, setCalendarDate] = useState(new Date());
+  const [mobileStatusTab, setMobileStatusTab] = useState<string>('ALL');
 
   // Drag and Drop & Processing States
   const [draggingAppId, setDraggingAppId] = useState<string | null>(null);
@@ -613,11 +614,48 @@ export default function Dashboard() {
         </button>
       </div>
 
+      {/* Mobile Column Status Filter Tabs */}
+      {currentView === 'kanban' && (
+        <div className="lg:hidden flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-3 mb-2">
+          <button
+            type="button"
+            onClick={() => setMobileStatusTab('ALL')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+              mobileStatusTab === 'ALL'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'bg-white/5 text-zinc-400 hover:text-white'
+            }`}
+          >
+            All Pipeline ({applications.length})
+          </button>
+          {COLUMNS.map(col => {
+            const count = applications.filter(a => a.status === col.id).length;
+            return (
+              <button
+                key={col.id}
+                type="button"
+                onClick={() => setMobileStatusTab(col.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  mobileStatusTab === col.id
+                    ? 'bg-indigo-600 text-white shadow-md'
+                    : 'bg-white/5 text-zinc-400 hover:text-white'
+                }`}
+              >
+                <span>{col.name}</span>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 font-mono">
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Main Kanban Board Layout */}
       {currentView === 'kanban' && (
         <div className="flex-1 overflow-x-auto pb-4">
-          <div className="flex gap-4 min-w-[1000px] h-[calc(100vh-340px)]">
-            {COLUMNS.map(col => {
+          <div className="flex flex-col lg:flex-row gap-4 min-w-full lg:min-w-[1000px] min-h-[calc(100vh-340px)]">
+            {COLUMNS.filter(col => mobileStatusTab === 'ALL' || col.id === mobileStatusTab).map(col => {
               const columnApps = applications.filter(app => app.status === col.id);
               const isOver = dragOverColumnId === col.id;
               return (
@@ -642,7 +680,7 @@ export default function Dashboard() {
                       updateAppStatus(appId, col.id);
                     }
                   }}
-                  className={`flex-1 flex flex-col rounded-2xl border transition-all duration-200 p-4 w-[280px] ${
+                  className={`flex-1 flex flex-col rounded-2xl border transition-all duration-200 p-4 w-full lg:w-[280px] shrink-0 ${
                     isOver
                       ? 'border-indigo-500/80 bg-indigo-500/10 shadow-lg shadow-indigo-500/10 scale-[1.01]'
                       : 'border-white/5 bg-zinc-950/20 backdrop-blur-sm'
