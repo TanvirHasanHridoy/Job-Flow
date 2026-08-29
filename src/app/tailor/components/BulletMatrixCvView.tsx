@@ -301,14 +301,13 @@ export default function BulletMatrixCvView({
           </div>
         )}
 
-        <h2 className="text-[14pt] font-bold uppercase text-black mb-1.5 tracking-[0.2px] leading-tight">
+        <h2 className="text-[12pt] font-bold uppercase text-black mb-1 tracking-[0.2px] leading-tight font-sans">
           {sectionTitles.skills}
         </h2>
-        <ul className="list-disc pl-6 space-y-1">
+        <ul className="list-disc pl-5 space-y-1">
           {categorized.map(([catName, items], cIdx) => (
-            <li key={cIdx} className="leading-[1.45] text-[10pt] text-black">
-              <span className="font-semibold">{catName}: </span>
-              <span>{items.join(' | ')}</span>
+            <li key={cIdx} className="leading-[1.38] text-[10pt] text-black">
+              <span>{items.join(' | ')}.</span>
             </li>
           ))}
         </ul>
@@ -336,17 +335,17 @@ export default function BulletMatrixCvView({
           </div>
         )}
 
-        <h2 className="text-[14pt] font-bold uppercase text-black mb-1.5 tracking-[0.2px] leading-tight">
+        <h2 className="text-[12pt] font-bold uppercase text-black mb-1 tracking-[0.2px] leading-tight font-sans">
           {sectionTitles.projects}
         </h2>
-        <ul className="list-disc pl-6 space-y-1">
+        <ul className="list-disc pl-5 space-y-1">
           {activeProjects.map((proj: any, pIdx: number) => {
+            const desc = proj.description || '';
             const techs = Array.isArray(proj.technologies) ? proj.technologies.join(', ') : (proj.technologies || '');
             return (
-              <li key={pIdx} className="leading-[1.45] text-[10pt] text-black">
+              <li key={pIdx} className="leading-[1.38] text-[10pt] text-black">
                 <span className="font-bold">{proj.name}</span>
-                {proj.description ? <span> | {proj.description}</span> : ''}
-                {techs ? <span className="text-gray-700"> ({techs})</span> : ''}
+                {desc ? <span> ({desc}{techs ? ` | ${techs}` : ''}).</span> : (techs ? <span> ({techs}).</span> : '.')}
               </li>
             );
           })}
@@ -374,7 +373,7 @@ export default function BulletMatrixCvView({
           </div>
         )}
 
-        <h2 className="text-[14pt] font-bold uppercase text-black mb-1.5 tracking-[0.2px] leading-tight">
+        <h2 className="text-[12pt] font-bold uppercase text-black mb-1 tracking-[0.2px] leading-tight font-sans">
           {sectionTitles.work}
         </h2>
 
@@ -396,17 +395,17 @@ export default function BulletMatrixCvView({
                     {exp.company} – {exp.role}
                   </div>
                   {dates && (
-                    <div className="font-normal uppercase text-black text-[11pt] whitespace-nowrap ml-2">
+                    <div className="font-bold uppercase text-black text-[11pt] whitespace-nowrap ml-2">
                       {dates}
                     </div>
                   )}
                 </div>
 
-                <ul className="list-disc pl-6 space-y-1">
+                <ul className="list-disc pl-5 space-y-1">
                   {Array.from({ length: bulletCount }).map((_, bIdx) => {
                     const bText = getActiveBulletText(exp.bullets, bIdx);
                     return (
-                      <li key={bIdx} className="leading-[1.45] text-[10pt] text-black relative group/bullet">
+                      <li key={bIdx} className="leading-[1.38] text-[10pt] text-black relative group/bullet">
                         <EditableText
                           tagName="span"
                           value={bText}
@@ -443,7 +442,7 @@ export default function BulletMatrixCvView({
 
     return (
       <div key="education" data-block-id="education" className="relative group/sec" style={{ marginBottom: `${sectionSpacing}px` }}>
-        <h2 className="text-[14pt] font-bold uppercase text-black mb-1.5 tracking-[0.2px] leading-tight">
+        <h2 className="text-[12pt] font-bold uppercase text-black mb-1 tracking-[0.2px] leading-tight font-sans">
           {sectionTitles.education}
         </h2>
         <div className="space-y-2.5">
@@ -452,17 +451,37 @@ export default function BulletMatrixCvView({
             const inst = edu.location ? `${edu.institution} – ${edu.location}` : edu.institution;
             return (
               <div key={edIdx} className="edu-entry">
-                <div className="text-[12pt] font-bold uppercase text-black leading-tight">
+                <div className="text-[11pt] font-bold uppercase text-black leading-tight">
                   {edu.degree}
                 </div>
-                <div className="flex justify-between items-baseline text-[12pt] font-normal text-black leading-tight mt-0.5">
+                <div className="flex justify-between items-baseline text-[10.5pt] font-normal text-black leading-tight mt-0.5">
                   <span>{inst}</span>
-                  {dates && <span className="uppercase whitespace-nowrap ml-2">{dates}</span>}
+                  {dates && <span className="font-bold uppercase whitespace-nowrap ml-2 text-[10.5pt]">{dates}</span>}
                 </div>
               </div>
             );
           })}
         </div>
+      </div>
+    );
+  };
+
+  const renderCertificationsSection = () => {
+    const rawCerts = Array.isArray(cv.certifications) ? cv.certifications : [];
+    if (rawCerts.length === 0) return null;
+
+    return (
+      <div key="certifications" data-block-id="certifications" className="relative group/sec" style={{ marginBottom: `${sectionSpacing}px` }}>
+        <h2 className="text-[12pt] font-bold uppercase text-black mb-1 tracking-[0.2px] leading-tight font-sans">
+          {sectionTitles.certifications}
+        </h2>
+        <ul className="list-disc pl-5 space-y-1">
+          {rawCerts.map((c: string, cIdx: number) => (
+            <li key={cIdx} className="leading-[1.38] text-[10pt] text-black">
+              {c.endsWith('.') ? c : `${c}.`}
+            </li>
+          ))}
+        </ul>
       </div>
     );
   };
@@ -475,11 +494,11 @@ export default function BulletMatrixCvView({
 
     return (
       <div key="languages" data-block-id="languages" className="relative group/sec" style={{ marginBottom: `${sectionSpacing}px` }}>
-        <h2 className="text-[14pt] font-bold uppercase text-black mb-1.5 tracking-[0.2px] leading-tight">
+        <h2 className="text-[12pt] font-bold uppercase text-black mb-1 tracking-[0.2px] leading-tight font-sans">
           {sectionTitles.languages}
         </h2>
-        <ul className="list-disc pl-6">
-          <li className="leading-[1.45] text-[10pt] text-black">{formattedLangs}</li>
+        <ul className="list-disc pl-5">
+          <li className="leading-[1.38] text-[10pt] text-black">{formattedLangs}.</li>
         </ul>
       </div>
     );
@@ -489,12 +508,12 @@ export default function BulletMatrixCvView({
     const items = Array.isArray(cSec.items) ? cSec.items : [];
     return (
       <div key={`custom-${cSec.id}`} data-block-id={`custom-${cSec.id}`} className="relative group/sec" style={{ marginBottom: `${sectionSpacing}px` }}>
-        <h2 className="text-[14pt] font-bold uppercase text-black mb-1.5 tracking-[0.2px] leading-tight">
+        <h2 className="text-[12pt] font-bold uppercase text-black mb-1 tracking-[0.2px] leading-tight font-sans">
           {cSec.title}
         </h2>
-        <ul className="list-disc pl-6 space-y-1">
+        <ul className="list-disc pl-5 space-y-1">
           {items.map((item, iIdx) => (
-            <li key={iIdx} className="leading-[1.45] text-[10pt] text-black">
+            <li key={iIdx} className="leading-[1.38] text-[10pt] text-black">
               {item.title ? <span className="font-semibold">{item.title}: </span> : null}
               <span>{item.description || item.subtitle}</span>
             </li>
@@ -511,6 +530,7 @@ export default function BulletMatrixCvView({
     projects: renderProjectsSection,
     work: renderWorkSection,
     education: renderEducationSection,
+    certifications: renderCertificationsSection,
     languages: renderLanguagesSection
   };
 

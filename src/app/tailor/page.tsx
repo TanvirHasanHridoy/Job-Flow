@@ -425,7 +425,7 @@ const getTemplateStyles = (template: 'CLASSIC_CORPORATE' | 'MODERN_MINIMALIST' |
 };
 
 interface ContentEditableProps {
-  tagName: 'h1' | 'h2' | 'p' | 'span' | 'div' | 'pre';
+  tagName: 'h1' | 'h2' | 'p' | 'span' | 'div' | 'pre' | 'a';
   value: string;
   onChange: (val: string) => void;
   onBlur?: (e: any) => void;
@@ -1699,10 +1699,10 @@ export default function TailorWorkspace() {
             className="text-left animate-none"
             style={{
               marginTop: `${(isFirstSec ? 0 : sectionSpacing * 0.4) + extraTopMargin}px`,
-              marginBottom: `${(sectionSpacing * 0.25) + extraBottomMargin}px`
+              marginBottom: `${(sectionSpacing * 0.2) + extraBottomMargin}px`
             }}
           >
-            <h2 className="text-[13pt] font-bold uppercase tracking-[0.2px] text-black font-sans leading-tight">
+            <h2 className="text-[12pt] font-bold uppercase tracking-[0.2px] text-black font-sans leading-tight">
               {title}
             </h2>
           </div>
@@ -1813,28 +1813,135 @@ export default function TailorWorkspace() {
 
     if (blockId === 'personal-header') {
       if (cvFormatMode === 'bullet-matrix') {
+        const details = result.tailoredCv.personalDetails;
         return (
-          <div key={blockId} data-block-id={blockId} className="flex flex-col items-start w-full animate-none" style={{ marginBottom: `${bulletSpacing * 0.5}px` }}>
-            <ContentEditable
-              tagName="h1"
-              value={result.tailoredCv.personalDetails.fullName}
-              onChange={(val) => handleCvDetailsChange('fullName', val, true)}
-              onBlur={(e: any) => handleCvDetailsChange('fullName', e.target.innerText, false)}
-              useInnerText={true}
-              isMeasurement={isMeasurement}
-              className="text-[22pt] font-bold text-black uppercase leading-tight text-left focus:outline-none tracking-wide"
-            />
-            {result.tailoredCv.personalDetails.occupation && (
-              <ContentEditable
-                tagName="p"
-                value={result.tailoredCv.personalDetails.occupation}
-                onChange={(val) => handleCvDetailsChange('occupation', val, true)}
-                onBlur={(e: any) => handleCvDetailsChange('occupation', e.target.innerText, false)}
-                useInnerText={true}
-                isMeasurement={isMeasurement}
-                className="text-[11pt] font-semibold text-gray-700 mt-0.5 text-left focus:outline-none"
-              />
-            )}
+          <div key={blockId} data-block-id={blockId} className="w-full text-black font-sans mb-3">
+            <div className="flex justify-between items-end gap-4 w-full">
+              {/* Left: Name & Optional Role */}
+              <div className="flex-1 pb-1">
+                <ContentEditable
+                  tagName="h1"
+                  value={details.fullName}
+                  onChange={(val) => handleCvDetailsChange('fullName', val, true)}
+                  onBlur={(e: any) => handleCvDetailsChange('fullName', e.target.innerText, false)}
+                  useInnerText={true}
+                  isMeasurement={isMeasurement}
+                  className="text-[16pt] font-bold text-black uppercase tracking-[0.5px] leading-tight text-left focus:outline-none"
+                />
+                {details.occupation && (
+                  <ContentEditable
+                    tagName="p"
+                    value={details.occupation}
+                    onChange={(val) => handleCvDetailsChange('occupation', val, true)}
+                    onBlur={(e: any) => handleCvDetailsChange('occupation', e.target.innerText, false)}
+                    useInnerText={true}
+                    isMeasurement={isMeasurement}
+                    className="text-[10pt] font-semibold text-gray-800 mt-0.5 text-left focus:outline-none"
+                  />
+                )}
+              </div>
+
+              {/* Right: 4-line Contact Details Block */}
+              <div className="text-right text-[9.5pt] leading-[1.35] text-black shrink-0 flex flex-col items-end">
+                {details.phone && (
+                  <div>
+                    <span className="font-bold text-black">Mobile: </span>
+                    <ContentEditable
+                      tagName="span"
+                      value={details.phone}
+                      onChange={(val) => handleCvDetailsChange('phone', val, true)}
+                      onBlur={(e: any) => handleCvDetailsChange('phone', e.target.innerText, false)}
+                      useInnerText={true}
+                      isMeasurement={isMeasurement}
+                      className="focus:outline-none"
+                    />
+                  </div>
+                )}
+                {details.email && (
+                  <div>
+                    <span className="font-bold text-black">Email: </span>
+                    <ContentEditable
+                      tagName="a"
+                      value={details.email}
+                      onChange={(val) => handleCvDetailsChange('email', val, true)}
+                      onBlur={(e: any) => handleCvDetailsChange('email', e.target.innerText, false)}
+                      useInnerText={true}
+                      isMeasurement={isMeasurement}
+                      href={`mailto:${details.email}`}
+                      className="focus:outline-none text-[#0066cc] underline hover:text-blue-800"
+                    />
+                  </div>
+                )}
+                {details.address && (
+                  <div>
+                    <span className="font-bold text-black">Address: </span>
+                    <ContentEditable
+                      tagName="span"
+                      value={details.address}
+                      onChange={(val) => handleCvDetailsChange('address', val, true)}
+                      onBlur={(e: any) => handleCvDetailsChange('address', e.target.innerText, false)}
+                      useInnerText={true}
+                      isMeasurement={isMeasurement}
+                      className="focus:outline-none"
+                    />
+                  </div>
+                )}
+                {details.linkedin && (
+                  <div className="max-w-[340px] truncate">
+                    <span className="font-bold text-black">LinkedIn: </span>
+                    <ContentEditable
+                      tagName="a"
+                      value={details.linkedin.startsWith('http') ? details.linkedin : `https://${details.linkedin}`}
+                      onChange={(val) => handleCvDetailsChange('linkedin', val, true)}
+                      onBlur={(e: any) => handleCvDetailsChange('linkedin', e.target.innerText, false)}
+                      useInnerText={true}
+                      isMeasurement={isMeasurement}
+                      href={details.linkedin.startsWith('http') ? details.linkedin : `https://${details.linkedin}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="focus:outline-none text-[#0066cc] underline hover:text-blue-800"
+                    />
+                  </div>
+                )}
+                {details.github && (
+                  <div className="max-w-[340px] truncate">
+                    <span className="font-bold text-black">GitHub: </span>
+                    <ContentEditable
+                      tagName="a"
+                      value={details.github.startsWith('http') ? details.github : `https://${details.github}`}
+                      onChange={(val) => handleCvDetailsChange('github', val, true)}
+                      onBlur={(e: any) => handleCvDetailsChange('github', e.target.innerText, false)}
+                      useInnerText={true}
+                      isMeasurement={isMeasurement}
+                      href={details.github.startsWith('http') ? details.github : `https://${details.github}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="focus:outline-none text-[#0066cc] underline hover:text-blue-800"
+                    />
+                  </div>
+                )}
+                {details.website && (
+                  <div className="max-w-[340px] truncate">
+                    <span className="font-bold text-black">Website: </span>
+                    <ContentEditable
+                      tagName="a"
+                      value={details.website.startsWith('http') ? details.website : `https://${details.website}`}
+                      onChange={(val) => handleCvDetailsChange('website', val, true)}
+                      onBlur={(e: any) => handleCvDetailsChange('website', e.target.innerText, false)}
+                      useInnerText={true}
+                      isMeasurement={isMeasurement}
+                      href={details.website.startsWith('http') ? details.website : `https://${details.website}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="focus:outline-none text-[#0066cc] underline hover:text-blue-800"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Full-width Divider Line */}
+            <hr className="border-t border-black w-full mt-3 mb-2" />
           </div>
         );
       }
@@ -1914,129 +2021,7 @@ export default function TailorWorkspace() {
 
     if (blockId === 'contact-grid') {
       if (cvFormatMode === 'bullet-matrix') {
-        const details = result.tailoredCv.personalDetails;
-        const items: React.ReactNode[] = [];
-        if (details.phone) {
-          items.push(
-            <span key="phone">
-              <span className="font-semibold text-black">Mobile: </span>
-              <ContentEditable
-                tagName="span"
-                value={details.phone}
-                onChange={(val) => handleCvDetailsChange('phone', val, true)}
-                onBlur={(e: any) => handleCvDetailsChange('phone', e.target.innerText, false)}
-                useInnerText={true}
-                isMeasurement={isMeasurement}
-                className="focus:outline-none"
-              />
-            </span>
-          );
-        }
-        if (details.email) {
-          items.push(
-            <span key="email">
-              <span className="font-semibold text-black">Email: </span>
-              <ContentEditable
-                tagName="span"
-                value={details.email}
-                onChange={(val) => handleCvDetailsChange('email', val, true)}
-                onBlur={(e: any) => handleCvDetailsChange('email', e.target.innerText, false)}
-                useInnerText={true}
-                isMeasurement={isMeasurement}
-                className="focus:outline-none"
-              />
-            </span>
-          );
-        }
-        if (details.address) {
-          items.push(
-            <span key="address">
-              <span className="font-semibold text-black">Address: </span>
-              <ContentEditable
-                tagName="span"
-                value={details.address}
-                onChange={(val) => handleCvDetailsChange('address', val, true)}
-                onBlur={(e: any) => handleCvDetailsChange('address', e.target.innerText, false)}
-                useInnerText={true}
-                isMeasurement={isMeasurement}
-                className="focus:outline-none"
-              />
-            </span>
-          );
-        }
-        if (details.linkedin) {
-          items.push(
-            <span key="linkedin" className="inline-flex items-center gap-1">
-              <span className="font-semibold text-black">LinkedIn: </span>
-              <ContentEditable
-                tagName="span"
-                value={details.linkedin}
-                onChange={(val) => handleCvDetailsChange('linkedin', val, true)}
-                onBlur={(e: any) => handleCvDetailsChange('linkedin', e.target.innerText, false)}
-                useInnerText={true}
-                isMeasurement={isMeasurement}
-                className="focus:outline-none"
-              />
-              {!isMeasurement && (
-                <a
-                  href={details.linkedin.startsWith('http') ? details.linkedin : `https://${details.linkedin}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-indigo-600 no-print transition-colors shrink-0"
-                  title="Open LinkedIn Profile"
-                >
-                  <ExternalLink className="w-2.5 h-2.5" />
-                </a>
-              )}
-            </span>
-          );
-        }
-        if (details.github) {
-          items.push(
-            <span key="github" className="inline-flex items-center gap-1">
-              <span className="font-semibold text-black">GitHub: </span>
-              <ContentEditable
-                tagName="span"
-                value={details.github}
-                onChange={(val) => handleCvDetailsChange('github', val, true)}
-                onBlur={(e: any) => handleCvDetailsChange('github', e.target.innerText, false)}
-                useInnerText={true}
-                isMeasurement={isMeasurement}
-                className="focus:outline-none"
-              />
-              {!isMeasurement && (
-                <a
-                  href={details.github.startsWith('http') ? details.github : `https://${details.github}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-400 hover:text-indigo-600 no-print transition-colors shrink-0"
-                  title="Open GitHub Profile"
-                >
-                  <ExternalLink className="w-2.5 h-2.5" />
-                </a>
-              )}
-            </span>
-          );
-        }
-
-        return (
-          <div
-            key={blockId}
-            data-block-id={blockId}
-            className="text-black text-left w-full flex flex-col gap-0.5 pb-1"
-            style={{
-              marginTop: `${headerSpacing * 0.25}px`,
-              fontSize: `${fontSize - 0.5}px`,
-              marginBottom: `${sectionSpacing * 0.4}px`
-            }}
-          >
-            {items.map((item, idx) => (
-              <div key={idx} className="leading-tight">
-                {item}
-              </div>
-            ))}
-          </div>
-        );
+        return null;
       }
 
       return (
@@ -2285,10 +2270,10 @@ export default function TailorWorkspace() {
               {summaryBullets.map((bText: string, bIdx: number) => (
                 <li
                   key={bIdx}
-                  className="group/sumbullet flex items-start gap-1.5 text-black leading-[1.45] relative"
-                  style={{ fontSize: `${fontSize}px`, marginTop: `${bulletSpacing}px` }}
+                  className="group/sumbullet flex items-start gap-1.5 text-black leading-[1.38] relative"
+                  style={{ fontSize: `${fontSize}px`, marginTop: `${bulletSpacing * 0.75}px` }}
                 >
-                  <span className="text-gray-500 leading-none mt-[2px] select-none shrink-0">•</span>
+                  <span className="text-black leading-none mt-[3px] select-none shrink-0 font-bold">•</span>
                   <ContentEditable
                     tagName="span"
                     value={bText}
@@ -2476,13 +2461,13 @@ export default function TailorWorkspace() {
               {getRenderedBullets(exp, bulletStyle, lengthTarget, idx === 0).map((b: string, bIdx: number) => (
                 <li
                   key={bIdx}
-                  className="group flex items-start gap-1.5 text-black leading-[1.45] relative animate-none"
+                  className="group flex items-start gap-1.5 text-black leading-[1.38] relative animate-none"
                   style={{
                     fontSize: `${fontSize}px`,
-                    marginTop: `${bulletSpacing}px`
+                    marginTop: `${bulletSpacing * 0.75}px`
                   }}
                 >
-                  <span className="text-gray-500 leading-none mt-[2px] select-none">•</span>
+                  <span className="text-black leading-none mt-[3px] select-none font-bold">•</span>
                   <ContentEditable
                     tagName="span"
                     value={b}
@@ -3337,7 +3322,7 @@ export default function TailorWorkspace() {
         <div key={blockId} data-block-id={blockId} className="w-full text-left font-sans group relative">
           {!isMeasurement && renderSectionHeaderControls('skills', title, result.tailoredCv.skills)}
           {renderSectionHeading(title, isFirstSection)}
-          <div style={{ marginTop: `${bulletSpacing * 0.5}px` }}>
+          <div style={{ marginTop: `${bulletSpacing * 0.35}px` }}>
             <ul className="list-none pl-0">
               {isBulletMatrix ? (
                 Object.entries(categorized).map(([cat, names], gIdx) => {
@@ -3345,19 +3330,18 @@ export default function TailorWorkspace() {
                   return (
                     <li
                       key={gIdx}
-                      className="flex items-start gap-1.5 text-black leading-[1.45]"
+                      className="flex items-start gap-1.5 text-black leading-[1.38]"
                       style={{
                         fontSize: `${fontSize}px`,
-                        marginTop: `${bulletSpacing}px`
+                        marginTop: `${bulletSpacing * 0.75}px`
                       }}
                     >
-                      <span className="text-gray-500 leading-none mt-[2px] shrink-0 select-none">•</span>
-                      <span>
-                        <span className="font-semibold text-black">{cat}: </span>
+                      <span className="text-black leading-none mt-[3px] shrink-0 select-none font-bold">•</span>
+                      <span className="text-black">
                         {isAtsHighlightEnabled ? (
-                          <span className="text-black" dangerouslySetInnerHTML={{ __html: names.map(n => getHighlightedHtml(n)).join(' | ') }} />
+                          <span dangerouslySetInnerHTML={{ __html: names.map(n => getHighlightedHtml(n)).join(' | ') + '.' }} />
                         ) : (
-                          <span className="text-black">{names.join(' | ')}</span>
+                          <span>{names.join(' | ')}.</span>
                         )}
                       </span>
                     </li>
@@ -3426,6 +3410,64 @@ export default function TailorWorkspace() {
       );
     }
 
+    if (blockId === 'certifications') {
+      const isBulletMatrix = cvFormatMode === 'bullet-matrix';
+      const title = isBulletMatrix
+        ? (cvLanguage === 'DE' ? 'ZERTIFIZIERUNGEN' : 'CERTIFICATIONS')
+        : (cvLanguage === 'DE' ? 'Zertifizierungen' : 'Certifications');
+      const certs = result.tailoredCv.certifications || [];
+      if (certs.length === 0) return null;
+
+      return (
+        <div
+          key={blockId}
+          data-block-id={blockId}
+          className="text-left w-full font-sans group relative"
+          style={{ marginTop: `${isFirstSection ? 0 : sectionSpacing * 0.4}px` }}
+        >
+          {!isMeasurement && renderSectionHeaderControls('certifications', title, certs)}
+          {renderSectionHeading(title, isFirstSection)}
+          <ul className="list-none pl-0" style={{ marginTop: `${bulletSpacing * 0.35}px` }}>
+            {certs.map((c: string, cIdx: number) => (
+              <li
+                key={cIdx}
+                className="flex items-start gap-1.5 text-black leading-[1.38]"
+                style={{
+                  fontSize: `${fontSize}px`,
+                  marginTop: `${bulletSpacing * 0.75}px`
+                }}
+              >
+                <span className="text-black leading-none mt-[3px] shrink-0 font-sans font-bold select-none">•</span>
+                <ContentEditable
+                  tagName="span"
+                  value={c.endsWith('.') ? c : `${c}.`}
+                  onChange={(val) => {
+                    const updated = [...certs];
+                    updated[cIdx] = val;
+                    setResult({
+                      ...result,
+                      tailoredCv: { ...result.tailoredCv, certifications: updated }
+                    });
+                  }}
+                  onBlur={(e: any) => {
+                    const updated = [...certs];
+                    updated[cIdx] = e.target.innerText;
+                    setResult({
+                      ...result,
+                      tailoredCv: { ...result.tailoredCv, certifications: updated }
+                    });
+                  }}
+                  useInnerText={true}
+                  isMeasurement={isMeasurement}
+                  className="focus:outline-none flex-1 text-black"
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+    }
+
     if (blockId === 'languages') {
       const isBulletMatrix = cvFormatMode === 'bullet-matrix';
       const title = isBulletMatrix
@@ -3441,23 +3483,26 @@ export default function TailorWorkspace() {
         >
           {!isMeasurement && renderSectionHeaderControls('languages', title, result.tailoredCv.languages)}
           {renderSectionHeading(title, isFirstSection)}
-          <ul className="list-none pl-0">
+          <ul className="list-none pl-0" style={{ marginTop: `${bulletSpacing * 0.35}px` }}>
             <li
-              className="flex items-start gap-1.5 text-black leading-[1.45]"
+              className="flex items-start gap-1.5 text-black leading-[1.38]"
               style={{
                 fontSize: `${fontSize}px`,
-                marginTop: `${bulletSpacing}px`
+                marginTop: `${bulletSpacing * 0.75}px`
               }}
             >
-              <span className="text-gray-500 leading-none mt-[2px] shrink-0 font-sans select-none">•</span>
+              <span className="text-black leading-none mt-[3px] shrink-0 font-sans font-bold select-none">•</span>
               <span>
                 {isBulletMatrix ? (
-                  result.tailoredCv.languages.map((l: any, i: number) => (
-                    <span key={i}>
-                      <span className="font-semibold text-black">{l.language}</span> – {l.level}
-                      {i < result.tailoredCv.languages.length - 1 ? ' | ' : ''}
-                    </span>
-                  ))
+                  <>
+                    {result.tailoredCv.languages.map((l: any, i: number) => (
+                      <span key={i}>
+                        <span className="font-semibold text-black">{l.language}</span> – {l.level}
+                        {i < result.tailoredCv.languages.length - 1 ? ' | ' : ''}
+                      </span>
+                    ))}
+                    {'.'}
+                  </>
                 ) : (
                   result.tailoredCv.languages.map((l: any, i: number) => (
                     <span key={i}>

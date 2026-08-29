@@ -31,6 +31,7 @@ export async function POST(req: Request) {
       skills = [],
       languages = [],
       projects = [],
+      certifications = [],
       customSections = []
     } = tailoredCv;
 
@@ -43,77 +44,173 @@ export async function POST(req: Request) {
 
     const children: any[] = [];
 
-    // 1. Header: Name & Title
-    if (personalDetails.fullName) {
-      children.push(
-        new Paragraph({
-          text: personalDetails.fullName.toUpperCase(),
-          heading: HeadingLevel.TITLE,
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 120 },
+    // 1. Header: Name & Contact Info
+    if (isBulletMatrix) {
+      const rightContactParas: Paragraph[] = [];
+      if (personalDetails.phone) {
+        rightContactParas.push(new Paragraph({
+          alignment: AlignmentType.RIGHT,
+          spacing: { after: 20 },
           children: [
-            new TextRun({
-              text: personalDetails.fullName.toUpperCase(),
-              bold: true,
-              size: 32, // 16pt
-              font: fontName,
-              color: '111827'
+            new TextRun({ text: 'Mobile: ', bold: true, size: 19, font: fontName, color: '000000' }),
+            new TextRun({ text: personalDetails.phone, size: 19, font: fontName, color: '000000' })
+          ]
+        }));
+      }
+      if (personalDetails.email) {
+        rightContactParas.push(new Paragraph({
+          alignment: AlignmentType.RIGHT,
+          spacing: { after: 20 },
+          children: [
+            new TextRun({ text: 'Email: ', bold: true, size: 19, font: fontName, color: '000000' }),
+            new TextRun({ text: personalDetails.email, size: 19, font: fontName, color: '0066CC', underline: {} })
+          ]
+        }));
+      }
+      if (personalDetails.address) {
+        rightContactParas.push(new Paragraph({
+          alignment: AlignmentType.RIGHT,
+          spacing: { after: 20 },
+          children: [
+            new TextRun({ text: 'Address: ', bold: true, size: 19, font: fontName, color: '000000' }),
+            new TextRun({ text: personalDetails.address, size: 19, font: fontName, color: '000000' })
+          ]
+        }));
+      }
+      if (personalDetails.linkedin) {
+        rightContactParas.push(new Paragraph({
+          alignment: AlignmentType.RIGHT,
+          spacing: { after: 20 },
+          children: [
+            new TextRun({ text: 'LinkedIn: ', bold: true, size: 19, font: fontName, color: '000000' }),
+            new TextRun({ text: personalDetails.linkedin, size: 19, font: fontName, color: '0066CC', underline: {} })
+          ]
+        }));
+      }
+
+      children.push(
+        new Table({
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            top: { style: BorderStyle.NONE },
+            bottom: { style: BorderStyle.SINGLE, size: 16, color: '000000' },
+            left: { style: BorderStyle.NONE },
+            right: { style: BorderStyle.NONE },
+            insideHorizontal: { style: BorderStyle.NONE },
+            insideVertical: { style: BorderStyle.NONE }
+          },
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({
+                  width: { size: 55, type: WidthType.PERCENTAGE },
+                  children: [
+                    new Paragraph({
+                      spacing: { before: 80, after: 40 },
+                      children: [
+                        new TextRun({
+                          text: (personalDetails.fullName || '').toUpperCase(),
+                          bold: true,
+                          size: 30, // 15pt
+                          font: fontName,
+                          color: '000000'
+                        })
+                      ]
+                    }),
+                    personalDetails.occupation ? new Paragraph({
+                      spacing: { after: 80 },
+                      children: [
+                        new TextRun({
+                          text: personalDetails.occupation,
+                          bold: true,
+                          size: 20,
+                          font: fontName,
+                          color: '333333'
+                        })
+                      ]
+                    }) : new Paragraph({ spacing: { after: 80 } })
+                  ]
+                }),
+                new TableCell({
+                  width: { size: 45, type: WidthType.PERCENTAGE },
+                  children: rightContactParas.length > 0 ? rightContactParas : [new Paragraph({})]
+                })
+              ]
             })
           ]
         })
       );
-    }
+    } else {
+      if (personalDetails.fullName) {
+        children.push(
+          new Paragraph({
+            text: personalDetails.fullName.toUpperCase(),
+            heading: HeadingLevel.TITLE,
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 120 },
+            children: [
+              new TextRun({
+                text: personalDetails.fullName.toUpperCase(),
+                bold: true,
+                size: 32, // 16pt
+                font: fontName,
+                color: '111827'
+              })
+            ]
+          })
+        );
+      }
 
-    if (personalDetails.occupation) {
-      children.push(
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 160 },
-          children: [
-            new TextRun({
-              text: personalDetails.occupation,
-              bold: true,
-              size: 24, // 12pt
-              font: fontName,
-              color: primaryColor
-            })
-          ]
-        })
-      );
-    }
+      if (personalDetails.occupation) {
+        children.push(
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 160 },
+            children: [
+              new TextRun({
+                text: personalDetails.occupation,
+                bold: true,
+                size: 24, // 12pt
+                font: fontName,
+                color: primaryColor
+              })
+            ]
+          })
+        );
+      }
 
-    // 2. Contact Details Bar
-    const contactParts: any[] = [];
-    if (personalDetails.email) contactParts.push(personalDetails.email);
-    if (personalDetails.phone) contactParts.push(personalDetails.phone);
-    if (personalDetails.address) contactParts.push(personalDetails.address);
-    if (personalDetails.linkedin) contactParts.push(personalDetails.linkedin);
-    if (personalDetails.github) contactParts.push(personalDetails.github);
-    if (personalDetails.website) contactParts.push(personalDetails.website);
+      const contactParts: any[] = [];
+      if (personalDetails.email) contactParts.push(personalDetails.email);
+      if (personalDetails.phone) contactParts.push(personalDetails.phone);
+      if (personalDetails.address) contactParts.push(personalDetails.address);
+      if (personalDetails.linkedin) contactParts.push(personalDetails.linkedin);
+      if (personalDetails.github) contactParts.push(personalDetails.github);
+      if (personalDetails.website) contactParts.push(personalDetails.website);
 
-    if (contactParts.length > 0) {
-      children.push(
-        new Paragraph({
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 300 },
-          children: [
-            new TextRun({
-              text: contactParts.join('  •  '),
-              size: 19, // 9.5pt
-              font: fontName,
-              color: lightTextColor
-            })
-          ]
-        })
-      );
+      if (contactParts.length > 0) {
+        children.push(
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 300 },
+            children: [
+              new TextRun({
+                text: contactParts.join('  •  '),
+                size: 19, // 9.5pt
+                font: fontName,
+                color: lightTextColor
+              })
+            ]
+          })
+        );
+      }
     }
 
     // Helper for Section Headings
     const createSectionHeader = (title: string) => {
       return new Paragraph({
         heading: HeadingLevel.HEADING_2,
-        spacing: { before: 240, after: 120 },
-        border: {
+        spacing: { before: isBulletMatrix ? 200 : 240, after: isBulletMatrix ? 80 : 120 },
+        border: isBulletMatrix ? undefined : {
           bottom: {
             color: primaryColor,
             space: 4,
@@ -125,9 +222,9 @@ export async function POST(req: Request) {
           new TextRun({
             text: title.toUpperCase(),
             bold: true,
-            size: 22, // 11pt
+            size: isBulletMatrix ? 24 : 22, // 12pt in bullet matrix, 11pt otherwise
             font: fontName,
-            color: primaryColor
+            color: isBulletMatrix ? '000000' : primaryColor
           })
         ]
       });
@@ -146,7 +243,7 @@ export async function POST(req: Request) {
           children.push(
             new Paragraph({
               bullet: { level: 0 },
-              spacing: { after: 60, line: 260 },
+              spacing: { after: 50, line: 260 },
               children: [
                 new TextRun({
                   text: b,
@@ -175,40 +272,206 @@ export async function POST(req: Request) {
       }
     }
 
-    // 4. Work Experience
-    if (workExperience && workExperience.length > 0) {
-      children.push(createSectionHeader(isDe ? 'Berufserfahrung' : 'Work Experience'));
+    // 4. Skills (Render before Work in Bullet Matrix format if desired or standard order)
+    if (skills && skills.length > 0 && isBulletMatrix) {
+      children.push(createSectionHeader(isDe ? 'TECHNISCHE FÄHIGKEITEN' : 'TECHNICAL SKILLS'));
 
-      workExperience.forEach((exp: any) => {
-        // Role & Period line
+      const categories: Record<string, string[]> = {};
+      skills.forEach((s: any) => {
+        const cat = s.category || 'Tools & Cloud';
+        if (!categories[cat]) categories[cat] = [];
+        categories[cat].push(s.name || s);
+      });
+
+      Object.entries(categories).forEach(([_, skillItems]) => {
+        if (skillItems.length === 0) return;
         children.push(
           new Paragraph({
-            spacing: { before: 140, after: 40 },
+            bullet: { level: 0 },
+            spacing: { after: 50, line: 260 },
             children: [
               new TextRun({
-                text: exp.role || '',
-                bold: true,
-                size: 22, // 11pt
+                text: `${skillItems.join(' | ')}.`,
+                size: 20,
                 font: fontName,
-                color: '111827'
-              }),
-              new TextRun({
-                text: `  |  ${exp.company || ''}`,
-                bold: true,
-                size: 21,
-                font: fontName,
-                color: primaryColor
-              }),
-              new TextRun({
-                text: `  (${exp.period || ''}${exp.location ? ` - ${exp.location}` : ''})`,
-                italics: true,
-                size: 19,
-                font: fontName,
-                color: lightTextColor
+                color: '000000'
               })
             ]
           })
         );
+      });
+    }
+
+    // 5. Projects
+    if (projects && projects.length > 0) {
+      children.push(createSectionHeader(isDe ? (isBulletMatrix ? 'PROJEKTE' : 'Projekte') : 'PROJECTS'));
+
+      projects.forEach((proj: any) => {
+        if (isBulletMatrix) {
+          const desc = proj.description || '';
+          const techs = Array.isArray(proj.technologies) ? proj.technologies.join(', ') : (proj.technologies || '');
+          const details = desc ? `${desc}${techs ? ` | ${techs}` : ''}` : techs;
+          children.push(
+            new Paragraph({
+              bullet: { level: 0 },
+              spacing: { after: 50, line: 260 },
+              children: [
+                new TextRun({
+                  text: proj.name || '',
+                  bold: true,
+                  size: 20,
+                  font: fontName,
+                  color: '000000'
+                }),
+                details ? new TextRun({
+                  text: ` (${details}).`,
+                  size: 20,
+                  font: fontName,
+                  color: '000000'
+                }) : new TextRun('.')
+              ]
+            })
+          );
+        } else {
+          const techs = Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies || '';
+          children.push(
+            new Paragraph({
+              spacing: { before: 140, after: 40 },
+              children: [
+                new TextRun({
+                  text: proj.name || '',
+                  bold: true,
+                  size: 21,
+                  font: fontName,
+                  color: '111827'
+                }),
+                techs ? new TextRun({
+                  text: `  [${techs}]`,
+                  italics: true,
+                  size: 19,
+                  font: fontName,
+                  color: primaryColor
+                }) : new TextRun(''),
+                proj.url ? new TextRun({
+                  text: `  (${proj.url})`,
+                  size: 18,
+                  font: fontName,
+                  color: lightTextColor
+                }) : new TextRun('')
+              ]
+            })
+          );
+
+          if (proj.description) {
+            children.push(
+              new Paragraph({
+                bullet: { level: 0 },
+                spacing: { after: 80, line: 260 },
+                children: [
+                  new TextRun({
+                    text: proj.description,
+                    size: 20,
+                    font: fontName,
+                    color: darkTextColor
+                  })
+                ]
+              })
+            );
+          }
+        }
+      });
+    }
+
+    // 6. Work Experience
+    if (workExperience && workExperience.length > 0) {
+      children.push(createSectionHeader(isDe ? (isBulletMatrix ? 'BERUFSERFAHRUNG' : 'Berufserfahrung') : (isBulletMatrix ? 'PROFESSIONAL EXPERIENCES' : 'Work Experience')));
+
+      workExperience.forEach((exp: any) => {
+        if (isBulletMatrix) {
+          children.push(
+            new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              borders: {
+                top: { style: BorderStyle.NONE },
+                bottom: { style: BorderStyle.NONE },
+                left: { style: BorderStyle.NONE },
+                right: { style: BorderStyle.NONE },
+                insideHorizontal: { style: BorderStyle.NONE },
+                insideVertical: { style: BorderStyle.NONE }
+              },
+              rows: [
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      width: { size: 70, type: WidthType.PERCENTAGE },
+                      children: [
+                        new Paragraph({
+                          spacing: { before: 120, after: 40 },
+                          children: [
+                            new TextRun({
+                              text: `${(exp.company || '').toUpperCase()} – ${(exp.role || '').toUpperCase()}`,
+                              bold: true,
+                              size: 21,
+                              font: fontName,
+                              color: '000000'
+                            })
+                          ]
+                        })
+                      ]
+                    }),
+                    new TableCell({
+                      width: { size: 30, type: WidthType.PERCENTAGE },
+                      children: [
+                        new Paragraph({
+                          alignment: AlignmentType.RIGHT,
+                          spacing: { before: 120, after: 40 },
+                          children: [
+                            new TextRun({
+                              text: (exp.period || '').toUpperCase(),
+                              bold: true,
+                              size: 20,
+                              font: fontName,
+                              color: '000000'
+                            })
+                          ]
+                        })
+                      ]
+                    })
+                  ]
+                })
+              ]
+            })
+          );
+        } else {
+          children.push(
+            new Paragraph({
+              spacing: { before: 140, after: 40 },
+              children: [
+                new TextRun({
+                  text: exp.role || '',
+                  bold: true,
+                  size: 22, // 11pt
+                  font: fontName,
+                  color: '111827'
+                }),
+                new TextRun({
+                  text: `  |  ${exp.company || ''}`,
+                  bold: true,
+                  size: 21,
+                  font: fontName,
+                  color: primaryColor
+                }),
+                new TextRun({
+                  text: `  (${exp.period || ''}${exp.location ? ` - ${exp.location}` : ''})`,
+                  italics: true,
+                  size: 19,
+                  font: fontName,
+                  color: lightTextColor
+                })
+              ]
+            })
+          );
+        }
 
         // Bullets
         let bulletsList: string[] = [];
@@ -222,7 +485,7 @@ export async function POST(req: Request) {
           children.push(
             new Paragraph({
               bullet: { level: 0 },
-              spacing: { after: 60, line: 260 },
+              spacing: { after: 50, line: 260 },
               children: [
                 new TextRun({
                   text: bullet,
@@ -237,64 +500,10 @@ export async function POST(req: Request) {
       });
     }
 
-    // 5. Projects
-    if (projects && projects.length > 0) {
-      children.push(createSectionHeader(isDe ? 'Projekte' : 'Projects'));
-
-      projects.forEach((proj: any) => {
-        const techs = Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies || '';
-        children.push(
-          new Paragraph({
-            spacing: { before: 140, after: 40 },
-            children: [
-              new TextRun({
-                text: proj.name || '',
-                bold: true,
-                size: 21,
-                font: fontName,
-                color: '111827'
-              }),
-              techs ? new TextRun({
-                text: `  [${techs}]`,
-                italics: true,
-                size: 19,
-                font: fontName,
-                color: primaryColor
-              }) : new TextRun(''),
-              proj.url ? new TextRun({
-                text: `  (${proj.url})`,
-                size: 18,
-                font: fontName,
-                color: lightTextColor
-              }) : new TextRun('')
-            ]
-          })
-        );
-
-        if (proj.description) {
-          children.push(
-            new Paragraph({
-              bullet: { level: 0 },
-              spacing: { after: 80, line: 260 },
-              children: [
-                new TextRun({
-                  text: proj.description,
-                  size: 20,
-                  font: fontName,
-                  color: darkTextColor
-                })
-              ]
-            })
-          );
-        }
-      });
-    }
-
-    // 6. Skills
-    if (skills && skills.length > 0) {
+    // Standard skills rendering for visual/ats format
+    if (skills && skills.length > 0 && !isBulletMatrix) {
       children.push(createSectionHeader(isDe ? 'Fähigkeiten & Kenntnisse' : 'Technical Skills'));
 
-      // Group skills by category if available
       const categories: Record<string, string[]> = {};
       skills.forEach((s: any) => {
         const cat = s.category || (isDe ? 'Technologien' : 'Core Skills');
@@ -339,29 +548,62 @@ export async function POST(req: Request) {
                 new TextRun({
                   text: (edu.degree || '').toUpperCase(),
                   bold: true,
-                  size: 24, // 12pt
+                  size: 22, // 11pt
                   font: fontName,
                   color: '000000'
                 })
               ]
             }),
-            new Paragraph({
-              spacing: { after: 80 },
-              children: [
-                new TextRun({
-                  text: `${edu.institution || ''}${edu.location ? ` – ${edu.location}` : ''}`,
-                  bold: false,
-                  size: 24, // 12pt
-                  font: fontName,
-                  color: '000000'
-                }),
-                edu.period ? new TextRun({
-                  text: `    ${edu.period.toUpperCase()}`,
-                  bold: false,
-                  size: 24, // 12pt
-                  font: fontName,
-                  color: '000000'
-                }) : new TextRun('')
+            new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              borders: {
+                top: { style: BorderStyle.NONE },
+                bottom: { style: BorderStyle.NONE },
+                left: { style: BorderStyle.NONE },
+                right: { style: BorderStyle.NONE },
+                insideHorizontal: { style: BorderStyle.NONE },
+                insideVertical: { style: BorderStyle.NONE }
+              },
+              rows: [
+                new TableRow({
+                  children: [
+                    new TableCell({
+                      width: { size: 70, type: WidthType.PERCENTAGE },
+                      children: [
+                        new Paragraph({
+                          spacing: { after: 60 },
+                          children: [
+                            new TextRun({
+                              text: `${edu.institution || ''}${edu.location ? ` – ${edu.location}` : ''}`,
+                              bold: false,
+                              size: 21,
+                              font: fontName,
+                              color: '000000'
+                            })
+                          ]
+                        })
+                      ]
+                    }),
+                    new TableCell({
+                      width: { size: 30, type: WidthType.PERCENTAGE },
+                      children: [
+                        new Paragraph({
+                          alignment: AlignmentType.RIGHT,
+                          spacing: { after: 60 },
+                          children: [
+                            new TextRun({
+                              text: (edu.period || '').toUpperCase(),
+                              bold: true,
+                              size: 20,
+                              font: fontName,
+                              color: '000000'
+                            })
+                          ]
+                        })
+                      ]
+                    })
+                  ]
+                })
               ]
             })
           );
@@ -397,24 +639,63 @@ export async function POST(req: Request) {
       });
     }
 
-    // 8. Languages
-    if (languages && languages.length > 0) {
-      children.push(createSectionHeader(isDe ? 'Sprachen' : 'Languages'));
+    // 8. Certifications
+    if (certifications && certifications.length > 0 && isBulletMatrix) {
+      children.push(createSectionHeader(isDe ? 'ZERTIFIZIERUNGEN' : 'CERTIFICATIONS'));
+      certifications.forEach((c: string) => {
+        children.push(
+          new Paragraph({
+            bullet: { level: 0 },
+            spacing: { after: 50, line: 260 },
+            children: [
+              new TextRun({
+                text: c.endsWith('.') ? c : `${c}.`,
+                size: 20,
+                font: fontName,
+                color: '000000'
+              })
+            ]
+          })
+        );
+      });
+    }
 
-      const langList = languages.map((l: any) => `${l.language} (${l.level})`).join('  •  ');
-      children.push(
-        new Paragraph({
-          spacing: { after: 120 },
-          children: [
-            new TextRun({
-              text: langList,
-              size: 20,
-              font: fontName,
-              color: darkTextColor
-            })
-          ]
-        })
-      );
+    // 9. Languages
+    if (languages && languages.length > 0) {
+      children.push(createSectionHeader(isDe ? (isBulletMatrix ? 'SPRACHEN' : 'Sprachen') : (isBulletMatrix ? 'LANGUAGES' : 'Languages')));
+
+      if (isBulletMatrix) {
+        const langStr = languages.map((l: any) => `${l.language} – ${l.level || 'Fluent'}`).join(' | ') + '.';
+        children.push(
+          new Paragraph({
+            bullet: { level: 0 },
+            spacing: { after: 80, line: 260 },
+            children: [
+              new TextRun({
+                text: langStr,
+                size: 20,
+                font: fontName,
+                color: '000000'
+              })
+            ]
+          })
+        );
+      } else {
+        const langList = languages.map((l: any) => `${l.language} (${l.level})`).join('  •  ');
+        children.push(
+          new Paragraph({
+            spacing: { after: 120 },
+            children: [
+              new TextRun({
+                text: langList,
+                size: 20,
+                font: fontName,
+                color: darkTextColor
+              })
+            ]
+          })
+        );
+      }
     }
 
     // 9. Custom Sections
