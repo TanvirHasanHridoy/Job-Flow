@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Outfit, Inter } from "next/font/google";
 import AppHeader from "./components/AppHeader";
+import MobileBottomNav from "./components/MobileBottomNav";
 import ThemeSync from "./components/ThemeSync";
 import { TokenProvider } from "@/context/TokenContext";
 import { AlertModalProvider } from "@/context/AlertModalContext";
@@ -51,10 +52,12 @@ export default function RootLayout({
             <ThemeSync />
             <AppHeader />
 
-            {/* Content Shell */}
-            <main className="flex-1 flex flex-col relative z-10 w-full min-w-0">
+            {/* Content Shell with responsive bottom nav padding on mobile */}
+            <main className="flex-1 flex flex-col relative z-10 w-full min-w-0 pb-16 lg:pb-0">
               {children}
             </main>
+
+            <MobileBottomNav />
           </AlertModalProvider>
         </TokenProvider>
       </body>
