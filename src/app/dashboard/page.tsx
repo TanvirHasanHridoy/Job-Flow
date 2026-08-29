@@ -653,8 +653,8 @@ export default function Dashboard() {
 
       {/* Main Kanban Board Layout */}
       {currentView === 'kanban' && (
-        <div className="flex-1 w-full max-w-full overflow-x-auto pb-4">
-          <div className="flex flex-col lg:flex-row gap-4 w-full lg:w-auto lg:min-w-[1000px] min-h-[calc(100vh-340px)]">
+        <div className="flex-1 w-full max-w-full overflow-x-auto overflow-y-hidden pb-4 snap-x snap-mandatory scroll-smooth overscroll-x-contain touch-pan-x -mx-4 px-4 sm:mx-0 sm:px-0">
+          <div className="flex flex-row gap-4 w-max lg:w-full min-w-full min-h-[calc(100vh-340px)]">
             {COLUMNS.filter(col => mobileStatusTab === 'ALL' || col.id === mobileStatusTab).map(col => {
               const columnApps = applications.filter(app => app.status === col.id);
               const isOver = dragOverColumnId === col.id;
@@ -680,7 +680,7 @@ export default function Dashboard() {
                       updateAppStatus(appId, col.id);
                     }
                   }}
-                  className={`flex-1 flex flex-col rounded-2xl border transition-all duration-200 p-4 w-full lg:w-[280px] shrink-0 ${
+                  className={`flex flex-col rounded-2xl border transition-all duration-200 p-4 w-[82vw] sm:w-[320px] lg:w-[280px] lg:flex-1 shrink-0 snap-start ${
                     isOver
                       ? 'border-indigo-500/80 bg-indigo-500/10 shadow-lg shadow-indigo-500/10 scale-[1.01]'
                       : 'border-white/5 bg-zinc-950/20 backdrop-blur-sm'
