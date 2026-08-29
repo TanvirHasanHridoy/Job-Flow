@@ -1274,81 +1274,87 @@ export default function ProfileVault() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Navigation Sidebar */}
-        <div className="lg:col-span-1 flex flex-col gap-2">
+      {/* Responsive Tabs Navigation */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
+        {/* Navigation Sidebar / Mobile Scrollable Tab Bar */}
+        <div className="lg:col-span-1 flex flex-row lg:flex-col gap-2 overflow-x-auto no-scrollbar pb-2 lg:pb-0">
           <button
             onClick={() => setActiveTab('personal')}
-            className={`w-full text-left px-4 py-3.5 rounded-xl flex items-center gap-3 transition-all duration-300 border ${
+            className={`shrink-0 lg:w-full text-left px-3.5 sm:px-4 py-2.5 sm:py-3.5 rounded-xl flex items-center gap-2 sm:gap-3 transition-all duration-300 border text-xs sm:text-sm font-sans ${
               activeTab === 'personal'
-                ? 'bg-indigo-600/15 border-indigo-500/30 text-white font-semibold shadow-inner'
-                : 'border-transparent text-zinc-400 hover:bg-white/5 hover:text-white'
+                ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/20 border-indigo-500'
+                : 'border-white/5 bg-white/[0.02] text-zinc-400 hover:bg-white/5 hover:text-white'
             }`}
           >
-            <User className="w-4 h-4" />
-            <span>Personal & DACH Details</span>
+            <User className="w-4 h-4 text-indigo-400 shrink-0" />
+            <span className="whitespace-nowrap">Personal Details</span>
           </button>
           
           <button
             onClick={() => setActiveTab('experience')}
-            className={`w-full text-left px-4 py-3.5 rounded-xl flex items-center gap-3 transition-all duration-300 border ${
+            className={`shrink-0 lg:w-full text-left px-3.5 sm:px-4 py-2.5 sm:py-3.5 rounded-xl flex items-center gap-2 sm:gap-3 transition-all duration-300 border text-xs sm:text-sm font-sans ${
               activeTab === 'experience'
-                ? 'bg-indigo-600/15 border-indigo-500/30 text-white font-semibold shadow-inner'
-                : 'border-transparent text-zinc-400 hover:bg-white/5 hover:text-white'
+                ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/20 border-indigo-500'
+                : 'border-white/5 bg-white/[0.02] text-zinc-400 hover:bg-white/5 hover:text-white'
             }`}
           >
-            <Briefcase className="w-4 h-4" />
-            <span>Work Experience</span>
+            <Briefcase className="w-4 h-4 text-cyan-400 shrink-0" />
+            <span className="whitespace-nowrap">Work Experience</span>
+            {profile.workExperience.length > 0 && (
+              <span className="text-[10px] bg-white/20 text-white px-1.5 py-0.5 rounded-full font-bold ml-auto hidden sm:inline">
+                {profile.workExperience.length}
+              </span>
+            )}
           </button>
           
           <button
             onClick={() => setActiveTab('education')}
-            className={`w-full text-left px-4 py-3.5 rounded-xl flex items-center gap-3 transition-all duration-300 border ${
+            className={`shrink-0 lg:w-full text-left px-3.5 sm:px-4 py-2.5 sm:py-3.5 rounded-xl flex items-center gap-2 sm:gap-3 transition-all duration-300 border text-xs sm:text-sm font-sans ${
               activeTab === 'education'
-                ? 'bg-indigo-600/15 border-indigo-500/30 text-white font-semibold shadow-inner'
-                : 'border-transparent text-zinc-400 hover:bg-white/5 hover:text-white'
+                ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/20 border-indigo-500'
+                : 'border-white/5 bg-white/[0.02] text-zinc-400 hover:bg-white/5 hover:text-white'
             }`}
           >
-            <GraduationCap className="w-4 h-4" />
-            <span>Education</span>
+            <GraduationCap className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="whitespace-nowrap">Education</span>
           </button>
           
           <button
             onClick={() => setActiveTab('skills')}
-            className={`w-full text-left px-4 py-3.5 rounded-xl flex items-center gap-3 transition-all duration-300 border ${
+            className={`shrink-0 lg:w-full text-left px-3.5 sm:px-4 py-2.5 sm:py-3.5 rounded-xl flex items-center gap-2 sm:gap-3 transition-all duration-300 border text-xs sm:text-sm font-sans ${
               activeTab === 'skills'
-                ? 'bg-indigo-600/15 border-indigo-500/30 text-white font-semibold shadow-inner'
-                : 'border-transparent text-zinc-400 hover:bg-white/5 hover:text-white'
+                ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/20 border-indigo-500'
+                : 'border-white/5 bg-white/[0.02] text-zinc-400 hover:bg-white/5 hover:text-white'
             }`}
           >
-            <Code2 className="w-4 h-4" />
-            <span>Skills & Languages</span>
+            <Code2 className="w-4 h-4 text-purple-400 shrink-0" />
+            <span className="whitespace-nowrap">Skills & Languages</span>
           </button>
 
           <button
             onClick={() => setActiveTab('projects')}
-            className={`w-full text-left px-4 py-3.5 rounded-xl flex items-center gap-3 transition-all duration-300 border ${
+            className={`shrink-0 lg:w-full text-left px-3.5 sm:px-4 py-2.5 sm:py-3.5 rounded-xl flex items-center gap-2 sm:gap-3 transition-all duration-300 border text-xs sm:text-sm font-sans ${
               activeTab === 'projects'
-                ? 'bg-indigo-600/15 border-indigo-500/30 text-white font-semibold shadow-inner'
-                : 'border-transparent text-zinc-400 hover:bg-white/5 hover:text-white'
+                ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/20 border-indigo-500'
+                : 'border-white/5 bg-white/[0.02] text-zinc-400 hover:bg-white/5 hover:text-white'
             }`}
           >
-            <FolderGit className="w-4 h-4" />
-            <span>Project Works</span>
+            <FolderGit className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="whitespace-nowrap">Projects</span>
           </button>
 
           <button
             onClick={() => setActiveTab('custom')}
-            className={`w-full text-left px-4 py-3.5 rounded-xl flex items-center gap-3 transition-all duration-300 border ${
+            className={`shrink-0 lg:w-full text-left px-3.5 sm:px-4 py-2.5 sm:py-3.5 rounded-xl flex items-center gap-2 sm:gap-3 transition-all duration-300 border text-xs sm:text-sm font-sans ${
               activeTab === 'custom'
-                ? 'bg-indigo-600/15 border-indigo-500/30 text-white font-semibold shadow-inner'
-                : 'border-transparent text-zinc-400 hover:bg-white/5 hover:text-white'
+                ? 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-500/20 border-indigo-500'
+                : 'border-white/5 bg-white/[0.02] text-zinc-400 hover:bg-white/5 hover:text-white'
             }`}
           >
-            <Layers className="w-4 h-4 text-indigo-400" />
-            <span className="flex-1">Custom Sections</span>
+            <Layers className="w-4 h-4 text-indigo-400 shrink-0" />
+            <span className="whitespace-nowrap">Custom Sections</span>
             {profile.customSections && profile.customSections.length > 0 && (
-              <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-bold">
+              <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded-full font-bold ml-auto">
                 {profile.customSections.length}
               </span>
             )}
@@ -1356,7 +1362,7 @@ export default function ProfileVault() {
         </div>
 
         {/* Tab Content Panels */}
-        <div className="lg:col-span-3 glass-panel rounded-2xl p-6 md:p-8">
+        <div className="lg:col-span-3 glass-panel rounded-2xl p-4 sm:p-6 md:p-8">
           
           {/* TAB 1: Personal Details */}
           {activeTab === 'personal' && (
@@ -2908,6 +2914,39 @@ export default function ProfileVault() {
           </div>
         </div>
       )}
+
+      {/* Floating Save Button on Mobile */}
+      <aside
+        aria-label="Floating Mobile Save"
+        className="lg:hidden fixed bottom-[70px] right-4 z-40"
+      >
+        <button
+          onClick={saveProfile}
+          disabled={saving}
+          className={`px-4 py-2.5 rounded-2xl font-bold text-xs shadow-2xl flex items-center gap-2 cursor-pointer transition-all ${
+            saveSuccess
+              ? 'bg-emerald-600 text-white shadow-emerald-500/30'
+              : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-indigo-500/30 hover:scale-105 active:scale-95'
+          } disabled:opacity-50`}
+        >
+          {saving ? (
+            <>
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              <span>Saving...</span>
+            </>
+          ) : saveSuccess ? (
+            <>
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+              <span>Saved!</span>
+            </>
+          ) : (
+            <>
+              <Save className="w-3.5 h-3.5" />
+              <span>Save Vault</span>
+            </>
+          )}
+        </button>
+      </aside>
 
     </div>
   );
