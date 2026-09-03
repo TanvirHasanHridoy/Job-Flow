@@ -127,12 +127,12 @@ ${jobDescription}
 
 Candidate Tailored CV Facts:
 ${JSON.stringify({
-  personalDetails: tailoredCv?.personalDetails,
-  summary: tailoredCv?.summary,
-  skills: tailoredCv?.skills,
-  workExperience: (tailoredCv?.workExperience || []).slice(0, 3),
-  projects: (tailoredCv?.projects || []).slice(0, 3)
-}, null, 2)}`
+            personalDetails: tailoredCv?.personalDetails,
+            summary: tailoredCv?.summary,
+            skills: tailoredCv?.skills,
+            workExperience: (tailoredCv?.workExperience || []).slice(0, 3),
+            projects: (tailoredCv?.projects || []).slice(0, 3)
+          }, null, 2)}`
         }
       ],
       response_format: { type: 'json_object' },

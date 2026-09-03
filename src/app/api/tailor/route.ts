@@ -103,7 +103,7 @@ export async function POST(req: Request) {
     const parsedLanguages = typeof profile.languages === 'string' ? JSON.parse(profile.languages) : profile.languages;
     const parsedProjects = typeof profile.projects === 'string' ? JSON.parse(profile.projects) : (profile.projects || []);
 
-    const filteredProjects = parsedProjects.filter((proj: any) => 
+    const filteredProjects = parsedProjects.filter((proj: any) =>
       selectedProjects.includes(proj.name)
     );
 
@@ -352,20 +352,20 @@ You must respond with a raw JSON object containing these exact keys:
 
     const activeSystemPrompt = cvFormat === 'bullet-matrix'
       ? buildBulletMatrixSystemPrompt({
-          cvLanguage,
-          clLanguage,
-          tone,
-          lengthTarget,
-          bulletStyle,
-          skillsFocus: typeof skillsFocus === 'string' ? [skillsFocus] : (skillsFocus || []),
-          salaryExpectation,
-          noticePeriod,
-          signingLocation,
-          customNotes,
-          themeDirective,
-          matchStrategy,
-          currentDateStr
-        })
+        cvLanguage,
+        clLanguage,
+        tone,
+        lengthTarget,
+        bulletStyle,
+        skillsFocus: typeof skillsFocus === 'string' ? [skillsFocus] : (skillsFocus || []),
+        salaryExpectation,
+        noticePeriod,
+        signingLocation,
+        customNotes,
+        themeDirective,
+        matchStrategy,
+        currentDateStr
+      })
       : systemPrompt;
 
     const payload = {
@@ -461,74 +461,74 @@ ${contextStr}`
     const matchedIndices = new Set<number>();
     const mergedWorkExperience = tailoredResult.tailoredCv?.workExperience
       ? tailoredResult.tailoredCv.workExperience.map((tailoredJob: any, idx: number) => {
-          // Find matching original job from user profile by company name (excluding already matched ones)
-          let originalIdx = parsedWorkExp.findIndex((j: any, oIdx: number) => {
-            if (matchedIndices.has(oIdx)) return false;
-            return j.company.toLowerCase() === tailoredJob.company.toLowerCase() ||
-                   j.company.toLowerCase().includes(tailoredJob.company.toLowerCase()) ||
-                   tailoredJob.company.toLowerCase().includes(j.company.toLowerCase());
-          });
+        // Find matching original job from user profile by company name (excluding already matched ones)
+        let originalIdx = parsedWorkExp.findIndex((j: any, oIdx: number) => {
+          if (matchedIndices.has(oIdx)) return false;
+          return j.company.toLowerCase() === tailoredJob.company.toLowerCase() ||
+            j.company.toLowerCase().includes(tailoredJob.company.toLowerCase()) ||
+            tailoredJob.company.toLowerCase().includes(j.company.toLowerCase());
+        });
 
-          // Fallback to index if no company match found and it's not already matched
-          if (originalIdx === -1) {
-            if (idx < parsedWorkExp.length && !matchedIndices.has(idx)) {
-              originalIdx = idx;
-            }
+        // Fallback to index if no company match found and it's not already matched
+        if (originalIdx === -1) {
+          if (idx < parsedWorkExp.length && !matchedIndices.has(idx)) {
+            originalIdx = idx;
           }
+        }
 
-          const originalJob = originalIdx !== -1 ? parsedWorkExp[originalIdx] : {};
-          if (originalIdx !== -1) {
-            matchedIndices.add(originalIdx);
-          }
+        const originalJob = originalIdx !== -1 ? parsedWorkExp[originalIdx] : {};
+        if (originalIdx !== -1) {
+          matchedIndices.add(originalIdx);
+        }
 
-          let bullets = tailoredJob.bullets;
-          if (!bullets) {
-            const origBullets = originalJob.bullets || [];
-            bullets = {
-              star: origBullets,
-              punchy: origBullets,
-              standard: origBullets
-            };
-          } else if (Array.isArray(bullets)) {
-            bullets = {
-              star: bullets,
-              punchy: bullets,
-              standard: bullets
-            };
-          }
-
-          const isCurrent = originalJob.current === true || 
-                            originalJob.current === 'true' || 
-                            !originalJob.endDate || 
-                            originalJob.endDate.trim() === '' || 
-                            originalJob.endDate.toLowerCase() === 'present';
-
-          const period = originalJob.startDate
-            ? (isCurrent
-                ? `${originalJob.startDate} – ${cvLanguage === 'DE' ? 'heute' : 'Present'}`
-                : `${originalJob.startDate} – ${originalJob.endDate}`)
-            : originalJob.period || tailoredJob.period || '';
-
-          return {
-            company: originalJob.company || tailoredJob.company,
-            role: tailoredJob.role || originalJob.role,
-            location: originalJob.location || tailoredJob.location || '',
-            period,
-            bullets
+        let bullets = tailoredJob.bullets;
+        if (!bullets) {
+          const origBullets = originalJob.bullets || [];
+          bullets = {
+            star: origBullets,
+            punchy: origBullets,
+            standard: origBullets
           };
-        })
+        } else if (Array.isArray(bullets)) {
+          bullets = {
+            star: bullets,
+            punchy: bullets,
+            standard: bullets
+          };
+        }
+
+        const isCurrent = originalJob.current === true ||
+          originalJob.current === 'true' ||
+          !originalJob.endDate ||
+          originalJob.endDate.trim() === '' ||
+          originalJob.endDate.toLowerCase() === 'present';
+
+        const period = originalJob.startDate
+          ? (isCurrent
+            ? `${originalJob.startDate} – ${cvLanguage === 'DE' ? 'heute' : 'Present'}`
+            : `${originalJob.startDate} – ${originalJob.endDate}`)
+          : originalJob.period || tailoredJob.period || '';
+
+        return {
+          company: originalJob.company || tailoredJob.company,
+          role: tailoredJob.role || originalJob.role,
+          location: originalJob.location || tailoredJob.location || '',
+          period,
+          bullets
+        };
+      })
       : [];
 
     const mergedEducation = parsedEdu.map((edu: any) => {
-      const isCurrent = edu.current === true || 
-                        edu.current === 'true' || 
-                        !edu.endDate || 
-                        edu.endDate.trim() === '' || 
-                        edu.endDate.toLowerCase() === 'present';
+      const isCurrent = edu.current === true ||
+        edu.current === 'true' ||
+        !edu.endDate ||
+        edu.endDate.trim() === '' ||
+        edu.endDate.toLowerCase() === 'present';
       const period = edu.startDate
         ? (isCurrent
-            ? `${edu.startDate} – ${cvLanguage === 'DE' ? 'heute' : 'Present'}`
-            : `${edu.startDate} – ${edu.endDate}`)
+          ? `${edu.startDate} – ${cvLanguage === 'DE' ? 'heute' : 'Present'}`
+          : `${edu.startDate} – ${edu.endDate}`)
         : edu.period || '';
       return {
         ...edu,
@@ -584,17 +584,17 @@ ${contextStr}`
 
     const mergedProjects = tailoredResult.tailoredCv?.projects
       ? tailoredResult.tailoredCv.projects.map((tailoredProj: any) => {
-          const originalProj = filteredProjects.find((p: any) => 
-            p.name.toLowerCase() === tailoredProj.name.toLowerCase()
-          ) || {};
-          
-          return {
-            name: originalProj.name || tailoredProj.name,
-            description: tailoredProj.description || originalProj.description || '',
-            technologies: tailoredProj.technologies || originalProj.technologies || [],
-            url: originalProj.url || ''
-          };
-        })
+        const originalProj = filteredProjects.find((p: any) =>
+          p.name.toLowerCase() === tailoredProj.name.toLowerCase()
+        ) || {};
+
+        return {
+          name: originalProj.name || tailoredProj.name,
+          description: tailoredProj.description || originalProj.description || '',
+          technologies: tailoredProj.technologies || originalProj.technologies || [],
+          url: originalProj.url || ''
+        };
+      })
       : [];
 
     if (cvFormat === 'bullet-matrix') {

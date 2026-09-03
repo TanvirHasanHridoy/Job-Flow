@@ -146,7 +146,8 @@ Respond strictly with a raw JSON object matching this schema:
 }`;
     } else {
       // Mode === 'section'
-      let schemaGuide = '';      if (sectionKey === 'summary') {
+      let schemaGuide = '';
+      if (sectionKey === 'summary') {
         if (cvFormat === 'bullet-matrix') {
           schemaGuide = `{
   "summary": "<newline-separated capability bullets starting with '• ', in ${targetLanguage === 'DE' ? 'German' : 'English'}>",
