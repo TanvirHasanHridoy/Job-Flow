@@ -1,14 +1,88 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
-import { getUserTokens, deductTokens, TOKEN_PRICING } from '@/lib/tokens';
+import { getUserTokens, deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
 import { getAiConfig } from '@/lib/ai';
 
+function safeParseArray(val: any): any[] {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    try {
+      const parsed = JSON.parse(val);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function normalizeSkills(skills: any): string[] {
+  if (!skills) return [];
+  if (typeof skills === 'string') {
+    try {
+      const parsed = JSON.parse(skills);
+      if (Array.isArray(parsed)) return normalizeSkills(parsed);
+    } catch {
+      return skills.split(',').map(s => s.trim()).filter(Boolean);
+    }
+  }
+  if (Array.isArray(skills)) {
+    return skills.map((s: any) => {
+      if (typeof s === 'string') return s.trim();
+      if (s && typeof s === 'object' && s.name) return String(s.name).trim();
+      return String(s || '').trim();
+    }).filter(Boolean);
+  }
+  return [];
+}
+
+function normalizeSummary(tailoredCv: any): string {
+  if (typeof tailoredCv?.summary === 'string' && tailoredCv.summary.trim()) {
+    return tailoredCv.summary.trim();
+  }
+  if (Array.isArray(tailoredCv?.summaryBullets) && tailoredCv.summaryBullets.length > 0) {
+    return tailoredCv.summaryBullets.map((b: any) => String(b).trim()).filter(Boolean).join('\n');
+  }
+  return '';
+}
+
+function extractJson(rawText: string): any {
+  let cleaned = rawText.trim();
+
+  // 1. Try markdown code block extraction
+  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch) {
+    cleaned = codeBlockMatch[1].trim();
+  } else {
+    // 2. Find outermost JSON braces
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+    }
+  }
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // 3. Relax common JSON syntax errors (trailing commas, illegal control chars)
+    const relaxed = cleaned
+      .replace(/,\s*([}\]])/g, '$1')
+      .replace(/[\u0000-\u001F\u007F-\u009F]/g, ' ');
+    return JSON.parse(relaxed);
+  }
+}
+
 export async function POST(req: Request) {
+  let userId: string | null = null;
+  let tokensDeducted = false;
+
   try {
     const auth = await getAuthUserId();
     if ('error' in auth) return auth.error;
-    const { userId } = auth;
+    userId = auth.userId;
 
     const {
       jobDescription,
@@ -23,6 +97,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing jobDescription parameter' }, { status: 400 });
     }
 
+    const normalizedSkillList = normalizeSkills(tailoredCv?.skills);
+    const normalizedSummaryText = normalizeSummary(tailoredCv);
+    const parsedWorkExp = safeParseArray(tailoredCv?.workExperience);
+    const parsedProjects = safeParseArray(tailoredCv?.projects);
+
     // Cache check
     const cacheKey = generateCacheKey({
       route: 'interview-prep',
@@ -31,8 +110,8 @@ export async function POST(req: Request) {
       roleName,
       targetLanguage,
       customInstruction,
-      cvSummary: tailoredCv?.summary || '',
-      cvSkills: (tailoredCv?.skills || []).map((s: any) => s.name || s).join(',')
+      cvSummary: normalizedSummaryText,
+      cvSkills: normalizedSkillList.join(',')
     });
 
     const cachedData = aiResponseCache.get(cacheKey);
@@ -49,9 +128,14 @@ export async function POST(req: Request) {
         { status: 403 }
       );
     }
+    tokensDeducted = true;
 
     const aiConfig = getAiConfig();
     if (!aiConfig.apiKey) {
+      if (tokensDeducted && userId) {
+        await topUpTokens(userId, TOKEN_PRICING.INTERVIEW_PREP);
+        tokensDeducted = false;
+      }
       return NextResponse.json({ error: `${aiConfig.provider} API Key is not configured` }, { status: 500 });
     }
 
@@ -85,7 +169,7 @@ CRITICAL REQUIREMENTS & OUTPUT SECTIONS:
 
 STRICT CONSTRAINTS:
 1. Rely strictly on real background facts from the provided CV.
-2. Custom candidate instruction: "${customInstruction || 'Provide actionable, concrete talking points.'}"
+2. Custom candidate instruction: "${(customInstruction || 'Provide actionable, concrete talking points.').replace(/"/g, "'")}"
 3. Output strictly valid JSON matching this schema:
 {
   "interviewPrep": {
@@ -128,51 +212,130 @@ ${jobDescription}
 Candidate Tailored CV Facts:
 ${JSON.stringify({
             personalDetails: tailoredCv?.personalDetails,
-            summary: tailoredCv?.summary,
-            skills: tailoredCv?.skills,
-            workExperience: (tailoredCv?.workExperience || []).slice(0, 3),
-            projects: (tailoredCv?.projects || []).slice(0, 3)
+            summary: normalizedSummaryText,
+            skills: normalizedSkillList,
+            workExperience: parsedWorkExp.slice(0, 3),
+            projects: parsedProjects.slice(0, 3)
           }, null, 2)}`
         }
       ],
       response_format: { type: 'json_object' },
+      max_tokens: 4096,
       temperature: 0.3
     };
 
-    const apiRes = await fetch(aiConfig.apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${aiConfig.apiKey}`
-      },
-      body: JSON.stringify(payload)
-    });
+    // Resilient fetch with exponential retry backoff for rate limits / transient server errors
+    let lastError: Error | null = null;
+    let apiRes: Response | null = null;
+    const maxRetries = 2;
 
-    if (!apiRes.ok) {
-      const errText = await apiRes.text();
-      console.error('Interview Prep API Error:', errText);
-      let errMsg = 'Failed to communicate with AI model';
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        const errJson = JSON.parse(errText);
-        errMsg = errJson.error?.message || errJson.message || errMsg;
-      } catch { }
-      return NextResponse.json({ error: errMsg }, { status: apiRes.status });
+        if (attempt > 0) {
+          const delay = attempt === 1 ? 1200 : 2500;
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+
+        apiRes = await fetch(aiConfig.apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${aiConfig.apiKey}`
+          },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(65000)
+        });
+
+        if (apiRes.ok) {
+          lastError = null;
+          break;
+        }
+
+        const isRetryable = apiRes.status === 429 || apiRes.status === 500 || apiRes.status === 502 || apiRes.status === 503 || apiRes.status === 504;
+        if (!isRetryable) {
+          break;
+        }
+      } catch (err: any) {
+        lastError = err;
+        if (attempt === maxRetries) break;
+      }
+    }
+
+    if (!apiRes || !apiRes.ok) {
+      if (tokensDeducted && userId) {
+        await topUpTokens(userId, TOKEN_PRICING.INTERVIEW_PREP);
+        tokensDeducted = false;
+      }
+
+      let errMsg = lastError?.message || 'Failed to communicate with AI model';
+      let errStatus = apiRes ? apiRes.status : 502;
+
+      if (apiRes) {
+        try {
+          const errText = await apiRes.text();
+          console.error('Interview Prep API Error:', errText);
+          const errJson = JSON.parse(errText);
+          errMsg = errJson.error?.message || errJson.message || errMsg;
+        } catch { }
+      }
+
+      return NextResponse.json({ error: errMsg }, { status: errStatus });
     }
 
     const resJson = await apiRes.json();
-    let contentStr = resJson.choices[0].message.content.trim();
-    contentStr = contentStr.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
-
-    try {
-      const parsedData = JSON.parse(contentStr);
-      aiResponseCache.set(cacheKey, parsedData);
-      return NextResponse.json({ success: true, data: parsedData, remainingTokens: deduction.tokens });
-    } catch (parseErr) {
-      console.error('Failed to parse interview prep AI output:', contentStr);
-      return NextResponse.json({ error: 'AI produced invalid JSON output' }, { status: 500 });
+    const rawContent = resJson.choices?.[0]?.message?.content;
+    if (!rawContent) {
+      if (tokensDeducted && userId) {
+        await topUpTokens(userId, TOKEN_PRICING.INTERVIEW_PREP);
+        tokensDeducted = false;
+      }
+      return NextResponse.json({ error: 'AI returned an empty response. Please try again.' }, { status: 502 });
     }
+
+    let parsedData: any;
+    try {
+      parsedData = extractJson(rawContent);
+    } catch (parseErr) {
+      console.error('Failed to parse interview prep AI output:', rawContent);
+      if (tokensDeducted && userId) {
+        await topUpTokens(userId, TOKEN_PRICING.INTERVIEW_PREP);
+        tokensDeducted = false;
+      }
+      return NextResponse.json({ error: 'AI produced invalid JSON output. Please retry.' }, { status: 500 });
+    }
+
+    // Normalize response shape so frontend always gets data.interviewPrep
+    const rawPrep = parsedData?.interviewPrep || parsedData?.interview_prep || (parsedData?.elevatorPitch ? parsedData : parsedData?.data?.interviewPrep);
+    if (!rawPrep || typeof rawPrep !== 'object') {
+      if (tokensDeducted && userId) {
+        await topUpTokens(userId, TOKEN_PRICING.INTERVIEW_PREP);
+        tokensDeducted = false;
+      }
+      return NextResponse.json({ error: 'AI response missing interview prep sections. Please retry.' }, { status: 500 });
+    }
+
+    const normalizedPrep = {
+      elevatorPitch: typeof rawPrep.elevatorPitch === 'string' ? rawPrep.elevatorPitch : '',
+      predictedQuestions: Array.isArray(rawPrep.predictedQuestions) ? rawPrep.predictedQuestions : [],
+      reverseQuestions: Array.isArray(rawPrep.reverseQuestions) ? rawPrep.reverseQuestions : [],
+      redFlagTraps: Array.isArray(rawPrep.redFlagTraps) ? rawPrep.redFlagTraps : []
+    };
+
+    const finalResponseData = { interviewPrep: normalizedPrep };
+    aiResponseCache.set(cacheKey, finalResponseData);
+
+    return NextResponse.json({
+      success: true,
+      data: finalResponseData,
+      remainingTokens: deduction.tokens
+    });
   } catch (error: any) {
     console.error('Error in interview-prep route:', error);
+    if (tokensDeducted && userId) {
+      try {
+        await topUpTokens(userId, TOKEN_PRICING.INTERVIEW_PREP);
+      } catch { }
+    }
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
 }

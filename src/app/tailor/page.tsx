@@ -1465,14 +1465,17 @@ export default function TailorWorkspace() {
       }
 
       const data = await res.json();
-      if (data.data?.outreach) {
-        setOutreachData(data.data.outreach);
+      const outreach = data.data?.outreach || (data.data?.linkedInInMail ? data.data : null);
+      if (outreach) {
+        setOutreachData(outreach);
         fetchTokens();
         showAlert({
           title: 'Outreach Templates Ready',
           message: 'Generated 3 customized recruiter messages. 1-Click copy to send via LinkedIn or Email.',
           type: 'success'
         });
+      } else {
+        throw new Error('Unexpected response structure received from AI. Please try again.');
       }
     } catch (err: any) {
       showAlert({
@@ -1541,14 +1544,17 @@ export default function TailorWorkspace() {
       }
 
       const data = await res.json();
-      if (data.data?.interviewPrep) {
-        setInterviewPrepData(data.data.interviewPrep);
+      const prep = data.data?.interviewPrep || (data.data?.elevatorPitch ? data.data : null);
+      if (prep) {
+        setInterviewPrepData(prep);
         fetchTokens();
         showAlert({
           title: 'Interview Cheat-Sheet Ready',
           message: 'Generated predicted questions, reverse questions, and 30-second elevator pitch.',
           type: 'success'
         });
+      } else {
+        throw new Error('Unexpected response structure received from AI. Please try again.');
       }
     } catch (err: any) {
       showAlert({
