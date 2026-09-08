@@ -5,11 +5,48 @@ function cleanText(text: string | null | undefined): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+const NOISE_TITLES = [
+  'jobsuche',
+  'jobs',
+  'search',
+  'search results',
+  'careers',
+  'karriere',
+  'stellenangebote',
+  'xing',
+  'linkedin',
+  'indeed',
+  'stepstone',
+  'empfehlungen'
+];
+
+const NOISE_COMPANIES = [
+  'xing',
+  'xing jobs',
+  'linkedin',
+  'indeed',
+  'stepstone',
+  'glassdoor',
+  'new work se'
+];
+
+function isNoiseTitle(title: string): boolean {
+  const lower = title.toLowerCase().trim();
+  if (lower.length < 3) return true;
+  return NOISE_TITLES.some(noise => lower === noise || lower.startsWith(noise + ' '));
+}
+
+function isNoiseCompany(company: string): boolean {
+  const lower = company.toLowerCase().trim();
+  if (lower.length < 2) return true;
+  return NOISE_COMPANIES.some(noise => lower === noise);
+}
+
 function htmlToPlainText(html: string): string {
   const temp = document.createElement('div');
   temp.innerHTML = html;
 
-  temp.querySelectorAll('script, style, svg, button, nav').forEach(el => el.remove());
+  temp.querySelectorAll('script, style, svg, button, nav, header, footer').forEach(el => el.remove());
   temp.querySelectorAll('li').forEach(li => {
     li.textContent = `\n• ${li.textContent?.trim() || ''}`;
   });
@@ -41,7 +78,6 @@ function extractSchemaOrgJob(): ParsedJobData | null {
         continue;
       }
 
-      // Handle arrays or @graph collections
       const items: any[] = Array.isArray(parsed)
         ? parsed
         : Array.isArray(parsed?.['@graph'])
@@ -52,11 +88,14 @@ function extractSchemaOrgJob(): ParsedJobData | null {
         const type = item?.['@type'];
         if (type === 'JobPosting' || (Array.isArray(type) && type.includes('JobPosting'))) {
           const title = cleanText(item.title);
-          const company = cleanText(
-            typeof item.hiringOrganization === 'string'
-              ? item.hiringOrganization
-              : item.hiringOrganization?.name || ''
-          );
+          const rawCompany = typeof item.hiringOrganization === 'string'
+            ? item.hiringOrganization
+            : item.hiringOrganization?.name || '';
+          const company = cleanText(rawCompany);
+
+          if (isNoiseTitle(title)) {
+            continue;
+          }
 
           let location = '';
           if (item.jobLocation) {
@@ -75,10 +114,10 @@ function extractSchemaOrgJob(): ParsedJobData | null {
             description = htmlToPlainText(item.description);
           }
 
-          if (title && description) {
+          if (title && description && description.length > 60) {
             return {
               title,
-              company: company || 'Company',
+              company: !isNoiseCompany(company) ? company : 'Target Company',
               location,
               description,
               url: window.location.href,
@@ -99,14 +138,21 @@ function extractSchemaOrgJob(): ParsedJobData | null {
  * Universal heuristic readability parser as ultimate fallback
  */
 function extractHeuristicJob(): ParsedJobData | null {
-  // Title: usually the first main h1
-  const h1 = document.querySelector('main h1, article h1, [role="main"] h1, h1');
-  const title = cleanText(h1?.textContent);
+  // Title: check h1/h2 inside article or main first
+  let title = '';
+  const candidateHeadings = document.querySelectorAll('article h1, main h1, [role="main"] h1, h1, h2');
+  for (let i = 0; i < candidateHeadings.length; i++) {
+    const text = cleanText(candidateHeadings[i].textContent);
+    if (text && !isNoiseTitle(text)) {
+      title = text;
+      break;
+    }
+  }
 
-  // Company: meta tags or site name
-  const metaSite = document.querySelector('meta[property="og:site_name"]')?.getAttribute('content');
-  const metaCompany = document.querySelector('meta[name="author"], meta[property="business:contact_data:locality"]')?.getAttribute('content');
-  const company = cleanText(metaCompany || metaSite || '');
+  // Company: meta tags or author
+  const metaAuthor = document.querySelector('meta[name="author"], meta[property="business:contact_data:locality"]')?.getAttribute('content');
+  let company = cleanText(metaAuthor || '');
+  if (isNoiseCompany(company)) company = '';
 
   // Look for the largest text container in main or article
   const containers = document.querySelectorAll('article, main, [role="main"], div[class*="job"], div[class*="description"]');
@@ -152,8 +198,8 @@ function extractHeuristicJob(): ParsedJobData | null {
 
     if (description.length > 150) {
       return {
-        title: title || 'Job Posting',
-        company: company || 'Company',
+        title: title || 'Target Role',
+        company: company || 'Target Company',
         location: '',
         description,
         url: window.location.href,
@@ -172,11 +218,8 @@ export const universalParser: JobSiteParser = {
     return true;
   },
   parse(): ParsedJobData | null {
-    // 1. Try Schema.org first (highest fidelity structured data)
     const schemaJob = extractSchemaOrgJob();
     if (schemaJob) return schemaJob;
-
-    // 2. Fall back to heuristic DOM readability
     return extractHeuristicJob();
   }
 };

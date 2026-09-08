@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Sparkles, Coins, LogOut, ExternalLink } from 'lucide-react';
-import { checkSession, fetchProfile, fetchTokens, submitTailor, SessionInfo, TailorResponseData } from './services/api';
+import { checkSession, fetchProfile, fetchTokens, submitTailor, createApplication, SessionInfo, TailorResponseData } from './services/api';
 import { getStoredSettings, saveStoredSettings, TailorSettings, DEFAULT_SETTINGS } from './services/storage';
 import { ParsedJobData } from '../content/parsers/types';
 import { AuthGate } from './components/AuthGate';
@@ -146,7 +146,38 @@ export const App: React.FC = () => {
       };
 
       const result = await submitTailor(settings.apiBaseUrl, payload);
-      setTailorResult(result);
+
+      // Persist to database so "Open in JobFlow Canvas" (/tailor?appId=...) loads live data!
+      let savedAppId: string | undefined = undefined;
+      try {
+        const savedApp = await createApplication(settings.apiBaseUrl, {
+          company: currentJob.company || 'Target Company',
+          role: currentJob.title || 'Target Role',
+          status: 'TAILORED',
+          rawJobDescription: currentJob.description,
+          targetLanguage: settings.cvLanguage,
+          matchScore: result.matchScore || 0,
+          gapAnalysis: result.gapAnalysis || {},
+          techStack: result.jobMetadata?.techStack || '',
+          mainRequirements: result.jobMetadata?.mainRequirements || '',
+          location: currentJob.location || '',
+          customNotes: settings.customNotes || '',
+          documents: [
+            { type: 'CV', content: result.tailoredCv },
+            { type: 'COVER_LETTER', content: result.tailoredCoverLetter }
+          ]
+        });
+        if (savedApp?.id) {
+          savedAppId = savedApp.id;
+        }
+      } catch (saveErr) {
+        console.warn('[JobFlow] Auto-save application warning:', saveErr);
+      }
+
+      setTailorResult({
+        ...result,
+        applicationId: savedAppId
+      });
 
       // Refresh remaining tokens
       const updatedTokens = await fetchTokens(settings.apiBaseUrl);

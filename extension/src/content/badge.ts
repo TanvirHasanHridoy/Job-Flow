@@ -1,10 +1,20 @@
 import { ParsedJobData } from './parsers/types';
 
 const BADGE_HOST_ID = 'jobflow-ai-extension-badge-root';
+let currentBadgePill: HTMLElement | null = null;
+let currentRoleSpan: HTMLElement | null = null;
+
+function formatRole(title?: string): string {
+  if (!title || title === 'Target Role' || title === 'Job') return 'Job';
+  return title.length > 22 ? title.slice(0, 20) + '...' : title;
+}
 
 export function injectQuickBadge(jobData: ParsedJobData | null, onOpenPanel: () => void) {
-  // Check if badge already exists
-  if (document.getElementById(BADGE_HOST_ID)) {
+  const existingHost = document.getElementById(BADGE_HOST_ID);
+  if (existingHost) {
+    if (currentRoleSpan && jobData?.title) {
+      currentRoleSpan.textContent = `Tailor for ${formatRole(jobData.title)}`;
+    }
     return;
   }
 
@@ -14,11 +24,10 @@ export function injectQuickBadge(jobData: ParsedJobData | null, onOpenPanel: () 
   host.style.position = 'fixed';
   host.style.bottom = '24px';
   host.style.right = '24px';
-  host.style.zIndex = '2147483647'; // Max z-index
+  host.style.zIndex = '2147483647';
   host.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
-  // Attach closed Shadow DOM to guarantee style isolation
-  const shadow = host.attachShadow({ mode: 'closed' });
+  const shadow = host.attachShadow({ mode: 'open' });
 
   const style = document.createElement('style');
   style.textContent = `
@@ -78,22 +87,28 @@ export function injectQuickBadge(jobData: ParsedJobData | null, onOpenPanel: () 
   pill.className = 'jobflow-pill';
   pill.title = 'Click to open JobFlow AI and tailor your CV & Cover Letter for this role';
 
-  const roleSnippet = jobData?.title
-    ? (jobData.title.length > 20 ? jobData.title.slice(0, 18) + '...' : jobData.title)
-    : 'Job';
+  const roleText = document.createElement('span');
+  roleText.textContent = `Tailor for ${formatRole(jobData?.title)}`;
+  currentRoleSpan = roleText;
 
-  pill.innerHTML = `
-    <span class="sparkle-icon">✨</span>
-    <span>Tailor for ${roleSnippet}</span>
-    <span class="dismiss-btn" title="Dismiss">✕</span>
-  `;
+  pill.innerHTML = `<span class="sparkle-icon">✨</span>`;
+  pill.appendChild(roleText);
 
-  // Click on pill triggers open
+  const dismiss = document.createElement('span');
+  dismiss.className = 'dismiss-btn';
+  dismiss.title = 'Dismiss';
+  dismiss.textContent = '✕';
+  pill.appendChild(dismiss);
+
+  currentBadgePill = pill;
+
   pill.addEventListener('click', (e) => {
     const target = e.target as HTMLElement;
     if (target.classList.contains('dismiss-btn')) {
       e.stopPropagation();
       host.remove();
+      currentBadgePill = null;
+      currentRoleSpan = null;
       return;
     }
     onOpenPanel();

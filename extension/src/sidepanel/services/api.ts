@@ -127,3 +127,22 @@ export async function submitTailor(baseUrl: string, payload: TailorRequestPayloa
 
   return await res.json();
 }
+
+export async function createApplication(baseUrl: string, appData: any): Promise<any> {
+  const res = await fetch(`${baseUrl}/api/applications`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    },
+    body: JSON.stringify(appData)
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to save tailored application');
+  }
+
+  return await res.json();
+}

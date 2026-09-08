@@ -8,20 +8,29 @@ function cleanText(text: string | null | undefined): string {
     .trim();
 }
 
+const NOISE_TITLES = ['linkedin', 'jobs', 'feed', 'notifications', 'messaging', 'search', 'home'];
+const NOISE_COMPANIES = ['linkedin'];
+
+function isNoiseTitle(title: string): boolean {
+  const lower = title.toLowerCase().trim();
+  return lower.length < 3 || NOISE_TITLES.includes(lower);
+}
+
+function isNoiseCompany(company: string): boolean {
+  const lower = company.toLowerCase().trim();
+  return lower.length < 2 || NOISE_COMPANIES.includes(lower);
+}
+
 function extractStructuredDescription(container: Element | null): string {
   if (!container) return '';
-  // Clone to avoid altering the actual DOM
   const clone = container.cloneNode(true) as HTMLElement;
 
-  // Remove buttons, links that say 'show more', hidden SVGs, dismiss elements
-  clone.querySelectorAll('button, svg, script, style, .artdeco-button').forEach(el => el.remove());
+  clone.querySelectorAll('button, svg, script, style, .artdeco-button, .jobs-description__footer').forEach(el => el.remove());
 
-  // Convert list items to clean markdown bullets
   clone.querySelectorAll('li').forEach(li => {
     li.textContent = `\n• ${li.textContent?.trim() || ''}`;
   });
 
-  // Convert headings and paragraphs to spaced blocks
   clone.querySelectorAll('h1, h2, h3, h4, h5, h6, p').forEach(p => {
     p.textContent = `\n${p.textContent?.trim() || ''}\n`;
   });
@@ -37,52 +46,86 @@ function extractStructuredDescription(container: Element | null): string {
 export const linkedinParser: JobSiteParser = {
   name: 'LinkedIn Jobs',
   matches(url: string) {
-    return /linkedin\.com\/jobs\//i.test(url);
+    return /linkedin\.com\/jobs/i.test(url);
   },
   parse(): ParsedJobData | null {
-    // 1. Role Title
-    const titleEl = document.querySelector(
+    // 1. Locate the Active Detail Container (crucial for split-screen search view)
+    const detailContainer = document.querySelector(
+      '.jobs-search__job-details--container, ' +
+      '.jobs-details__main-content, ' +
+      '.scaffold-layout__detail, ' +
+      'div.job-view-layout, ' +
+      '[data-job-id], ' +
+      'main.scaffold-layout__main'
+    ) || document;
+
+    // 2. Role Title (scoped to detail container first, active card fallback)
+    let title = '';
+    const titleEl = detailContainer.querySelector(
       '.job-details-jobs-unified-top-card__job-title, ' +
       '.jobs-unified-top-card__job-title, ' +
       'h1.t-24, ' +
       '.top-card-layout__title, ' +
-      'h1.job-details-jobs-unified-top-card__job-title'
+      'h1.job-details-jobs-unified-top-card__job-title, ' +
+      'h1'
     );
-    const title = cleanText(titleEl?.textContent);
+    title = cleanText(titleEl?.textContent);
 
-    // 2. Company Name
-    const companyEl = document.querySelector(
+    // Fallback to active card in the left list if detail title is noise
+    if (isNoiseTitle(title)) {
+      const activeCardTitleEl = document.querySelector(
+        '.jobs-search-results-list__list-item--active .job-card-list__title, ' +
+        '.jobs-search-results-list__list-item--active a.job-card-container__link, ' +
+        'li.active .job-card-list__title, ' +
+        '[data-occludable-job-id].active a'
+      );
+      title = cleanText(activeCardTitleEl?.textContent);
+    }
+
+    // 3. Company Name (scoped to detail container first)
+    let company = '';
+    const companyEl = detailContainer.querySelector(
       '.job-details-jobs-unified-top-card__company-name, ' +
       '.jobs-unified-top-card__company-name, ' +
       '.topcard__flavor--black-link, ' +
       'a.topcard__org-name-link, ' +
-      '.jobs-unified-top-card__subtitle-primary-grouping a'
+      '.jobs-unified-top-card__subtitle-primary-grouping a, ' +
+      'a[href*="/company/"]'
     );
-    const company = cleanText(companyEl?.textContent);
+    company = cleanText(companyEl?.textContent);
 
-    // 3. Location & Workplace Type
-    const locEl = document.querySelector(
+    // Fallback to active card in the left list
+    if (isNoiseCompany(company)) {
+      const activeCardCompanyEl = document.querySelector(
+        '.jobs-search-results-list__list-item--active .artdeco-entity-lockup__subtitle, ' +
+        '.jobs-search-results-list__list-item--active .job-card-container__primary-description'
+      );
+      company = cleanText(activeCardCompanyEl?.textContent);
+    }
+
+    // 4. Location & Workplace Type
+    const locEl = detailContainer.querySelector(
       '.job-details-jobs-unified-top-card__primary-description-container, ' +
       '.jobs-unified-top-card__bullet, ' +
       '.topcard__flavor--bullet, ' +
       '.job-details-jobs-unified-top-card__workplace-type'
     );
-    let location = cleanText(locEl?.textContent);
-    // Remove bullet characters if attached
-    location = location.replace(/^[·•\s]+/, '').trim();
+    let location = cleanText(locEl?.textContent).replace(/^[·•\s]+/, '').trim();
 
-    // 4. Job Description
-    const descEl = document.querySelector(
+    // 5. Job Description (scoped strictly to detail container)
+    const descEl = detailContainer.querySelector(
       '#job-details, ' +
       '.jobs-description__content, ' +
       '.jobs-description-content__text, ' +
+      '.jobs-box__html-content, ' +
       '.show-more-less-html__markup, ' +
-      '.description__text'
+      '.description__text, ' +
+      'article'
     );
     const description = extractStructuredDescription(descEl);
 
-    // 5. Salary / Compensation (if shown)
-    const salaryEl = document.querySelector(
+    // 6. Salary / Compensation
+    const salaryEl = detailContainer.querySelector(
       '.job-details-jobs-unified-top-card__job-insight:has(svg), ' +
       '.compensation__salary'
     );
@@ -90,13 +133,14 @@ export const linkedinParser: JobSiteParser = {
       ? cleanText(salaryEl.textContent)
       : undefined;
 
-    if (!title && !description) {
+    // Reject if noise or empty
+    if (isNoiseTitle(title) && !description) {
       return null;
     }
 
     return {
-      title: title || 'Job Posting',
-      company: company || 'Company',
+      title: !isNoiseTitle(title) ? title : 'Target Role',
+      company: !isNoiseCompany(company) ? company : 'Target Company',
       location: location || '',
       description: description || '',
       salary,
