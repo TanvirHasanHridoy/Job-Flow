@@ -51,10 +51,33 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith('/_next') ||
     pathname.includes('.');
 
+  const reqOrigin = request.headers.get('origin') || '';
+  const isExtensionOrAllowedOrigin =
+    reqOrigin.startsWith('chrome-extension://') ||
+    reqOrigin.includes('localhost') ||
+    reqOrigin.includes('127.0.0.1');
+
+  // Handle CORS Preflight for API routes
+  if (request.method === 'OPTIONS' && pathname.startsWith('/api/')) {
+    const preflightHeaders = new Headers();
+    if (isExtensionOrAllowedOrigin) {
+      preflightHeaders.set('Access-Control-Allow-Origin', reqOrigin);
+      preflightHeaders.set('Access-Control-Allow-Credentials', 'true');
+    }
+    preflightHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    preflightHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie');
+    return new NextResponse(null, { status: 204, headers: preflightHeaders });
+  }
+
   // Protect all non-public routes -> redirect to landing page
   if (!user && !isPublicRoute) {
     if (pathname.startsWith('/api/')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      const errRes = NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      if (isExtensionOrAllowedOrigin) {
+        errRes.headers.set('Access-Control-Allow-Origin', reqOrigin);
+        errRes.headers.set('Access-Control-Allow-Credentials', 'true');
+      }
+      return errRes;
     }
     return NextResponse.redirect(new URL('/', origin));
   }
@@ -62,6 +85,12 @@ export async function proxy(request: NextRequest) {
   // Redirect authenticated users away from public-only pages (landing + login)
   if (user && (pathname === '/' || pathname === '/login')) {
     return NextResponse.redirect(new URL('/dashboard', origin));
+  }
+
+  // Set CORS headers on valid API responses
+  if (pathname.startsWith('/api/') && isExtensionOrAllowedOrigin) {
+    response.headers.set('Access-Control-Allow-Origin', reqOrigin);
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
   }
 
   return response;

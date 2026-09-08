@@ -36,6 +36,23 @@ export async function getAuthUserId(): Promise<{ userId: string } | { error: Nex
     }
   );
 
+  // Check Bearer token from header
+  try {
+    const headersList = await headers();
+    const authHeader = headersList.get('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '').trim();
+      if (token) {
+        const { data: { user: tokenUser }, error: tokenErr } = await supabase.auth.getUser(token);
+        if (!tokenErr && tokenUser) {
+          return { userId: tokenUser.id };
+        }
+      }
+    }
+  } catch {
+    // Ignore header check errors
+  }
+
   const { data: { user }, error } = await supabase.auth.getUser();
 
   if (error || !user) {
