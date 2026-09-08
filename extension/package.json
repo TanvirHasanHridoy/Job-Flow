@@ -1,0 +1,29 @@
+{
+  "name": "jobflow-ai-extension",
+  "version": "1.0.0",
+  "description": "JobFlow AI Companion Extension for LinkedIn, Stepstone, Indeed, and Xing",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:sidepanel": "vite build",
+    "build:content": "vite build --config vite.content.config.ts",
+    "build": "npm run build:sidepanel && npm run build:content",
+    "dev": "vite build --watch"
+  },
+  "dependencies": {
+    "lucide-react": "^1.20.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.300",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7"
+  }
+}
