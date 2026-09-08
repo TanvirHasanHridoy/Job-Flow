@@ -3,6 +3,7 @@ import { ParsedJobData } from './parsers/types';
 const BADGE_HOST_ID = 'jobflow-ai-extension-badge-root';
 let currentBadgePill: HTMLElement | null = null;
 let currentRoleSpan: HTMLElement | null = null;
+let currentOnOpen: (() => void) | null = null;
 
 function formatRole(title?: string): string {
   if (!title || title === 'Target Role' || title === 'Job') return 'Job';
@@ -10,10 +11,13 @@ function formatRole(title?: string): string {
 }
 
 export function injectQuickBadge(jobData: ParsedJobData | null, onOpenPanel: () => void) {
+  currentOnOpen = onOpenPanel;
+
   const existingHost = document.getElementById(BADGE_HOST_ID);
   if (existingHost) {
-    if (currentRoleSpan && jobData?.title) {
-      currentRoleSpan.textContent = `Tailor for ${formatRole(jobData.title)}`;
+    const roleSpan = (existingHost.shadowRoot?.querySelector('.role-text') as HTMLElement) || currentRoleSpan;
+    if (roleSpan && jobData?.title) {
+      roleSpan.textContent = `Tailor for ${formatRole(jobData.title)}`;
     }
     return;
   }
@@ -88,6 +92,7 @@ export function injectQuickBadge(jobData: ParsedJobData | null, onOpenPanel: () 
   pill.title = 'Click to open JobFlow AI and tailor your CV & Cover Letter for this role';
 
   const roleText = document.createElement('span');
+  roleText.className = 'role-text';
   roleText.textContent = `Tailor for ${formatRole(jobData?.title)}`;
   currentRoleSpan = roleText;
 
@@ -111,10 +116,15 @@ export function injectQuickBadge(jobData: ParsedJobData | null, onOpenPanel: () 
       currentRoleSpan = null;
       return;
     }
-    onOpenPanel();
+    if (currentOnOpen) {
+      currentOnOpen();
+    }
   });
 
   shadow.appendChild(style);
   shadow.appendChild(pill);
-  document.body.appendChild(host);
+  const mountTarget = document.body || document.documentElement;
+  if (mountTarget) {
+    mountTarget.appendChild(host);
+  }
 }

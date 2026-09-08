@@ -8,24 +8,39 @@ function cleanText(text: string | null | undefined): string {
     .trim();
 }
 
-const NOISE_TITLES = ['linkedin', 'jobs', 'feed', 'notifications', 'messaging', 'search', 'home'];
-const NOISE_COMPANIES = ['linkedin'];
+const JUNK_TITLE_PATTERNS = [
+  /^\s*\d+[\d,]*\+?.*jobs\b/i,
+  /\b\d+[\d,]*\+?\s+jobs\b/i,
+  /\b(jobs|stellen|results|ergebnisse|treffer)\s+(in|found|gefunden)\b/i,
+  /respects your privacy/i,
+  /sign in/i,
+  /join or/i,
+  /notifications/i,
+  /messaging/i,
+  /recommended/i,
+  /^jobs\b/i,
+  /^search\b/i,
+  /^linkedin$/i,
+  /job alerts/i,
+  /manage alerts/i
+];
 
-function isNoiseTitle(title: string): boolean {
-  const lower = title.toLowerCase().trim();
-  return lower.length < 3 || NOISE_TITLES.includes(lower);
+function isJunkTitle(title: string): boolean {
+  if (!title || title.length < 3) return true;
+  return JUNK_TITLE_PATTERNS.some(pattern => pattern.test(title));
 }
 
-function isNoiseCompany(company: string): boolean {
+function isJunkCompany(company: string): boolean {
+  if (!company || company.length < 2) return true;
   const lower = company.toLowerCase().trim();
-  return lower.length < 2 || NOISE_COMPANIES.includes(lower);
+  return lower === 'linkedin' || lower.includes('privacy') || lower.includes('sign in');
 }
 
 function extractStructuredDescription(container: Element | null): string {
   if (!container) return '';
   const clone = container.cloneNode(true) as HTMLElement;
 
-  clone.querySelectorAll('button, svg, script, style, .artdeco-button, .jobs-description__footer').forEach(el => el.remove());
+  clone.querySelectorAll('button, svg, script, style, .artdeco-button, .jobs-description__footer, nav, header').forEach(el => el.remove());
 
   clone.querySelectorAll('li').forEach(li => {
     li.textContent = `\n• ${li.textContent?.trim() || ''}`;
@@ -49,83 +64,83 @@ export const linkedinParser: JobSiteParser = {
     return /linkedin\.com\/jobs/i.test(url);
   },
   parse(): ParsedJobData | null {
-    // 1. Locate the Active Detail Container (crucial for split-screen search view)
-    const detailContainer = document.querySelector(
-      '.jobs-search__job-details--container, ' +
-      '.jobs-details__main-content, ' +
-      '.scaffold-layout__detail, ' +
-      'div.job-view-layout, ' +
-      '[data-job-id], ' +
-      'main.scaffold-layout__main'
-    ) || document;
-
-    // 2. Role Title (scoped to detail container first, active card fallback)
+    // 1. Role Title Candidates (checked in priority order)
     let title = '';
-    const titleEl = detailContainer.querySelector(
+    const titleCandidates = document.querySelectorAll(
       '.job-details-jobs-unified-top-card__job-title, ' +
       '.jobs-unified-top-card__job-title, ' +
+      'h1.top-card-layout__title, ' +
+      'h2.top-card-layout__title, ' +
+      '.topcard__title, ' +
       'h1.t-24, ' +
-      '.top-card-layout__title, ' +
-      'h1.job-details-jobs-unified-top-card__job-title, ' +
-      'h1'
+      '.jobs-search-results-list__list-item--active .job-card-list__title, ' +
+      '.jobs-search-results-list__list-item--active .job-card-container__link, ' +
+      'ul.jobs-search__results-list li:first-child .base-search-card__title, ' +
+      '.base-search-card__title, ' +
+      '.job-card-list__title'
     );
-    title = cleanText(titleEl?.textContent);
-
-    // Fallback to active card in the left list if detail title is noise
-    if (isNoiseTitle(title)) {
-      const activeCardTitleEl = document.querySelector(
-        '.jobs-search-results-list__list-item--active .job-card-list__title, ' +
-        '.jobs-search-results-list__list-item--active a.job-card-container__link, ' +
-        'li.active .job-card-list__title, ' +
-        '[data-occludable-job-id].active a'
-      );
-      title = cleanText(activeCardTitleEl?.textContent);
+    for (const el of titleCandidates) {
+      const txt = cleanText(el.textContent);
+      if (!isJunkTitle(txt)) {
+        title = txt;
+        break;
+      }
     }
 
-    // 3. Company Name (scoped to detail container first)
+    // 2. Company Candidates (checked in priority order)
     let company = '';
-    const companyEl = detailContainer.querySelector(
+    const companyCandidates = document.querySelectorAll(
       '.job-details-jobs-unified-top-card__company-name, ' +
       '.jobs-unified-top-card__company-name, ' +
-      '.topcard__flavor--black-link, ' +
       'a.topcard__org-name-link, ' +
-      '.jobs-unified-top-card__subtitle-primary-grouping a, ' +
+      '.topcard__flavor--black-link, ' +
+      '[data-tracking-control-name="public_jobs_topcard-org-name"], ' +
+      '.jobs-search-results-list__list-item--active .job-card-container__primary-description, ' +
+      '.jobs-search-results-list__list-item--active .artdeco-entity-lockup__subtitle, ' +
+      'ul.jobs-search__results-list li:first-child .base-search-card__subtitle, ' +
+      '.base-search-card__subtitle, ' +
+      'a[data-tracking-control-name*="company"], ' +
       'a[href*="/company/"]'
     );
-    company = cleanText(companyEl?.textContent);
-
-    // Fallback to active card in the left list
-    if (isNoiseCompany(company)) {
-      const activeCardCompanyEl = document.querySelector(
-        '.jobs-search-results-list__list-item--active .artdeco-entity-lockup__subtitle, ' +
-        '.jobs-search-results-list__list-item--active .job-card-container__primary-description'
-      );
-      company = cleanText(activeCardCompanyEl?.textContent);
+    for (const el of companyCandidates) {
+      const txt = cleanText(el.textContent);
+      if (!isJunkCompany(txt)) {
+        company = txt;
+        break;
+      }
     }
 
-    // 4. Location & Workplace Type
-    const locEl = detailContainer.querySelector(
+    // 3. Location
+    let location = '';
+    const locCandidates = document.querySelectorAll(
       '.job-details-jobs-unified-top-card__primary-description-container, ' +
-      '.jobs-unified-top-card__bullet, ' +
       '.topcard__flavor--bullet, ' +
-      '.job-details-jobs-unified-top-card__workplace-type'
+      '.topcard__flavor:not(.topcard__flavor--black-link), ' +
+      '.job-details-jobs-unified-top-card__workplace-type, ' +
+      'ul.jobs-search__results-list li:first-child .job-search-card__location, ' +
+      '.job-search-card__location'
     );
-    let location = cleanText(locEl?.textContent).replace(/^[·•\s]+/, '').trim();
 
-    // 5. Job Description (scoped strictly to detail container)
-    const descEl = detailContainer.querySelector(
+    for (const el of locCandidates) {
+      const txt = cleanText(el.textContent).replace(/^[·•\s]+/, '').trim();
+      if (txt && txt !== company && !txt.toLowerCase().includes('sign in')) {
+        location = txt;
+        break;
+      }
+    }
+
+    // 4. Description
+    const descEl = document.querySelector(
+      '.show-more-less-html__markup, ' +
       '#job-details, ' +
       '.jobs-description__content, ' +
-      '.jobs-description-content__text, ' +
       '.jobs-box__html-content, ' +
-      '.show-more-less-html__markup, ' +
-      '.description__text, ' +
       'article'
     );
     const description = extractStructuredDescription(descEl);
 
-    // 6. Salary / Compensation
-    const salaryEl = detailContainer.querySelector(
+    // 5. Salary
+    const salaryEl = document.querySelector(
       '.job-details-jobs-unified-top-card__job-insight:has(svg), ' +
       '.compensation__salary'
     );
@@ -133,14 +148,13 @@ export const linkedinParser: JobSiteParser = {
       ? cleanText(salaryEl.textContent)
       : undefined;
 
-    // Reject if noise or empty
-    if (isNoiseTitle(title) && !description) {
+    if (isJunkTitle(title) && !description) {
       return null;
     }
 
     return {
-      title: !isNoiseTitle(title) ? title : 'Target Role',
-      company: !isNoiseCompany(company) ? company : 'Target Company',
+      title: !isJunkTitle(title) ? title : 'Target Role',
+      company: !isJunkCompany(company) ? company : 'Target Company',
       location: location || '',
       description: description || '',
       salary,

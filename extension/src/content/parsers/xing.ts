@@ -5,31 +5,44 @@ function cleanText(text: string | null | undefined): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
-const NOISE_TITLES = [
-  'jobsuche',
-  'jobs',
-  'finde deinen job',
-  'dein nächster karriereschritt',
-  'empfehlungen',
-  'xing',
-  'xing jobs',
-  'suche',
-  'meine jobs',
-  'gespeicherte jobs'
+const JUNK_TITLE_PATTERNS = [
+  /^\s*\d+[\d,]*\s+(jobs|stellen|treffer)\b/i,
+  /\b\d+[\d,]*\s+(jobs|stellen|treffer)\b/i,
+  /\b(jobs|stellen|treffer)\s+(found|gefunden)\b/i,
+  /^\s*\d+[\d,]*\+?.*(jobs|stellen)\b/i,
+  /jobsuche/i,
+  /^search\b/i,
+  /recommended/i,
+  /empfehlungen/i,
+  /not available/i,
+  /gespeicherte jobs/i,
+  /^xing\b/i,
+  /finde deinen/i
 ];
 
-const NOISE_COMPANIES = ['xing', 'xing jobs', 'new work se', 'kununu'];
+const JUNK_COMPANY_WORDS = [
+  'urgently hiring',
+  'dringend gesucht',
+  'top job',
+  'anzeige',
+  'sponsored',
+  'featured',
+  'neu',
+  'new',
+  'xing',
+  'kununu',
+  'new work se'
+];
 
-function isNoiseTitle(title: string): boolean {
-  const lower = title.toLowerCase().trim();
-  if (lower.length < 3) return true;
-  return NOISE_TITLES.some(noise => lower.includes(noise));
+function isJunkTitle(title: string): boolean {
+  if (!title || title.length < 3) return true;
+  return JUNK_TITLE_PATTERNS.some(p => p.test(title));
 }
 
-function isNoiseCompany(company: string): boolean {
+function isJunkCompany(company: string): boolean {
+  if (!company || company.length < 2) return true;
   const lower = company.toLowerCase().trim();
-  if (lower.length < 2) return true;
-  return NOISE_COMPANIES.some(noise => lower === noise);
+  return JUNK_COMPANY_WORDS.some(j => lower.includes(j));
 }
 
 function extractStructuredDescription(container: Element | null): string {
@@ -54,125 +67,109 @@ function extractStructuredDescription(container: Element | null): string {
     .join('\n');
 }
 
-/**
- * Check for Schema.org JobPosting embedded by Xing
- */
-function extractXingJsonLd(): { title?: string; company?: string; location?: string; description?: string } | null {
-  try {
-    const scripts = document.querySelectorAll('script[type="application/ld+json"]');
-    for (let i = 0; i < scripts.length; i++) {
-      const text = scripts[i].textContent;
-      if (!text) continue;
-      const parsed = JSON.parse(text);
-      const items = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.['@graph']) ? parsed['@graph'] : [parsed];
-      for (const item of items) {
-        if (item?.['@type'] === 'JobPosting') {
-          const t = cleanText(item.title);
-          const c = cleanText(typeof item.hiringOrganization === 'string' ? item.hiringOrganization : item.hiringOrganization?.name);
-          if (!isNoiseTitle(t)) {
-            return {
-              title: t,
-              company: !isNoiseCompany(c) ? c : undefined,
-              location: cleanText(item.jobLocation?.address?.addressLocality),
-              description: typeof item.description === 'string' ? item.description.replace(/<[^>]+>/g, ' ').trim() : undefined
-            };
-          }
-        }
-      }
-    }
-  } catch {
-    // Ignore JSON-LD parse errors
-  }
-  return null;
-}
-
 export const xingParser: JobSiteParser = {
   name: 'Xing',
   matches(url: string) {
     return /xing\.com\/jobs/i.test(url);
   },
   parse(): ParsedJobData | null {
-    // 1. Try embedded JSON-LD first for maximum accuracy
-    const jsonLd = extractXingJsonLd();
+    // 1. Role Title Candidates (checked in priority order)
+    let title = '';
+    let matchedTitleEl: Element | null = null;
+    const titleCandidates = document.querySelectorAll(
+      '[data-testid="job-title"], ' +
+      '[data-testid="job-teaser-list-title"], ' +
+      '[data-testid="job-teaser-card-title"], ' +
+      'h1[class*="job-title"], ' +
+      'h2[class*="job-title"], ' +
+      '[data-testid="headline"]'
+    );
+    for (const el of titleCandidates) {
+      const txt = cleanText(el.textContent);
+      if (!isJunkTitle(txt)) {
+        title = txt;
+        matchedTitleEl = el;
+        break;
+      }
+    }
 
-    // 2. Identify detail container (right-hand panel or main article)
-    const detailContainer = document.querySelector(
-      '[data-testid="job-details"], ' +
-      '[data-testid="job-preview"], ' +
-      'article[data-testid*="job"], ' +
-      'main [data-testid="job-details"], ' +
-      'section[data-testid*="detail"], ' +
-      'main'
-    ) || document;
+    // 2. Company Candidates (checked in priority order)
+    let company = '';
+    const companyCandidates = document.querySelectorAll(
+      '[data-testid="company-name"], ' +
+      '[data-testid="job-teaser-card-company"], ' +
+      '[data-testid="job-teaser-list-company"], ' +
+      'a[href*="/companies/"], ' +
+      'a[href*="/company/"], ' +
+      'div[class*="company-name"]'
+    );
+    for (const el of companyCandidates) {
+      const txt = cleanText(el.textContent);
+      if (!isJunkCompany(txt)) {
+        company = txt;
+        break;
+      }
+    }
 
-    // 3. Extract Role Title (strictly filtered for noise like 'Jobsuche')
-    let title = jsonLd?.title || '';
-    if (!title || isNoiseTitle(title)) {
-      const candidateElements = detailContainer.querySelectorAll(
-        '[data-testid="job-title"], ' +
-        '[data-testid="headline"], ' +
-        'h1[class*="job-title"], ' +
-        'h2[data-testid="job-title"], ' +
-        'h1, h2'
-      );
-      for (let i = 0; i < candidateElements.length; i++) {
-        const text = cleanText(candidateElements[i].textContent);
-        if (text && !isNoiseTitle(text)) {
-          title = text;
-          break;
+    // If company was not in a separate testid, parse the card container around the matched title
+    if (!company && matchedTitleEl) {
+      const card = matchedTitleEl.closest('div[class*="job-teaser"], article, li');
+      if (card) {
+        const lines = (card as HTMLElement).innerText?.split('\n').map(l => l.trim()).filter(Boolean) || [];
+        for (const line of lines) {
+          if (line !== title && !isJunkCompany(line) && !isJunkTitle(line) && line.length > 2) {
+            company = line;
+            break;
+          }
         }
       }
     }
 
-    // 4. Extract Company Name
-    let company = jsonLd?.company || '';
-    if (!company || isNoiseCompany(company)) {
-      const candidateCompany = detailContainer.querySelector(
-        '[data-testid="company-name"], ' +
-        'a[href*="/companies/"], ' +
-        'a[href*="/company/"], ' +
-        '[data-testid="sub-title"], ' +
-        'span[class*="company-name"], ' +
-        'div[class*="company-name"]'
-      );
-      const text = cleanText(candidateCompany?.textContent);
-      if (text && !isNoiseCompany(text)) {
-        company = text;
+    // 3. Location
+    const locEl = document.querySelector(
+      '[data-testid="job-location"], ' +
+      '[data-testid="location"], ' +
+      '[data-testid="workplace-type"], ' +
+      'span[class*="location"]'
+    );
+    let location = cleanText(locEl?.textContent);
+    if (!location && matchedTitleEl) {
+      const card = matchedTitleEl.closest('div[class*="job-teaser"], article, li');
+      if (card) {
+        const lines = (card as HTMLElement).innerText?.split('\n').map(l => l.trim()).filter(Boolean) || [];
+        // Typically title -> company -> location
+        const foundIndex = lines.indexOf(company);
+        if (foundIndex !== -1 && lines[foundIndex + 1]) {
+          location = lines[foundIndex + 1];
+        }
       }
     }
 
-    // 5. Extract Location
-    let location = jsonLd?.location || '';
-    if (!location) {
-      const candidateLoc = detailContainer.querySelector(
-        '[data-testid="job-location"], ' +
-        '[data-testid="location"], ' +
-        '[data-testid="workplace-type"], ' +
-        'span[class*="location"]'
-      );
-      location = cleanText(candidateLoc?.textContent);
-    }
-
-    // 6. Extract Description
-    let description = '';
-    const descEl = detailContainer.querySelector(
+    // 4. Description
+    const descEl = document.querySelector(
       '[data-testid="job-description"], ' +
       '[data-testid="description-content"], ' +
       'article[class*="job-description"], ' +
-      'div[class*="job-description"], ' +
-      'section[class*="description"], ' +
-      'article'
+      'article[data-testid="job-search-result"]'
     );
-    description = extractStructuredDescription(descEl) || jsonLd?.description || '';
+    let description = extractStructuredDescription(descEl);
 
-    // If title is noise and no description, return null
-    if (isNoiseTitle(title) && !description) {
+    // Fallback description from teaser card text if on search listing
+    if (!description && matchedTitleEl) {
+      const card = matchedTitleEl.closest('div[class*="job-teaser"], article, li');
+      if (card) {
+        description = extractStructuredDescription(card);
+      }
+    }
+
+
+    if (isJunkTitle(title) && !description) {
       return null;
     }
 
     return {
-      title: !isNoiseTitle(title) ? title : 'Target Role',
-      company: !isNoiseCompany(company) ? company : 'Target Company',
+      title: !isJunkTitle(title) ? title : 'Target Role',
+      company: !isJunkCompany(company) ? company : 'Target Company',
       location: location || '',
       description: description || '',
       url: window.location.href,

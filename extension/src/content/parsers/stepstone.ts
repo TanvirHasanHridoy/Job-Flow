@@ -46,6 +46,8 @@ export const stepstoneParser: JobSiteParser = {
     // 2. Company Name
     const companyEl = document.querySelector(
       '[data-testid="company-name"], ' +
+      '[data-at="job-item-company-name"], ' +
+      'span[data-at*="company"], ' +
       'a[data-genesis-element="ANCHOR"][href*="/cmp/"], ' +
       '.listing-header-company, ' +
       '.at-listing-company-name'
@@ -55,6 +57,8 @@ export const stepstoneParser: JobSiteParser = {
     // 3. Location
     const locationEl = document.querySelector(
       '[data-testid="job-location"], ' +
+      '[data-at="job-item-location"], ' +
+      'span[data-at*="location"], ' +
       '.listing-header-location, ' +
       'span[data-genesis-element="TEXT"]'
     );

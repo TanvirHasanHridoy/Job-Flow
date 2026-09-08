@@ -5,8 +5,12 @@ let cachedJobData: ParsedJobData | null = null;
 let lastUrl = window.location.href;
 let clickTimeout: any = null;
 
+console.log('[JobFlow] Content script loaded on:', window.location.href);
+
 async function attemptParseAndDisplay() {
+  console.log('[JobFlow] attemptParseAndDisplay invoked on:', window.location.href);
   const parsed = await parseCurrentPage();
+  console.log('[JobFlow] parseCurrentPage returned:', parsed);
   if (!parsed) return;
 
   const isDifferent =
@@ -38,20 +42,23 @@ async function attemptParseAndDisplay() {
   }
 }
 
-// Initial parse after DOM is loaded
+// Initial parse after DOM is loaded with hydration retry
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     setTimeout(attemptParseAndDisplay, 1200);
+    setTimeout(attemptParseAndDisplay, 2800);
   });
 } else {
   setTimeout(attemptParseAndDisplay, 1200);
+  setTimeout(attemptParseAndDisplay, 2800);
 }
 
 // Observe URL / History changes in SPAs (LinkedIn, Xing, Indeed, StepStone)
 setInterval(() => {
   if (window.location.href !== lastUrl) {
     lastUrl = window.location.href;
-    setTimeout(attemptParseAndDisplay, 1200);
+    setTimeout(attemptParseAndDisplay, 800);
+    setTimeout(attemptParseAndDisplay, 2000);
   }
 }, 1000);
 
@@ -62,8 +69,17 @@ document.addEventListener('click', (e) => {
     '.jobs-search-results-list li, ' +
     '[data-occludable-job-id], ' +
     '.job-card-container, ' +
+    '.base-card, ' +
+    'ul.jobs-search__results-list li, ' +
     '[data-testid*="job-card"], ' +
+    '[data-testid="job-teaser-list-title"], ' +
+    'div[class*="job-teaser"], ' +
+    'article[data-testid="job-search-result"], ' +
     'article[data-testid*="job"], ' +
+    'article[data-genesis-element="CARD"], ' +
+    '[data-testid="job-item"], ' +
+    'div[class*="job_seen_beacon"], ' +
+    '.jobsearch-ResultsList li, ' +
     'a[href*="/jobs/view/"], ' +
     'a[href*="/jobs/search"]'
   );
@@ -72,7 +88,7 @@ document.addEventListener('click', (e) => {
     clearTimeout(clickTimeout);
     clickTimeout = setTimeout(() => {
       attemptParseAndDisplay();
-    }, 700); // 700ms debounce allows the async detail container to fetch & render
+    }, 600); // 600ms allows the SPA detail container to fetch & render
   }
 }, true);
 
