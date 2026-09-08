@@ -29,13 +29,33 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  const devAuthCookie = request.cookies.get('jobmaster_dev_auth')?.value;
+  let devAuthCookie = request.cookies.get('jobmaster_dev_auth')?.value || request.headers.get('x-dev-auth');
+  const sessionCookieHeader = request.headers.get('x-session-cookie');
+  if (!devAuthCookie && sessionCookieHeader && sessionCookieHeader.includes('jobmaster_dev_auth=')) {
+    const match = sessionCookieHeader.match(/jobmaster_dev_auth=([^;]+)/);
+    if (match && match[1]) {
+      devAuthCookie = match[1];
+    }
+  }
+
+  // Check Bearer token from header
+  const authHeader = request.headers.get('authorization');
+  let tokenUser: any = null;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.replace('Bearer ', '').trim();
+    if (token) {
+      try {
+        const { data } = await supabase.auth.getUser(token);
+        if (data?.user) tokenUser = data.user;
+      } catch { }
+    }
+  }
 
   const {
     data: { user: supabaseUser },
   } = await supabase.auth.getUser();
 
-  const user = supabaseUser || (devAuthCookie ? { id: devAuthCookie, email: 'dev@jobmaster.local' } : null);
+  const user = supabaseUser || tokenUser || (devAuthCookie ? { id: devAuthCookie, email: 'dev@jobmaster.local' } : null);
 
   const { pathname } = request.nextUrl;
 

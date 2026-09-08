@@ -3999,12 +3999,14 @@ export default function TailorWorkspace() {
         const outreachDoc = app.documents.find((d: any) => d.type === 'OUTREACH');
 
         if (cvDoc && clDoc) {
-          const parsedCv = JSON.parse(cvDoc.content);
+          const parsedCv = typeof cvDoc.content === 'string' ? JSON.parse(cvDoc.content) : cvDoc.content;
+          const parsedCl = typeof clDoc.content === 'string' ? JSON.parse(clDoc.content) : clDoc.content;
+          const gap = typeof app.gapAnalysis === 'string' ? JSON.parse(app.gapAnalysis) : (app.gapAnalysis || {});
           setResult({
-            matchScore: app.matchScore,
-            gapAnalysis: app.gapAnalysis,
+            matchScore: app.matchScore || 0,
+            gapAnalysis: gap,
             tailoredCv: parsedCv,
-            tailoredCoverLetter: JSON.parse(clDoc.content),
+            tailoredCoverLetter: parsedCl,
             jobMetadata: {
               techStack: app.techStack || '',
               mainRequirements: app.mainRequirements || '',
@@ -4015,12 +4017,12 @@ export default function TailorWorkspace() {
               remoteOrPhysical: app.remoteOrPhysical || ''
             }
           });
-          if (parsedCv.sectionOrder) {
+          if (parsedCv && parsedCv.sectionOrder) {
             setSectionOrder(parsedCv.sectionOrder);
           } else {
             setSectionOrder(['summary', 'work', 'education', 'projects', 'skills', 'languages']);
           }
-          if (parsedCv.projects && parsedCv.projects.length > 0) {
+          if (parsedCv && parsedCv.projects && parsedCv.projects.length > 0) {
             setSelectedProjects(parsedCv.projects.map((p: any) => p.name));
           }
         }

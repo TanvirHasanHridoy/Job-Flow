@@ -49,12 +49,43 @@ export interface TailorResponseData {
   jobMetadata?: any;
 }
 
+async function getAuthHeaders(baseUrl: string): Promise<Record<string, string>> {
+  const headers: Record<string, string> = {
+    'Accept': 'application/json'
+  };
+
+  if (typeof chrome !== 'undefined' && chrome.cookies?.getAll) {
+    try {
+      const cookies = await chrome.cookies.getAll({ url: baseUrl });
+      if (cookies && cookies.length > 0) {
+        // Forward cookies explicitly to bypass browser SameSite=Lax cross-origin blocking
+        headers['x-session-cookie'] = cookies.map(c => `${c.name}=${c.value}`).join('; ');
+        
+        const devCookie = cookies.find(c => c.name === 'jobmaster_dev_auth');
+        if (devCookie) {
+          headers['x-dev-auth'] = devCookie.value;
+        }
+
+        const sbCookie = cookies.find(c => c.name.includes('-auth-token'));
+        if (sbCookie) {
+          headers['x-supabase-auth'] = sbCookie.value;
+        }
+      }
+    } catch (e) {
+      console.warn('[JobFlow API] Could not read cookies:', e);
+    }
+  }
+
+  return headers;
+}
+
 export async function checkSession(baseUrl: string): Promise<SessionInfo> {
   try {
+    const authHeaders = await getAuthHeaders(baseUrl);
     const res = await fetch(`${baseUrl}/api/auth/session`, {
       method: 'GET',
       credentials: 'include',
-      headers: { 'Accept': 'application/json' }
+      headers: authHeaders
     });
 
     if (!res.ok) {
@@ -71,10 +102,11 @@ export async function checkSession(baseUrl: string): Promise<SessionInfo> {
 
 export async function fetchProfile(baseUrl: string): Promise<any> {
   try {
+    const authHeaders = await getAuthHeaders(baseUrl);
     const res = await fetch(`${baseUrl}/api/profile`, {
       method: 'GET',
       credentials: 'include',
-      headers: { 'Accept': 'application/json' }
+      headers: authHeaders
     });
 
     if (!res.ok) return null;
@@ -87,10 +119,11 @@ export async function fetchProfile(baseUrl: string): Promise<any> {
 
 export async function fetchTokens(baseUrl: string): Promise<number> {
   try {
+    const authHeaders = await getAuthHeaders(baseUrl);
     const res = await fetch(`${baseUrl}/api/tokens`, {
       method: 'GET',
       credentials: 'include',
-      headers: { 'Accept': 'application/json' }
+      headers: authHeaders
     });
 
     if (!res.ok) return 0;
@@ -102,12 +135,13 @@ export async function fetchTokens(baseUrl: string): Promise<number> {
 }
 
 export async function submitTailor(baseUrl: string, payload: TailorRequestPayload): Promise<TailorResponseData> {
+  const authHeaders = await getAuthHeaders(baseUrl);
   const res = await fetch(`${baseUrl}/api/tailor`, {
     method: 'POST',
     credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
+      ...authHeaders,
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify(payload)
   });
@@ -129,12 +163,13 @@ export async function submitTailor(baseUrl: string, payload: TailorRequestPayloa
 }
 
 export async function createApplication(baseUrl: string, appData: any): Promise<any> {
+  const authHeaders = await getAuthHeaders(baseUrl);
   const res = await fetch(`${baseUrl}/api/applications`, {
     method: 'POST',
     credentials: 'include',
     headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
+      ...authHeaders,
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify(appData)
   });
