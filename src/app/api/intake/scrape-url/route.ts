@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
-import { deductTokens, TOKEN_PRICING } from '@/lib/tokens';
+import { deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { getAiConfig } from '@/lib/ai';
 import * as cheerio from 'cheerio';
 
@@ -17,34 +17,57 @@ function getRandomUserAgent() {
   return BROWSER_USER_AGENTS[Math.floor(Math.random() * BROWSER_USER_AGENTS.length)];
 }
 
-function isAntiBotProtected(text: string): boolean {
-  const lowercase = text.toLowerCase();
-  return (
-    lowercase.includes('cloudflare') ||
-    lowercase.includes('captcha') ||
-    lowercase.includes('security challenge') ||
-    lowercase.includes('ddos protection') ||
-    lowercase.includes('checking your browser') ||
-    lowercase.includes('robot check') ||
-    lowercase.includes('shield check') ||
-    lowercase.includes('access denied')
-  );
+function isAntiBotProtected(html: string): boolean {
+  // Only inspect the title and visible text. Scanning raw markup produces
+  // false positives because most normal pages reference "captcha"/"cloudflare"
+  // somewhere in their scripts or third-party embeds.
+  const withoutScripts = html
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ');
+
+  const title = (withoutScripts.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || '').toLowerCase();
+  const visibleText = withoutScripts
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+    .slice(0, 4000);
+
+  const challengeMarkers = [
+    'just a moment...',
+    'attention required! | cloudflare',
+    'enable javascript and cookies to continue',
+    'checking your browser before accessing',
+    'please verify you are a human',
+    'verify you are human',
+    'are you a robot',
+    'cf-browser-verification',
+    'ddos protection by'
+  ];
+
+  return challengeMarkers.some(marker => title.includes(marker) || visibleText.includes(marker));
 }
 
 export async function POST(req: Request) {
+  let userId: string | null = null;
+  let tokensDeducted = false;
+  let refunded = false;
+
+  const refundTokens = async () => {
+    if (!tokensDeducted || refunded || !userId) return;
+    refunded = true;
+    try {
+      await topUpTokens(userId, TOKEN_PRICING.INTAKE);
+    } catch (refundErr) {
+      console.error('Failed to refund scrape tokens:', refundErr);
+    }
+  };
+
   try {
     const auth = await getAuthUserId();
     if ('error' in auth) return auth.error;
-    const { userId } = auth;
-
-    // Deduct tokens
-    const deduction = await deductTokens(userId, TOKEN_PRICING.INTAKE);
-    if (!deduction.success) {
-      return NextResponse.json(
-        { error: 'Insufficient tokens. Please top up your account.' },
-        { status: 403 }
-      );
-    }
+    userId = auth.userId;
 
     const { url } = await req.json();
 
@@ -52,8 +75,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Please provide a valid job posting URL.' }, { status: 400 });
     }
 
+    // Deduct tokens only after the request has been validated
+    const deduction = await deductTokens(userId, TOKEN_PRICING.INTAKE);
+    if (!deduction.success) {
+      return NextResponse.json(
+        { error: 'Insufficient tokens. Please top up your account.' },
+        { status: 403 }
+      );
+    }
+    tokensDeducted = true;
+
     const aiConfig = getAiConfig();
     if (!aiConfig.apiKey) {
+      await refundTokens();
       return NextResponse.json(
         { error: `${aiConfig.provider} API Key is not configured in environment variables.` },
         { status: 500 }
@@ -92,7 +126,7 @@ export async function POST(req: Request) {
     }
 
     // Parse text and check for anti-bot
-    let isBlocked = status === 403 || status === 429 || !html || isAntiBotProtected(html);
+    let isBlocked = status >= 400 || !html || isAntiBotProtected(html);
 
     // --- TIER 2: Proxy Fallback / Scraper Service ---
     if (isBlocked) {
@@ -126,6 +160,7 @@ export async function POST(req: Request) {
 
     // --- TIER 3: Fallback Notice ---
     if (isBlocked || !html.trim()) {
+      await refundTokens();
       return NextResponse.json({
         fallback: true,
         message: 'Anti-bot security (like Cloudflare or CAPTCHA) blocked automated extraction for this site. Please copy-paste the text of the job description directly into the workspace.'
@@ -142,6 +177,7 @@ export async function POST(req: Request) {
     const rawText = $('body').text().replace(/\s+/g, ' ').trim();
 
     if (rawText.length < 100) {
+      await refundTokens();
       return NextResponse.json({
         fallback: true,
         message: 'Extracted content seems too short or empty. Please copy-paste the job description text manually.'
@@ -179,25 +215,59 @@ Please parse and return the JSON object.`;
     //   })
     // });
 
-    const response = await fetch(aiConfig.apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${aiConfig.apiKey}`
-      },
-      body: JSON.stringify({
-        model: aiConfig.model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: promptContent }
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.1
-      })
-    });
+    // Retry transient rate limits / upstream outages before giving up.
+    let response: Response | null = null;
+    let lastError: Error | null = null;
+    const maxRetries = 2;
 
-    if (!response.ok) {
-      const errorText = await response.text();
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          const delay = attempt === 1 ? 1200 : 2500;
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+
+        response = await fetch(aiConfig.apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${aiConfig.apiKey}`
+          },
+          body: JSON.stringify({
+            model: aiConfig.model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: promptContent }
+            ],
+            response_format: { type: 'json_object' },
+            temperature: 0.1
+          }),
+          signal: AbortSignal.timeout(90000)
+        });
+
+        if (response.ok) {
+          lastError = null;
+          break;
+        }
+
+        const isRetryable = response.status === 429 || response.status === 500 || response.status === 502 || response.status === 503 || response.status === 504;
+        if (!isRetryable) break;
+      } catch (err: any) {
+        lastError = err;
+        if (attempt === maxRetries) break;
+      }
+    }
+
+    if (!response || !response.ok) {
+      await refundTokens();
+
+      if (!response) {
+        const message = lastError?.message || 'Failed to communicate with AI model';
+        console.error(`${aiConfig.provider} API request failed during URL scrape parsing:`, message);
+        return NextResponse.json({ error: message }, { status: 502 });
+      }
+
+      const errorText = await response.text().catch(() => '');
       console.error(`${aiConfig.provider} API Error during URL scrape parsing:`, errorText);
       return NextResponse.json(
         { error: `${aiConfig.provider} API returned status ${response.status}: ${errorText}` },
@@ -205,8 +275,17 @@ Please parse and return the JSON object.`;
       );
     }
 
-    const resJson = await response.json();
-    const parsedData = JSON.parse(resJson.choices[0].message.content);
+    let parsedData: any;
+    try {
+      const resJson = await response.json();
+      const content = resJson.choices?.[0]?.message?.content || '';
+      if (!content.trim()) throw new Error('AI returned an empty response');
+      parsedData = JSON.parse(content);
+    } catch (parseErr: any) {
+      await refundTokens();
+      console.error('Failed to parse scrape AI output:', parseErr);
+      return NextResponse.json({ error: 'AI produced invalid JSON output. Please retry.' }, { status: 502 });
+    }
 
     return NextResponse.json({
       fallback: false,
@@ -214,6 +293,7 @@ Please parse and return the JSON object.`;
       ...parsedData
     });
   } catch (error: any) {
+    await refundTokens();
     console.error('Scrape job URL API error:', error);
     return NextResponse.json({ error: error.message || 'An error occurred during URL scraping' }, { status: 500 });
   }
