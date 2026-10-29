@@ -84,8 +84,11 @@ export async function proxy(request: NextRequest) {
       preflightHeaders.set('Access-Control-Allow-Origin', reqOrigin);
       preflightHeaders.set('Access-Control-Allow-Credentials', 'true');
     }
-    preflightHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    preflightHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie');
+    preflightHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    preflightHeaders.set(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization, Cookie, X-Dev-Auth, X-Session-Cookie, X-Supabase-Auth'
+    );
     return new NextResponse(null, { status: 204, headers: preflightHeaders });
   }
 
