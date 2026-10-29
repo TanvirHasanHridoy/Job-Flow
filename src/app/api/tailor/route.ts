@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUserId } from '@/lib/auth';
 import { classifySkillCategory } from '@/lib/skills';
-import { getUserTokens, deductTokens, TOKEN_PRICING } from '@/lib/tokens';
+import { getUserTokens, deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
 import { getAiConfig } from '@/lib/ai';
 import { formatCityCountry } from '@/lib/customSections';
@@ -12,10 +12,24 @@ import { buildBulletMatrixSystemPrompt } from '@/lib/bulletMatrixPrompts';
 // const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
 export async function POST(req: Request) {
+  let userId: string | null = null;
+  let tokensDeducted = false;
+  let refunded = false;
+
+  const refundTokens = async () => {
+    if (!tokensDeducted || refunded || !userId) return;
+    refunded = true;
+    try {
+      await topUpTokens(userId, TOKEN_PRICING.TAILOR);
+    } catch (refundErr) {
+      console.error('Failed to refund tailoring tokens:', refundErr);
+    }
+  };
+
   try {
     const auth = await getAuthUserId();
     if ('error' in auth) return auth.error;
-    const { userId } = auth;
+    userId = auth.userId;
 
     const {
       jobDescription,
@@ -84,9 +98,11 @@ export async function POST(req: Request) {
         { status: 403 }
       );
     }
+    tokensDeducted = true;
 
     const aiConfig = getAiConfig();
     if (!aiConfig.apiKey) {
+      await refundTokens();
       return NextResponse.json({ error: `${aiConfig.provider} API Key is not configured in environment variables` }, { status: 500 });
     }
 
@@ -398,24 +414,81 @@ ${contextStr}`
     //   body: JSON.stringify({ model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro', ...payload })
     // });
 
-    const response = await fetch(aiConfig.apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${aiConfig.apiKey}`
-      },
-      body: JSON.stringify(payload)
-    });
+    // Retry transient rate limits / upstream outages before giving up.
+    let response: Response | null = null;
+    let lastError: Error | null = null;
+    const maxRetries = 2;
 
-    if (!response.ok) {
-      const errorText = await response.text();
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          const delay = attempt === 1 ? 1200 : 2500;
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+
+        response = await fetch(aiConfig.apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${aiConfig.apiKey}`
+          },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(120000)
+        });
+
+        if (response.ok) {
+          lastError = null;
+          break;
+        }
+
+        const isRetryable = response.status === 429 || response.status === 500 || response.status === 502 || response.status === 503 || response.status === 504;
+        if (!isRetryable) break;
+      } catch (err: any) {
+        lastError = err;
+        if (attempt === maxRetries) break;
+      }
+    }
+
+    if (!response || !response.ok) {
+      await refundTokens();
+
+      if (!response) {
+        const message = lastError?.message || 'Failed to communicate with AI model';
+        console.error(`${aiConfig.provider} API request failed:`, message);
+        return NextResponse.json({ error: `${aiConfig.provider} API request failed: ${message}` }, { status: 502 });
+      }
+
+      let errorText = '';
+      try {
+        errorText = await response.text();
+      } catch { }
       console.error(`${aiConfig.provider} API Error response:`, errorText);
       return NextResponse.json({ error: `${aiConfig.provider} API returned status ${response.status}: ${errorText}` }, { status: 502 });
     }
 
-    const resJson = await response.json();
-    const generatedText = resJson.choices[0].message.content;
-    const tailoredResult = JSON.parse(generatedText);
+    let generatedText = '';
+    try {
+      const resJson = await response.json();
+      generatedText = resJson.choices?.[0]?.message?.content || '';
+    } catch (parseErr: any) {
+      await refundTokens();
+      console.error('Failed to read AI response body:', parseErr);
+      return NextResponse.json({ error: 'AI provider returned an unreadable response. Please retry.' }, { status: 502 });
+    }
+
+    if (!generatedText.trim()) {
+      await refundTokens();
+      return NextResponse.json({ error: 'AI returned an empty response. Please retry.' }, { status: 502 });
+    }
+
+    let tailoredResult: any;
+    try {
+      tailoredResult = JSON.parse(generatedText);
+    } catch (parseErr) {
+      await refundTokens();
+      console.error('Failed to parse tailoring AI output:', generatedText);
+      return NextResponse.json({ error: 'AI produced invalid JSON output. Please retry.' }, { status: 500 });
+    }
 
     // Deterministically calculate match score from exact, adjacent, and missing skills
     const exactMatches = tailoredResult.gapAnalysis?.exactMatches || [];
@@ -653,6 +726,7 @@ ${contextStr}`
     aiResponseCache.set(cacheKey, tailoredResult);
     return NextResponse.json(tailoredResult);
   } catch (error: any) {
+    await refundTokens();
     console.error('Tailoring API Error:', error);
     return NextResponse.json({ error: error.message || 'An error occurred during tailoring' }, { status: 500 });
   }

@@ -6,7 +6,9 @@
     "dev": "next dev -H 0.0.0.0",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "build:extension": "npm run build --prefix extension",
+    "dev:extension": "npm run dev --prefix extension"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

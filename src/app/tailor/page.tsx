@@ -1465,14 +1465,17 @@ export default function TailorWorkspace() {
       }
 
       const data = await res.json();
-      if (data.data?.outreach) {
-        setOutreachData(data.data.outreach);
+      const outreach = data.data?.outreach || (data.data?.linkedInInMail ? data.data : null);
+      if (outreach) {
+        setOutreachData(outreach);
         fetchTokens();
         showAlert({
           title: 'Outreach Templates Ready',
           message: 'Generated 3 customized recruiter messages. 1-Click copy to send via LinkedIn or Email.',
           type: 'success'
         });
+      } else {
+        throw new Error('Unexpected response structure received from AI. Please try again.');
       }
     } catch (err: any) {
       showAlert({
@@ -1541,14 +1544,17 @@ export default function TailorWorkspace() {
       }
 
       const data = await res.json();
-      if (data.data?.interviewPrep) {
-        setInterviewPrepData(data.data.interviewPrep);
+      const prep = data.data?.interviewPrep || (data.data?.elevatorPitch ? data.data : null);
+      if (prep) {
+        setInterviewPrepData(prep);
         fetchTokens();
         showAlert({
           title: 'Interview Cheat-Sheet Ready',
           message: 'Generated predicted questions, reverse questions, and 30-second elevator pitch.',
           type: 'success'
         });
+      } else {
+        throw new Error('Unexpected response structure received from AI. Please try again.');
       }
     } catch (err: any) {
       showAlert({
@@ -3993,12 +3999,14 @@ export default function TailorWorkspace() {
         const outreachDoc = app.documents.find((d: any) => d.type === 'OUTREACH');
 
         if (cvDoc && clDoc) {
-          const parsedCv = JSON.parse(cvDoc.content);
+          const parsedCv = typeof cvDoc.content === 'string' ? JSON.parse(cvDoc.content) : cvDoc.content;
+          const parsedCl = typeof clDoc.content === 'string' ? JSON.parse(clDoc.content) : clDoc.content;
+          const gap = typeof app.gapAnalysis === 'string' ? JSON.parse(app.gapAnalysis) : (app.gapAnalysis || {});
           setResult({
-            matchScore: app.matchScore,
-            gapAnalysis: app.gapAnalysis,
+            matchScore: app.matchScore || 0,
+            gapAnalysis: gap,
             tailoredCv: parsedCv,
-            tailoredCoverLetter: JSON.parse(clDoc.content),
+            tailoredCoverLetter: parsedCl,
             jobMetadata: {
               techStack: app.techStack || '',
               mainRequirements: app.mainRequirements || '',
@@ -4009,12 +4017,12 @@ export default function TailorWorkspace() {
               remoteOrPhysical: app.remoteOrPhysical || ''
             }
           });
-          if (parsedCv.sectionOrder) {
+          if (parsedCv && parsedCv.sectionOrder) {
             setSectionOrder(parsedCv.sectionOrder);
           } else {
             setSectionOrder(['summary', 'work', 'education', 'projects', 'skills', 'languages']);
           }
-          if (parsedCv.projects && parsedCv.projects.length > 0) {
+          if (parsedCv && parsedCv.projects && parsedCv.projects.length > 0) {
             setSelectedProjects(parsedCv.projects.map((p: any) => p.name));
           }
         }

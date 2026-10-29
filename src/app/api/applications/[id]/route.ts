@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getAuthUserId } from '@/lib/auth';
 
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await getAuthUserId();
+    if ('error' in auth) return auth.error;
+    const { userId } = auth;
+
     const { id } = await params;
-    const application = await prisma.jobApplication.findUnique({
-      where: { id },
+    const application = await prisma.jobApplication.findFirst({
+      where: { id, userId },
       include: {
         documents: true,
         statusHistory: { orderBy: { createdAt: 'desc' } }
@@ -34,12 +39,16 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await getAuthUserId();
+    if ('error' in auth) return auth.error;
+    const { userId } = auth;
+
     const { id } = await params;
     const body = await req.json();
 
     // 1. Get original application to check current status
-    const existingApp = await prisma.jobApplication.findUnique({
-      where: { id }
+    const existingApp = await prisma.jobApplication.findFirst({
+      where: { id, userId }
     });
 
     if (!existingApp) {
@@ -124,11 +133,19 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await getAuthUserId();
+    if ('error' in auth) return auth.error;
+    const { userId } = auth;
+
     const { id } = await params;
     
-    await prisma.jobApplication.delete({
-      where: { id }
+    const result = await prisma.jobApplication.deleteMany({
+      where: { id, userId }
     });
+
+    if (result.count === 0) {
+      return NextResponse.json({ error: 'Application not found' }, { status: 404 });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

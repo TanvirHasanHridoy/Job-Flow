@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
-import { getUserTokens, deductTokens, TOKEN_PRICING } from '@/lib/tokens';
+import { getUserTokens, deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
 import { getAiConfig } from '@/lib/ai';
 import { formatCityCountry } from '@/lib/customSections';
@@ -9,10 +9,25 @@ import { formatCityCountry } from '@/lib/customSections';
 // const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
 
 export async function POST(req: Request) {
+  let userId: string | null = null;
+  let tokensDeducted = false;
+  let deductedAmount = 0;
+  let refunded = false;
+
+  const refundTokens = async () => {
+    if (!tokensDeducted || refunded || !userId || deductedAmount <= 0) return;
+    refunded = true;
+    try {
+      await topUpTokens(userId, deductedAmount);
+    } catch (refundErr) {
+      console.error('Failed to refund section tokens:', refundErr);
+    }
+  };
+
   try {
     const auth = await getAuthUserId();
     if ('error' in auth) return auth.error;
-    const { userId } = auth;
+    userId = auth.userId;
 
     const {
       sectionKey,
@@ -64,9 +79,12 @@ export async function POST(req: Request) {
         { status: 403 }
       );
     }
+    tokensDeducted = true;
+    deductedAmount = tokenAmount;
 
     const aiConfig = getAiConfig();
     if (!aiConfig.apiKey) {
+      await refundTokens();
       return NextResponse.json({ error: `${aiConfig.provider} API Key is not configured in environment variables` }, { status: 500 });
     }
 
@@ -284,17 +302,51 @@ ${JSON.stringify(profile || {}, null, 2)}`
     //   body: JSON.stringify({ model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro', ...payload })
     // });
 
-    const apiRes = await fetch(aiConfig.apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${aiConfig.apiKey}`
-      },
-      body: JSON.stringify(payload)
-    });
+    // Retry transient rate limits / upstream outages before giving up.
+    let apiRes: Response | null = null;
+    let lastError: Error | null = null;
+    const maxRetries = 2;
 
-    if (!apiRes.ok) {
-      const errText = await apiRes.text();
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        if (attempt > 0) {
+          const delay = attempt === 1 ? 1200 : 2500;
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+
+        apiRes = await fetch(aiConfig.apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${aiConfig.apiKey}`
+          },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(90000)
+        });
+
+        if (apiRes.ok) {
+          lastError = null;
+          break;
+        }
+
+        const isRetryable = apiRes.status === 429 || apiRes.status === 500 || apiRes.status === 502 || apiRes.status === 503 || apiRes.status === 504;
+        if (!isRetryable) break;
+      } catch (err: any) {
+        lastError = err;
+        if (attempt === maxRetries) break;
+      }
+    }
+
+    if (!apiRes || !apiRes.ok) {
+      await refundTokens();
+
+      if (!apiRes) {
+        const message = lastError?.message || 'Failed to communicate with AI model';
+        console.error(`${aiConfig.provider} Section API request failed:`, message);
+        return NextResponse.json({ error: message }, { status: 502 });
+      }
+
+      const errText = await apiRes.text().catch(() => '');
       console.error(`${aiConfig.provider} Section API Error:`, errText);
       let errMsg = 'Failed to communicate with AI model';
       try {
@@ -304,8 +356,20 @@ ${JSON.stringify(profile || {}, null, 2)}`
       return NextResponse.json({ error: errMsg }, { status: apiRes.status });
     }
 
-    const resJson = await apiRes.json();
-    let contentStr = resJson.choices[0].message.content.trim();
+    let contentStr = '';
+    try {
+      const resJson = await apiRes.json();
+      contentStr = (resJson.choices?.[0]?.message?.content || '').trim();
+    } catch (parseErr: any) {
+      await refundTokens();
+      console.error('Failed to read AI response body:', parseErr);
+      return NextResponse.json({ error: 'AI provider returned an unreadable response. Please retry.' }, { status: 502 });
+    }
+
+    if (!contentStr) {
+      await refundTokens();
+      return NextResponse.json({ error: 'AI returned an empty response. Please retry.' }, { status: 502 });
+    }
 
     // Clean JSON formatting markdown code blocks if present
     contentStr = contentStr.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '');
@@ -353,10 +417,12 @@ ${JSON.stringify(profile || {}, null, 2)}`
       aiResponseCache.set(cacheKey, parsedData);
       return NextResponse.json({ success: true, data: parsedData, remainingTokens: deduction.tokens });
     } catch (parseErr) {
+      await refundTokens();
       console.error('Failed to parse AI section output:', contentStr);
       return NextResponse.json({ error: 'AI produced invalid JSON output structure' }, { status: 500 });
     }
   } catch (error: any) {
+    await refundTokens();
     console.error('Error in /api/tailor/section:', error);
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
   }
