@@ -21,6 +21,7 @@ import CanvasFloatingHud from './components/CanvasFloatingHud';
 import MobileToolBottomSheet from './components/MobileToolBottomSheet';
 import RefusalReport from './components/RefusalReport';
 import { checkJobDescription } from '@/lib/jobDescriptionCheck';
+import { computeKeywordCoverage } from '@/lib/keywordCoverage';
 import BridgedClaimsPanel from './components/BridgedClaimsPanel';
 import { detectBridgedClaims, removeClaim, removeClaims, summarizeKeptClaims, type BridgedClaim } from '@/lib/bridging';
 
@@ -889,17 +890,19 @@ export default function TailorWorkspace() {
     setProjectPolishModal({ isOpen: false, projectIndex: -1, originalDescription: '', projectName: '', variations: null });
   };
 
+  // Keyword coverage: how many job keywords appear in the CV text as exported
+  // (what ATS filters scan). Distinct from profile fit (result.matchScore).
   const getAtsMatchStats = () => {
-    if (!result?.gapAnalysis) return null;
+    if (!result?.gapAnalysis || !result.tailoredCv) return null;
     const gap = result.gapAnalysis;
-    const exacts = (gap.exactMatches?.length ?? gap.matchingKeywords?.length) || 0;
-    const adjacents = gap.adjacentMatches?.length || 0;
-    const missing = gap.missingSkills?.length || 0;
-    const total = exacts + adjacents + missing;
-    if (total === 0) return null;
-    const matched = exacts + adjacents;
-    const percentage = Math.round((matched / total) * 100);
-    return { exacts, adjacents, missing, total, matched, percentage };
+    const coverage = computeKeywordCoverage({
+      tailoredCv: result.tailoredCv,
+      requirements: gap.requirements,
+      legacyKeywords: [...(gap.exactMatches || gap.matchingKeywords || []), ...(gap.adjacentMatches || []), ...(gap.missingSkills || [])],
+      bulletVariant: activeBulletVariant,
+    });
+    if (!coverage) return null;
+    return { matched: coverage.found.length, total: coverage.total, percentage: coverage.percentage, found: coverage.found, missing: coverage.missing };
   };
 
   const getHighlightedHtml = (text: string) => {
@@ -5667,7 +5670,7 @@ export default function TailorWorkspace() {
               <Award className="w-3.5 h-3.5" />
               <span>ATS &amp; Insights</span>
               {result?.matchScore !== undefined && (
-                <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                <span title="Profile fit" className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
                   {result.matchScore}%
                 </span>
               )}
@@ -6228,10 +6231,23 @@ export default function TailorWorkspace() {
                         <span className="font-extrabold text-white text-lg">{result.matchScore}%</span>
                       </div>
                       <div>
-                        <h4 className="font-bold text-white text-sm">Keyword / Skill Alignment</h4>
-                        <p className="text-xs text-zinc-400">Based on factual CV entries parsed against target requirements.</p>
+                        <h4 className="font-bold text-white text-sm">Profile fit</h4>
+                        <p className="text-xs text-zinc-400">How well your Master Vault meets this job's requirements. Must-haves count double; related skills count half.</p>
                       </div>
                     </div>
+                    {(() => {
+                      const kc = getAtsMatchStats();
+                      if (!kc) return null;
+                      return (
+                        <div className="mt-2 flex items-start gap-3 bg-white/[0.02] px-4 py-3 rounded-xl border border-white/5">
+                          <span className="font-extrabold text-white text-sm shrink-0 w-16 text-center">{kc.matched}/{kc.total}</span>
+                          <div>
+                            <h4 className="font-bold text-white text-xs">Keywords in your CV</h4>
+                            <p className="text-[11px] text-zinc-400">Job keywords that appear in this CV's text — what ATS filters scan for.{kc.missing.length > 0 ? ` Not in the CV: ${kc.missing.join(', ')}.` : ''}</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -6682,8 +6698,8 @@ export default function TailorWorkspace() {
                         ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
                         : 'bg-rose-500/10 border-rose-500/30 text-rose-300';
                     return (
-                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold ${colorClass}`} title={`${stats.matched} matched out of ${stats.total} total extracted job keywords`}>
-                        <span>ATS: {stats.matched}/{stats.total} ({stats.percentage}%)</span>
+                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold ${colorClass}`} title={`Keyword coverage: ${stats.matched} of ${stats.total} job keywords appear in this CV's text — what ATS keyword filters scan for.${stats.missing.length ? ` Missing: ${stats.missing.join(', ')}` : ''}`}>
+                        <span>Keywords in CV: {stats.matched}/{stats.total} ({stats.percentage}%)</span>
                       </div>
                     );
                   })()}
@@ -7751,8 +7767,8 @@ export default function TailorWorkspace() {
                     <div className="flex items-center gap-2.5">
                       <span className="text-xl font-extrabold text-emerald-400">{result.matchScore}%</span>
                       <div>
-                        <span className="font-bold text-white block text-xs">ATS Match Score</span>
-                        <span className="text-[10px] text-zinc-400">{result.gapAnalysis.matchingKeywords.length} matching / {result.gapAnalysis.missingSkills.length} missing</span>
+                        <span className="font-bold text-white block text-xs">Profile fit</span>
+                        <span className="text-[10px] text-zinc-400">{(() => { const kc = getAtsMatchStats(); return kc ? `Keywords in CV: ${kc.matched}/${kc.total}` : `${result.gapAnalysis.matchingKeywords.length} matching / ${result.gapAnalysis.missingSkills.length} missing`; })()}</span>
                       </div>
                     </div>
                     {result.gapAnalysis.missingSkills.length > 0 && (
@@ -8469,7 +8485,7 @@ export default function TailorWorkspace() {
               <div className="p-6 space-y-4 bg-zinc-950">
                 <div className="sticky top-0 bg-indigo-950/90 backdrop-blur-sm p-2 rounded-lg border border-indigo-800/50 font-bold text-indigo-300 uppercase tracking-wider text-[11px] mb-3 flex items-center justify-between">
                   <span>✨ AI Tailored Document Output</span>
-                  <span className="text-emerald-400 text-[10px]">Match Score: {result.matchScore}%</span>
+                  <span className="text-emerald-400 text-[10px]">Profile fit: {result.matchScore}%</span>
                 </div>
                 <div>
                   <h4 className="font-bold text-white mb-1">Full Name: {result.tailoredCv.personalDetails.fullName}</h4>
