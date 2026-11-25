@@ -10,6 +10,7 @@ import { getAiConfig } from '@/lib/ai';
 import { formatCityCountry } from '@/lib/customSections';
 import { buildBulletMatrixSystemPrompt } from '@/lib/bulletMatrixPrompts';
 import { callAiJson } from '@/lib/aiCall';
+import { buildBridgingDirective, cityFromAddress } from '@/lib/bridgingPrompt';
 import {
   buildRequirementAnalysisPrompt,
   normalizeRequirementAnalysis,
@@ -277,17 +278,16 @@ export async function POST(req: Request) {
       return NextResponse.json(refusal);
     }
 
-    // System prompt selection with strategies
-    let strategyDirective = '';
-    if (matchStrategy === 'TACTICAL_PIVOT') {
-      strategyDirective = `
-CRITICAL MATCH STRATEGY - TACTICAL_PIVOT (Honest Justification):
-The user has skill gaps for this job. Keep the CV/Resume strictly factual based *only* on their profile. Do NOT invent data, certifications, or employers. In the Cover Letter, explicitly address these gaps using a constructive, professional justification in ${clLanguage === 'DE' ? 'German' : 'English'}. Explain how their adjacent skills, rapid learning curve, and existing core expertise make them the right fit despite the missing keywords.`;
-    } else {
-      strategyDirective = `
-CRITICAL MATCH STRATEGY - AGGRESIVE_BRIDGING (Terminology Optimization):
-The user wants maximum keyword alignment. Without fabricating non-existent employers, fake job titles, or fake degrees, aggressively crawl their real history for transferable skills. Rephrase their genuine accomplishments using the exact technical verbs and phrasing found in the job description to pass strict ATS filters, translated into the target language (${cvLanguage === 'DE' ? 'German' : 'English'} for CV, ${clLanguage === 'DE' ? 'German' : 'English'} for Cover Letter).`;
-    }
+    // Gap-bridging rules (strategy + hard lines) built from the requirement analysis
+    const strategyDirective = buildBridgingDirective({
+      matchStrategy,
+      requirements: analysis.requirements,
+      cvLanguage,
+      clLanguage,
+    });
+
+    // Signing city: explicit override, else the candidate's own city (never a hard-coded example)
+    const signingCity = (signingLocation && String(signingLocation).trim()) || cityFromAddress(formatCityCountry(profile.address) || profile.address);
 
     const lengthDirective = lengthTarget.includes('1-Page')
       ? `CV LENGTH CONSTRAINT: STRICT 1-PAGE TARGET
@@ -304,7 +304,7 @@ The user wants maximum keyword alignment. Without fabricating non-existent emplo
 [USER NARRATIVE DIRECTIVE]
 The user has requested a specific overarching theme for this generation: "${themeDirective}"
 - INSTRUCTION: Prioritize this theme in the professional summary, the cover letter narrative, and by highlighting relevant metrics in the bullet points.
-- STRICT CONSTRAINT: This theme DOES NOT override the Absolute Truthfulness rule. Do not invent facts to satisfy this theme. 
+- STRICT CONSTRAINT: This theme DOES NOT override the GAP BRIDGING RULES. Do not invent facts to satisfy this theme.
 - STRICT CONSTRAINT: This theme DOES NOT override the JSON formatting rules. You must still output the exact required JSON schema without any conversational filler.
 ` : '';
 
@@ -324,7 +324,7 @@ CV TARGET LANGUAGE: Write the tailored CV (summary, roles, bullets, skills) enti
 COVER LETTER TARGET LANGUAGE: Write the tailored Cover Letter entirely in ${clLanguage === 'DE' ? 'German' : 'English'}.
 
 CRITICAL CONSTRAINTS:
-1. ABSOLUTE TRUTHFULNESS: Rely ONLY on facts, positions, and skills present in the User Profile or current Custom Notes. Do NOT invent work history, company names, credentials, or certifications.
+1. TRUTHFULNESS & BRIDGING: Base everything on the User Profile and Custom Notes, and follow the GAP BRIDGING RULES below exactly. They define what may be bridged and what may never be invented.
 2. TONE & CUSTOMIZATION OPTIONS:
    - Tone/Style: ${tone}
    - Skills Highlight Mode: ${skillsFocus}
@@ -335,7 +335,7 @@ ${lengthDirective}
 3. CV FORMATTING & CONTENT RULES (Targeting ${cvLanguage}):
    ${cvLanguage === 'DE' ? `
    - Must support a clean tabular German Lebenslauf format.
-   - Include a signing line at the bottom showing the city and current date (e.g. "München, [Datum]").
+   - Include a signing line at the bottom showing the city and current date: "${signingCity ? signingCity + ', ' : ''}${currentDateStr}".
    - Write all tailored fields in formal professional German.
    ` : `
    - US/UK/International Resume Style.
@@ -345,12 +345,12 @@ ${lengthDirective}
    
    ADDITIONAL CV WRITING GUIDELINES:
     - **Internal Promotions:** If a candidate has been promoted or changed departments/roles within the same company, treat each role as a completely separate job/experience entry. This demonstrates growth, distinct responsibilities, and loyalty.
-    - **Internships:** When listing an internship, explicitly append " (Internship)" (or " (Praktikum)" in German) right next to the job title.
+    - **Job Titles:** Copy every job title exactly as it appears in the profile (hard line). Do not rename, upgrade or translate-and-reword titles.
     - **Relevancy Cut-offs:** ${lengthTarget.includes('1-Page') ? 'Filter and list only the last three companies' : 'Filter and list only the last four companies'} in the tailored work experience. Mention the total cumulative years of experience in the professional summary instead.
     - **Show, Don't Tell Soft Skills:** Do NOT list soft skills standalone. Integrate them naturally within the professional summary or the work history bullet points (e.g., "Strong communication skills developed through customer-facing roles...").
     - **Strict Rules for Hobbies:** Exclude generic hobbies like "reading," "traveling," or "music". Only include hobbies if they are directly relevant to the target job or demonstrate valuable workplace traits like leadership or teamwork.
-    - **Software Developer Bullet Progression:** Transform weak bullet points into high-impact, metrics-driven, and result-oriented outcomes following a 4-part formula: (1) start with a strong action verb, (2) provide a concrete metric or result, (3) specify the technical implementation detail (how it was done, including tech stack/tools), and (4) explain the business context/value.
-    - **No Literal Labels or Prefixes:** In all generated bullets (including "star", "punchy", and "standard" categories), you MUST write the bullet points directly as cohesive sentences. Never include literal labels or prefixes such as "STAR Method:", "Situation:", "Task:", "Action:", "Result:", "Context:", or "Value:". The formula must be baked into the sentence naturally (e.g., "Developed a scalable CRM API that handled 50,000 monthly active users using React and WebSockets, improving user engagement by 15%").
+    - **Software Developer Bullet Progression:** Transform weak bullet points into high-impact, result-oriented outcomes: (1) start with a strong action verb, (2) state the concrete result — include a metric only when the GAP BRIDGING RULES allow it, never force one, (3) specify the technical implementation detail (tech stack/tools), and (4) explain the business context/value.
+    - **No Literal Labels or Prefixes:** In all generated bullets (including "star", "punchy", and "standard" categories), you MUST write the bullet points directly as cohesive sentences. Never include literal labels or prefixes such as "STAR Method:", "Situation:", "Task:", "Action:", "Result:", "Context:", or "Value:". The formula must be baked into the sentence naturally (e.g., "Developed a CRM API with Node.js and WebSockets that gave the sales team real-time visibility into client pipelines").
     - **References:** Do NOT include the phrase "References available upon request". Keep it completely out.
     - **Gender Pronouns:** Gender pronouns are optional. Do not include them by default. If requested or explicitly provided in custom notes, place them directly under the signature/signing line as "Pronouns: [pronouns]".
     - **Projects:** If any projects are provided in the user profile, you must tailor their descriptions and listed technologies to highlight accomplishments, skills, and architectures that directly align with and showcase competence for the requirements in the target Job Description, written entirely in ${cvLanguage === 'DE' ? 'German' : 'English'}.
@@ -376,27 +376,14 @@ ${lengthDirective}
    
 ${strategyDirective}
 
-5. DETERMINISTIC MATCH SCORE RULE:
-   - Do NOT calculate or output a match score or percentage yourself. 
-   - You are only responsible for listing the specific semantic keyword categorization in the arrays: exactMatches, adjacentMatches, and missingSkills. 
-   - The final score will be calculated programmatically on the backend.
-
-${themeInjection}
-
 You must respond with a raw JSON object containing these exact keys:
 {
-  "gapAnalysis": {
-    "exactMatches": [<array of strings of skills/keywords that match exactly between profile and JD>],
-    "adjacentMatches": [<array of strings of adjacent/transferable skills that align between profile and JD>],
-    "missingSkills": [<array of strings of skills/requirements mentioned in JD but missing in profile>],
-    "recommendations": "<detailed and elaborate analysis of user suitability for the role. Highlight their Positives (e.g. strong matches, years of experience, relevant tech stacks, certifications, exceed requirements) and their Negatives (critical skill gaps, missing tools/methods, or areas they may face pushback). Use clear bullet points and headings within the text in markdown format (### Positives\\n- ...\\n\\n### Negatives\\n- ...\\n\\n### Actionable Advice\\n...).>"
-  },
   "tailoredCv": {
     "summary": "<short professional summary tailored to the job, in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
     "workExperience": [
       {
         "company": "<exact original company name from the profile experience list to map back>",
-        "role": "<tailored job title / role name in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
+        "role": "<the job title copied exactly from the profile>",
         "bullets": {
           "star": [<array of tailored achievement strings following the 4-part STAR formula (Strong Action Verb + Concrete Metric + Tech Stack + Business Context) in ${cvLanguage === 'DE' ? 'German' : 'English'}, written directly as a single cohesive sentence WITHOUT any literal labels or prefixes like "Situation:", "Action:", etc.>],
           "punchy": [<array of tailored achievement strings that are short, high-impact highlights in ${cvLanguage === 'DE' ? 'German' : 'English'}>],
@@ -407,7 +394,7 @@ You must respond with a raw JSON object containing these exact keys:
     "skills": [
       {
         "name": "<name of tailored skill in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
-        "level": "<skill level matching user's profile if present, otherwise assign 'Expert' | 'Advanced' | 'Intermediate' | 'Beginner' based on context>",
+        "level": "<the skill level from the profile if one is stated, otherwise an empty string>",
         "category": "<category of skill, strictly one of: Frontend, Backend, Database, Tools>"
       }
     ],
@@ -418,7 +405,7 @@ You must respond with a raw JSON object containing these exact keys:
         "technologies": [<array of strings representing tailored/relevant technologies used, matching the user's profile and aligned with the job description>]
       }
     ],
-    "signingLine": "<string for signature, e.g. 'München, 17. Juni 2026' or empty if EN>"
+    "signingLine": "<${cvLanguage === 'DE' ? (signingCity ? signingCity + ', ' : '') + currentDateStr : 'empty string'}>"
   },
   "tailoredCoverLetter": {
     "senderAddress": "<string, formatted with newlines>",
@@ -454,11 +441,12 @@ You must respond with a raw JSON object containing these exact keys:
         skillsFocus: typeof skillsFocus === 'string' ? [skillsFocus] : (skillsFocus || []),
         salaryExpectation,
         noticePeriod,
-        signingLocation,
+        signingLocation: signingCity,
         customNotes,
         themeDirective,
         matchStrategy,
-        currentDateStr
+        currentDateStr,
+        bridgingDirective: strategyDirective
       })
       : systemPrompt;
 
@@ -475,7 +463,8 @@ Here is the Target Job Description (already pre-translated to English if necessa
 ${processedJobDescription}
 
 Here is the additional context / overrides:
-${contextStr}`
+${contextStr}
+Signing city for date lines: ${signingCity || '(none — use the date only, without a city)'}`
         }
       ],
       response_format: { type: 'json_object' },

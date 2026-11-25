@@ -19,6 +19,8 @@ interface BulletMatrixPromptOptions {
   themeDirective?: string;
   matchStrategy?: string;
   currentDateStr: string;
+  /** Gap-bridging rules from src/lib/bridgingPrompt.ts (strategy, requirement analysis, hard lines). */
+  bridgingDirective?: string;
 }
 
 export function buildBulletMatrixSystemPrompt(opts: BulletMatrixPromptOptions): string {
@@ -31,18 +33,18 @@ export function buildBulletMatrixSystemPrompt(opts: BulletMatrixPromptOptions): 
     skillsFocus,
     salaryExpectation,
     noticePeriod,
-    signingLocation = 'München',
+    signingLocation = '',
     customNotes,
     themeDirective = '',
-    matchStrategy = 'aggressive',
-    currentDateStr
+    currentDateStr,
+    bridgingDirective = ''
   } = opts;
 
-  const strategyDirective = matchStrategy === 'aggressive'
-    ? 'MAXIMUM KEYWORD DENSITY: Prioritize extracting every possible technical requirement, tool, library, and concept from the Job Description and seamlessly incorporating them into the capability bullets and skills matrix.'
-    : matchStrategy === 'conservative'
-    ? 'CONSERVATIVE ALIGNMENT: Focus only on exact verified technical strengths from the profile without stretching or adding tangential skills.'
-    : 'BALANCED MATCHING: Maintain natural technical balance between the candidate’s factual background and the target role requirements.';
+  // The match strategy (Tactical Pivot / Aggressive Bridging) and hard lines are
+  // carried by bridgingDirective. The old switch compared against 'aggressive' /
+  // 'conservative', values the app never sends, so it always fell through.
+  const strategyDirective = bridgingDirective;
+  const dateLine = signingLocation ? `${signingLocation}, ${currentDateStr}` : currentDateStr;
 
   return `You are an elite executive technical resume writer, Principal Tech Recruiter, and deterministic ATS optimization engine specializing in high-density "Bullet Matrix" technical CVs (such as the Ammad Idrees technical matrix resume standard).
 
@@ -64,7 +66,7 @@ It uses a structured, bullet-first architecture with ZERO fluff or generic narra
      * For 1-page targets: Generate 4 to 6 high-density capability bullets.
      * For 2-page targets: Generate 6 to 10 high-density capability bullets.
      * NEVER hallucinate fake years or pad with generic filler. Every bullet must represent a concrete competency pillar.
-   - Competency pillars to cover across the summary bullets (modeled after top senior engineer CVs):
+   - Competency pillars to cover across the summary bullets (modeled after top senior engineer CVs). The examples show STRUCTURE only: mention only technologies from the profile or allowed by the GAP BRIDGING RULES, and skip pillars the profile cannot support:
      1. Total Experience & Core Scope (e.g., "X years of experience as a Software Engineer, managing the full software development lifecycle from design to implementation and production support.")
      2. Primary Frontend / UI Frameworks (e.g., "Expertise in React.js, including functional and class-based components, TypeScript, and converting Figma designs into reusable UI components.")
      3. UI Component Systems & State Management (e.g., "Proficient in modern UI libraries like Material UI, Tailwind CSS, Ant Design, and state management using Redux Toolkit, Context API, and RxJS.")
@@ -90,14 +92,15 @@ It uses a structured, bullet-first architecture with ZERO fluff or generic narra
    - Formulate project titles and scopes so they read cleanly as high-signal attributions: "Project Name (Organization / Company | Location or Client)".
 
 4. PROFESSIONAL EXPERIENCES (ACTION-FIRST STAR BULLETS):
-   - Formulate work experience bullets following the Action Verb + Metric/Result + Tech Stack + Business Context formula.
+   - Formulate work experience bullets following the Action Verb + Result + Tech Stack + Business Context formula. Include a metric only when the GAP BRIDGING RULES allow it — never force one.
    - Write bullets directly as cohesive sentences WITHOUT any literal prefixes like "STAR Method:" or "Action:".
-   - Keep bullet points punchy, dense, and metric-focused.
+   - Keep bullet points punchy, dense, and result-focused.
+   - Copy every job title exactly as it appears in the profile.
 
 5. COVER LETTER (DIN 5008 or Professional English):
    ${clLanguage === 'DE' ? `
    - Must strictly follow German DIN 5008 business letter format.
-   - Include date line: "${signingLocation}, ${currentDateStr}".
+   - Include date line: "${dateLine}".
    - Subject line: "Bewerbung als [Role Name]".
    - Formal German salutation ("Sehr geehrte Damen und Herren," or named recruiter).
    - Formal closing ("Mit freundlichen Grüßen").
@@ -112,12 +115,6 @@ ${strategyDirective}
 
 Respond strictly with a valid raw JSON object matching this exact schema:
 {
-  "gapAnalysis": {
-    "exactMatches": [<array of exact skill match strings>],
-    "adjacentMatches": [<array of transferable skill match strings>],
-    "missingSkills": [<array of skills missing in profile>],
-    "recommendations": "<detailed analysis in markdown: ### Positives\\n- ...\\n\\n### Negatives\\n- ...\\n\\n### Actionable Advice\\n...>"
-  },
   "tailoredCv": {
     "summary": "<newline-separated capability bullets starting with '• ', e.g. '• 6 years of experience as a Software Engineer...\\n• Expertise in React.js, TypeScript...'>",
     "summaryBullets": [
@@ -127,7 +124,7 @@ Respond strictly with a valid raw JSON object matching this exact schema:
     "workExperience": [
       {
         "company": "<exact original company name from profile>",
-        "role": "<tailored job title in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
+        "role": "<the job title copied exactly from the profile>",
         "bullets": {
           "star": [<array of STAR achievement strings in ${cvLanguage === 'DE' ? 'German' : 'English'}>],
           "punchy": [<array of short highlight strings in ${cvLanguage === 'DE' ? 'German' : 'English'}>],
@@ -138,7 +135,7 @@ Respond strictly with a valid raw JSON object matching this exact schema:
     "skills": [
       {
         "name": "<skill name>",
-        "level": "Expert | Advanced | Intermediate | Beginner",
+        "level": "<the level from the profile if stated, otherwise an empty string>",
         "category": "Frontend | Backend | Database | Tools & Cloud"
       }
     ],
@@ -155,16 +152,13 @@ Respond strictly with a valid raw JSON object matching this exact schema:
         "level": "<e.g. C1 | A2 | Native | Proficient>"
       }
     ],
-    "certifications": [
-      "<certification 1 (Issuer / Platform)>",
-      "<certification 2 (Issuer / Platform)>"
-    ],
+    "certifications": [<only certifications that appear in the profile, otherwise an empty array>],
     "signingLine": "<string for signature or empty>"
   },
   "tailoredCoverLetter": {
     "senderAddress": "<string>",
     "recipientAddress": "<string>",
-    "dateLine": "${signingLocation}, ${currentDateStr}",
+    "dateLine": "${dateLine}",
     "subjectLine": "<string>",
     "salutation": "<string>",
     "paragraphs": {
