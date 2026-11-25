@@ -454,6 +454,75 @@ function removeViolatingSentences(text: string, violatingTerms: string[]): strin
     .trim();
 }
 
+/** Removes the text a claim refers to (bullet, skill, tech, or the sentences containing `terms`). Mutates `result`. */
+function applyClaimRemoval(result: any, claim: BridgedClaim, terms: string[]): void {
+  const cv = result?.tailoredCv;
+  if (!cv) return;
+  switch (claim.section) {
+    case 'summary':
+      if (claim.field === 'summaryBullet' && Array.isArray(cv.summaryBullets)) {
+        cv.summaryBullets.splice(claim.itemIndex!, 1);
+      } else if (typeof cv.summary === 'string') {
+        cv.summary = removeViolatingSentences(cv.summary, terms);
+      }
+      break;
+    case 'experience': {
+      const job = cv.workExperience?.[claim.jobIndex!];
+      const list = Array.isArray(job?.bullets) ? job.bullets : job?.bullets?.[claim.variant!];
+      if (Array.isArray(list)) list.splice(claim.itemIndex!, 1);
+      break;
+    }
+    case 'skills': {
+      if (!Array.isArray(cv.skills)) break;
+      const entry = cv.skills[claim.itemIndex!];
+      const name = typeof entry === 'string' ? entry : entry?.name;
+      const parts = typeof name === 'string' ? name.split(/\s*[|,]\s*/) : [];
+      const lowered = terms.map(t => t.toLowerCase());
+      const kept = parts.filter(p => !lowered.some(t => p.toLowerCase().includes(t)));
+      if (parts.length > 1 && kept.length > 0) {
+        const joined = kept.join(name.includes('|') ? ' | ' : ', ');
+        if (typeof entry === 'string') cv.skills[claim.itemIndex!] = joined; else entry.name = joined;
+      } else {
+        cv.skills.splice(claim.itemIndex!, 1);
+      }
+      break;
+    }
+    case 'projects': {
+      const proj = cv.projects?.[claim.projectIndex!];
+      if (!proj) break;
+      if (claim.field === 'description') proj.description = removeViolatingSentences(proj.description, terms);
+      else if (claim.field === 'technologies' && Array.isArray(proj.technologies)) proj.technologies.splice(claim.itemIndex!, 1);
+      break;
+    }
+    case 'coverLetter': {
+      const paras = result.tailoredCoverLetter?.paragraphs;
+      const list = Array.isArray(paras) ? paras : paras?.[claim.paragraphSet!];
+      if (Array.isArray(list) && typeof list[claim.itemIndex!] === 'string') {
+        list[claim.itemIndex!] = removeViolatingSentences(list[claim.itemIndex!], terms);
+      }
+      break;
+    }
+  }
+}
+
+function syncSummaryMirror(cv: any): void {
+  if (Array.isArray(cv?.summaryBullets) && cv.summaryBullets.length > 0 && typeof cv.summary === 'string' && cv.summary.includes('•')) {
+    cv.summary = cv.summaryBullets.map((b: string) => `• ${b}`).join('\n');
+  }
+}
+
+/**
+ * User chose "Remove" for a bridged claim: returns a copy of the result without it.
+ * Bullets / skills / technologies are deleted; in prose (summary, project
+ * descriptions, cover letter) only the sentences containing the claim are dropped.
+ */
+export function removeClaim<T>(result: T, claim: BridgedClaim): T {
+  const copy = JSON.parse(JSON.stringify(result));
+  applyClaimRemoval(copy, claim, claim.terms.map(t => t.term));
+  syncSummaryMirror(copy?.tailoredCv);
+  return copy;
+}
+
 /**
  * Removes hard-line violations from a generated result (mutates and returns it):
  * GAP skills claimed in the CV, credentials the profile doesn't have, and
@@ -471,58 +540,11 @@ export function enforceHardLines(result: any, profile: any, requirements: Requir
   const ordered = [...claims].sort((a, b) => (b.itemIndex ?? 0) - (a.itemIndex ?? 0));
   for (const claim of ordered) {
     const bad = claim.terms.filter(t => VIOLATIONS.includes(t.kind)).map(t => t.term);
-    switch (claim.section) {
-      case 'summary':
-        if (claim.field === 'summaryBullet' && Array.isArray(cv.summaryBullets)) {
-          cv.summaryBullets.splice(claim.itemIndex!, 1);
-        } else if (typeof cv.summary === 'string') {
-          cv.summary = removeViolatingSentences(cv.summary, bad);
-        }
-        break;
-      case 'experience': {
-        const job = cv.workExperience?.[claim.jobIndex!];
-        const list = Array.isArray(job?.bullets) ? job.bullets : job?.bullets?.[claim.variant!];
-        if (Array.isArray(list)) list.splice(claim.itemIndex!, 1);
-        break;
-      }
-      case 'skills': {
-        if (!Array.isArray(cv.skills)) break;
-        const entry = cv.skills[claim.itemIndex!];
-        const name = typeof entry === 'string' ? entry : entry?.name;
-        const parts = typeof name === 'string' ? name.split(/\s*[|,]\s*/) : [];
-        const lowered = bad.map(t => t.toLowerCase());
-        const kept = parts.filter(p => !lowered.some(t => p.toLowerCase().includes(t)));
-        if (parts.length > 1 && kept.length > 0) {
-          const joined = kept.join(name.includes('|') ? ' | ' : ', ');
-          if (typeof entry === 'string') cv.skills[claim.itemIndex!] = joined; else entry.name = joined;
-        } else {
-          cv.skills.splice(claim.itemIndex!, 1);
-        }
-        break;
-      }
-      case 'projects': {
-        const proj = cv.projects?.[claim.projectIndex!];
-        if (!proj) break;
-        if (claim.field === 'description') proj.description = removeViolatingSentences(proj.description, bad);
-        else if (claim.field === 'technologies' && Array.isArray(proj.technologies)) proj.technologies.splice(claim.itemIndex!, 1);
-        break;
-      }
-      case 'coverLetter': {
-        const paras = result.tailoredCoverLetter?.paragraphs;
-        const list = Array.isArray(paras) ? paras : paras?.[claim.paragraphSet!];
-        if (Array.isArray(list) && typeof list[claim.itemIndex!] === 'string') {
-          list[claim.itemIndex!] = removeViolatingSentences(list[claim.itemIndex!], bad);
-        }
-        break;
-      }
-    }
+    applyClaimRemoval(result, claim, bad);
     removed.push(`${claim.section}: ${bad.join(', ')}`);
   }
 
-  // Summary bullets string mirror (bullet-matrix keeps both)
-  if (Array.isArray(cv.summaryBullets) && cv.summaryBullets.length > 0 && typeof cv.summary === 'string' && cv.summary.includes('•')) {
-    cv.summary = cv.summaryBullets.map((b: string) => `• ${b}`).join('\n');
-  }
+  syncSummaryMirror(cv);
 
   // Certifications: only those that appear in the profile
   if (Array.isArray(cv.certifications)) {

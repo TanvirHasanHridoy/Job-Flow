@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Sparkles, FileText, Download, Briefcase, Award, CheckCircle2, AlertTriangle, Languages, Save, Check,
   List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Palette, Highlighter, RotateCcw, Sliders, Coins, Plus, FolderGit,
-  ChevronUp, ChevronDown, Eye, EyeOff, Wand2, RefreshCw, Target, X, GitCompare, Loader2, Layers, Trash2, Tag, ArrowUp, ArrowDown,
+  ChevronUp, ChevronDown, Eye, EyeOff, Wand2, RefreshCw, Target, X, GitCompare, GitMerge, Loader2, Layers, Trash2, Tag, ArrowUp, ArrowDown,
   Settings, CheckSquare, Square, PenTool, ChevronRight, SlidersHorizontal, PlusCircle, ExternalLink, Bookmark
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -20,6 +20,8 @@ import CanvasViewport from './components/CanvasViewport';
 import CanvasFloatingHud from './components/CanvasFloatingHud';
 import MobileToolBottomSheet from './components/MobileToolBottomSheet';
 import RefusalReport from './components/RefusalReport';
+import BridgedClaimsPanel from './components/BridgedClaimsPanel';
+import { detectBridgedClaims, removeClaim, type BridgedClaim } from '@/lib/bridging';
 
 interface WorkExperience {
   company: string;
@@ -77,6 +79,8 @@ interface TailoredCv {
   certifications?: string[];
   customSections?: CustomSection[];
   signingLine?: string;
+  // Keys of bridged claims the user chose to keep (see src/lib/bridging.ts)
+  acceptedClaimKeys?: string[];
 }
 
 interface TailoredCoverLetter {
@@ -102,7 +106,10 @@ interface TailorResponse {
     recommendations: string;
     exactMatches?: string[];
     adjacentMatches?: string[];
+    requirements?: any[];
+    mustCoverage?: number;
   };
+  hardLineRemovals?: string[];
   tailoredCv: TailoredCv;
   tailoredCoverLetter: TailoredCoverLetter;
   jobMetadata?: {
@@ -895,13 +902,16 @@ export default function TailorWorkspace() {
   };
 
   const getHighlightedHtml = (text: string) => {
-    if (!isAtsHighlightEnabled || !result?.gapAnalysis || !text) return text;
+    if (!text) return text;
+    const withBridgeMarks = (html: string) =>
+      isBridgeHighlightEnabled && pendingBridgedClaims.length > 0 ? applyBridgeMarks(html, text) : html;
+    if (!isAtsHighlightEnabled || !result?.gapAnalysis) return withBridgeMarks(text);
 
     const exacts = result.gapAnalysis.exactMatches || result.gapAnalysis.matchingKeywords || [];
     const adjacents = result.gapAnalysis.adjacentMatches || [];
     const keywords = Array.from(new Set([...exacts, ...adjacents])).filter(k => k && k.length >= 2);
 
-    if (keywords.length === 0) return text;
+    if (keywords.length === 0) return withBridgeMarks(text);
 
     const escaped = keywords
       .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
@@ -909,14 +919,14 @@ export default function TailorWorkspace() {
 
     const regex = new RegExp(`\\b(${escaped.join('|')})\\b`, 'gi');
 
-    return text.replace(regex, (matched) => {
+    return withBridgeMarks(text.replace(regex, (matched) => {
       const lower = matched.toLowerCase();
       const isExact = exacts.some(e => e.toLowerCase() === lower);
       if (isExact) {
         return `<mark style="background-color: rgba(16, 185, 129, 0.28); color: #064e3b; font-weight: 700; padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.5);">${matched}</mark>`;
       }
       return `<mark style="background-color: rgba(99, 102, 241, 0.28); color: #1e1b4b; font-weight: 700; padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(99, 102, 241, 0.5);">${matched}</mark>`;
-    });
+    }));
   };
 
   const handleMoveSection = (sectionKey: string, direction: 'up' | 'down') => {
@@ -1282,6 +1292,88 @@ export default function TailorWorkspace() {
   const [result, rawSetResult] = useState<TailorResponse | null>(null);
   // Set when the server refuses to tailor because the role is too far from the profile
   const [refusal, setRefusal] = useState<any>(null);
+
+  // === Bridged-claim review (v2 Phase 2) ===
+  // Claims are derived from the current result + profile, so they update after
+  // manual edits and AI section regeneration. Kept claims persist in tailoredCv.
+  const [isBridgeHighlightEnabled, setIsBridgeHighlightEnabled] = useState<boolean>(true);
+  const allBridgedClaims = useMemo<BridgedClaim[]>(() => {
+    const requirements = result?.gapAnalysis?.requirements;
+    if (!result?.tailoredCv || !profile || !Array.isArray(requirements)) return [];
+    try {
+      return detectBridgedClaims({
+        tailoredCv: result.tailoredCv,
+        coverLetter: result.tailoredCoverLetter,
+        profile,
+        requirements,
+      });
+    } catch (err) {
+      console.warn('Bridged-claim detection failed:', err);
+      return [];
+    }
+  }, [result, profile]);
+  const activeBulletVariant = bulletStyle === 'STAR Method' ? 'star' : bulletStyle === 'Short & Punchy' ? 'punchy' : 'standard';
+  const activeParagraphSet = clLength.includes('Short') ? 'short' : 'detailed';
+  const bridgedClaims = allBridgedClaims.filter(c =>
+    (c.section !== 'experience' || c.variant === activeBulletVariant) &&
+    (c.section !== 'coverLetter' || c.paragraphSet === activeParagraphSet)
+  );
+  const acceptedClaimKeys: string[] = result?.tailoredCv?.acceptedClaimKeys || [];
+  const pendingBridgedClaims = bridgedClaims.filter(c => !acceptedClaimKeys.includes(c.key));
+  const isAnyHighlightOn = isAtsHighlightEnabled || (isBridgeHighlightEnabled && pendingBridgedClaims.length > 0);
+
+  const acceptClaimKeys = (keys: string[]) => {
+    setResult(prev => prev ? {
+      ...prev,
+      tailoredCv: {
+        ...prev.tailoredCv,
+        acceptedClaimKeys: Array.from(new Set([...(prev.tailoredCv.acceptedClaimKeys || []), ...keys])),
+      },
+    } : prev);
+  };
+  const handleAcceptClaim = (claim: BridgedClaim) => acceptClaimKeys([claim.key]);
+  const handleAcceptAllClaims = () => acceptClaimKeys(pendingBridgedClaims.filter(c => !c.isViolation).map(c => c.key));
+  const handleRemoveClaim = (claim: BridgedClaim) => setResult(prev => prev ? removeClaim(prev, claim) : prev);
+
+  // Warn before exporting documents that still contain unreviewed bridged claims
+  const guardExport = (run: () => void) => {
+    if (pendingBridgedClaims.length === 0) {
+      run();
+      return;
+    }
+    const n = pendingBridgedClaims.length;
+    showAlert({
+      title: 'Unreviewed bridged claims',
+      message: `${n} statement${n === 1 ? '' : 's'} in your documents go${n === 1 ? 'es' : ''} beyond your Master Vault and ${n === 1 ? "hasn't" : "haven't"} been reviewed yet. Review them under ATS & Insights → Bridged claims, or export anyway.`,
+      type: 'warning',
+      confirmLabel: 'Export anyway',
+      onConfirm: run,
+    });
+  };
+
+  // Wraps the terms of pending bridged claims found in `text` with amber marks
+  // (only outside existing HTML tags, so ATS highlight markup stays intact).
+  const applyBridgeMarks = (html: string, plainText: string): string => {
+    const norm = (t: string) => t.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    const target = norm(plainText);
+    if (!target) return html;
+    const matches = pendingBridgedClaims.filter(c => {
+      const ct = norm(c.text);
+      return ct === target || (ct.length > 20 && (target.includes(ct) || ct.includes(target)));
+    });
+    if (matches.length === 0) return html;
+    const termSources = new Map<string, string>();
+    matches.forEach(c => c.terms.forEach(t => { if (!termSources.has(t.term)) termSources.set(t.term, t.source || 'not in your profile'); }));
+    const escaped = Array.from(termSources.keys())
+      .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .sort((a, b) => b.length - a.length);
+    if (escaped.length === 0) return html;
+    const re = new RegExp(`(?<![A-Za-z0-9.])(${escaped.join('|')})(?![A-Za-z0-9])`, 'gi');
+    return html.split(/(<[^>]+>)/g).map(part => part.startsWith('<') ? part : part.replace(re, (m) => {
+      const source = termSources.get(Array.from(termSources.keys()).find(k => k.toLowerCase() === m.toLowerCase()) || '') || '';
+      return `<mark data-bridged="1" title="Bridged claim: ${source.replace(/"/g, '&quot;')}" style="background-color: rgba(245, 158, 11, 0.28); color: #78350f; padding: 0 2px; border-radius: 3px; border-bottom: 2px dashed #d97706;">${m}</mark>`;
+    })).join('');
+  };
   const [history, setHistory] = useState<TailorResponse[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
 
@@ -2320,7 +2412,7 @@ export default function TailorWorkspace() {
                       });
                     }}
                     isMeasurement={isMeasurement}
-                    highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(bText) : undefined}
+                    highlightHtml={isAnyHighlightOn ? getHighlightedHtml(bText) : undefined}
                     className="focus:outline-none flex-1 text-black"
                   />
                   {!isMeasurement && (
@@ -2398,7 +2490,7 @@ export default function TailorWorkspace() {
                 onChange={(val) => handleCvSummaryChange(val, true)}
                 onBlur={(e: any) => handleCvSummaryChange(e.target.innerHTML, false)}
                 isMeasurement={isMeasurement}
-                highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(cleanSummary) : undefined}
+                highlightHtml={isAnyHighlightOn ? getHighlightedHtml(cleanSummary) : undefined}
                 className="text-gray-700 text-left font-sans focus:outline-none"
                 style={{
                   fontSize: `${fontSize}px`,
@@ -2499,7 +2591,7 @@ export default function TailorWorkspace() {
                     onChange={(val) => handleWorkExperienceBulletChange(idx, bIdx, val, true)}
                     onBlur={(e: any) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerHTML, false)}
                     isMeasurement={isMeasurement}
-                    highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(b) : undefined}
+                    highlightHtml={isAnyHighlightOn ? getHighlightedHtml(b) : undefined}
                     className="focus:outline-none flex-1 text-black"
                   />
                   {!isMeasurement && (
@@ -2626,7 +2718,7 @@ export default function TailorWorkspace() {
                     onChange={(val) => handleWorkExperienceBulletChange(idx, bIdx, val, true)}
                     onBlur={(e: any) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerHTML, false)}
                     isMeasurement={isMeasurement}
-                    highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(b) : undefined}
+                    highlightHtml={isAnyHighlightOn ? getHighlightedHtml(b) : undefined}
                     className="focus:outline-none flex-1"
                   />
                   {!isMeasurement && (
@@ -2763,7 +2855,7 @@ export default function TailorWorkspace() {
                           onChange={(val) => handleWorkExperienceBulletChange(idx, bIdx, val, true)}
                           onBlur={(e: any) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerHTML, false)}
                           isMeasurement={isMeasurement}
-                          highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(b) : undefined}
+                          highlightHtml={isAnyHighlightOn ? getHighlightedHtml(b) : undefined}
                           className="focus:outline-none flex-1"
                         />
                         {!isMeasurement && (
@@ -3094,7 +3186,7 @@ export default function TailorWorkspace() {
                       onChange={(val) => handleProjectChange(idx, 'description', val, true)}
                       onBlur={(e: any) => handleProjectChange(idx, 'description', e.target.innerHTML, false)}
                       isMeasurement={isMeasurement}
-                      highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(proj.description) : undefined}
+                      highlightHtml={isAnyHighlightOn ? getHighlightedHtml(proj.description) : undefined}
                       className="focus:outline-none"
                     />
                     {')'}
@@ -3207,7 +3299,7 @@ export default function TailorWorkspace() {
                   onBlur={(e: any) => handleProjectChange(idx, 'technologies', e.target.innerText, false)}
                   useInnerText={true}
                   isMeasurement={isMeasurement}
-                  highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies) : undefined}
+                  highlightHtml={isAnyHighlightOn ? getHighlightedHtml(Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies) : undefined}
                   className="focus:outline-none"
                 />
               </p>
@@ -3218,7 +3310,7 @@ export default function TailorWorkspace() {
               onChange={(val) => handleProjectChange(idx, 'description', val, true)}
               onBlur={(e: any) => handleProjectChange(idx, 'description', e.target.innerHTML, false)}
               isMeasurement={isMeasurement}
-              highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(proj.description) : undefined}
+              highlightHtml={isAnyHighlightOn ? getHighlightedHtml(proj.description) : undefined}
               className="text-gray-700 text-left font-sans focus:outline-none"
               style={{
                 fontSize: `${fontSize}px`,
@@ -3271,7 +3363,7 @@ export default function TailorWorkspace() {
                             onBlur={(e: any) => handleProjectChange(idx, 'technologies', e.target.innerText, false)}
                             useInnerText={true}
                             isMeasurement={isMeasurement}
-                            highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies) : undefined}
+                            highlightHtml={isAnyHighlightOn ? getHighlightedHtml(Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies) : undefined}
                             className="focus:outline-none"
                           />
                         </span>
@@ -3320,7 +3412,7 @@ export default function TailorWorkspace() {
                     onChange={(val) => handleProjectChange(idx, 'description', val, true)}
                     onBlur={(e: any) => handleProjectChange(idx, 'description', e.target.innerHTML, false)}
                     isMeasurement={isMeasurement}
-                    highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(proj.description) : undefined}
+                    highlightHtml={isAnyHighlightOn ? getHighlightedHtml(proj.description) : undefined}
                     className="text-gray-700 text-left font-sans focus:outline-none"
                     style={{
                       fontSize: `${fontSize}px`,
@@ -3363,7 +3455,7 @@ export default function TailorWorkspace() {
                     >
                       <span className="text-black leading-none mt-[3px] shrink-0 select-none font-bold">•</span>
                       <span className="text-black">
-                        {isAtsHighlightEnabled ? (
+                        {isAnyHighlightOn ? (
                           <span dangerouslySetInnerHTML={{ __html: names.map(n => getHighlightedHtml(n)).join(' | ') + '.' }} />
                         ) : (
                           <span>{names.join(' | ')}.</span>
@@ -3394,7 +3486,7 @@ export default function TailorWorkspace() {
                       <span className="text-gray-500 leading-none mt-[2px] shrink-0">•</span>
                       <span>
                         <span className="font-semibold text-gray-800">{levelLabel}:</span>{' '}
-                        {isAtsHighlightEnabled ? (
+                        {isAnyHighlightOn ? (
                           <span className="text-gray-700" dangerouslySetInnerHTML={{ __html: names.map(n => getHighlightedHtml(n)).join(', ') }} />
                         ) : (
                           <span className="text-gray-700">{names.join(', ')}</span>
@@ -3419,7 +3511,7 @@ export default function TailorWorkspace() {
                       <span className="text-gray-500 leading-none mt-[2px] shrink-0">•</span>
                       <span>
                         <span className="font-semibold text-gray-800">{cat}:</span>{' '}
-                        {isAtsHighlightEnabled ? (
+                        {isAnyHighlightOn ? (
                           <span className="text-gray-700" dangerouslySetInnerHTML={{ __html: names.map(n => getHighlightedHtml(n)).join(', ') }} />
                         ) : (
                           <span className="text-gray-700">{names.join(', ')}</span>
@@ -3891,7 +3983,7 @@ export default function TailorWorkspace() {
         }
       };
     }
-  }, [result, fontSize, sectionSpacing, pagePaddingTop, pagePaddingBottom, pagePaddingSide, bulletSpacing, signatureSpacing, photoHeight, headerSpacing, bulletStyle, lengthTarget, previewTab, showSignatureImage, showSignatureSection, sectionOrder, selectedProjects, isAtsHighlightEnabled, hiddenSections, customSections, sectionMargins]);
+  }, [result, fontSize, sectionSpacing, pagePaddingTop, pagePaddingBottom, pagePaddingSide, bulletSpacing, signatureSpacing, photoHeight, headerSpacing, bulletStyle, lengthTarget, previewTab, showSignatureImage, showSignatureSection, sectionOrder, selectedProjects, isAtsHighlightEnabled, isAnyHighlightOn, hiddenSections, customSections, sectionMargins]);
 
 
   const handleSelectPersona = (personaId: string) => {
@@ -4315,6 +4407,9 @@ export default function TailorWorkspace() {
 
     // 2. Remove any interactive buttons or input fields
     clone.querySelectorAll('button, input, textarea, select, [role="button"]').forEach(el => el.remove());
+
+    // 2b. Unwrap ATS / bridged-claim highlight marks so they never reach the exported file
+    clone.querySelectorAll('mark').forEach(m => m.replaceWith(...Array.from(m.childNodes)));
 
     // 3. For Cover Letter: Format address blocks & enclosures into pristine paragraph stacks BEFORE stripping attributes
     if (docType === 'cl') {
@@ -6083,6 +6178,19 @@ export default function TailorWorkspace() {
                 </div>
               ) : (
                 <div className="space-y-5">
+                  {Array.isArray(result.gapAnalysis?.requirements) && (
+                    <BridgedClaimsPanel
+                      claims={bridgedClaims}
+                      acceptedKeys={acceptedClaimKeys}
+                      highlightsOn={isBridgeHighlightEnabled}
+                      hardLineRemovals={result.hardLineRemovals}
+                      workExperience={result.tailoredCv?.workExperience}
+                      onToggleHighlights={() => setIsBridgeHighlightEnabled(v => !v)}
+                      onAccept={handleAcceptClaim}
+                      onRemove={handleRemoveClaim}
+                      onAcceptAll={handleAcceptAllClaims}
+                    />
+                  )}
                   <div>
                     <h2 className="text-md font-bold text-white mb-2 flex items-center gap-1.5">
                       <Award className="w-4 h-4 text-emerald-400" />
@@ -6364,9 +6472,9 @@ export default function TailorWorkspace() {
                 isStrictOnePage={lengthTarget.includes('1-Page')}
                 isAtsHighlightEnabled={isAtsHighlightEnabled}
                 onToggleAtsHighlight={() => setIsAtsHighlightEnabled(!isAtsHighlightEnabled)}
-                onExportPdf={() => handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl')}
-                onExportDocx={() => handleExportDocx()}
-                onExportPlainText={() => handleCopyAtsPlainText()}
+                onExportPdf={() => guardExport(() => handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl'))}
+                onExportDocx={() => guardExport(() => handleExportDocx())}
+                onExportPlainText={() => guardExport(() => handleCopyAtsPlainText())}
                 onSaveToTracker={saveToApplicationsTracker}
                 isSavingToTracker={isSaving}
                 saveTrackerSuccess={saveSuccess}
@@ -6526,6 +6634,18 @@ export default function TailorWorkspace() {
                     <Target className="w-3 h-3 text-emerald-400" />
                     <span>ATS Highlights {isAtsHighlightEnabled ? '(ON)' : '(OFF)'}</span>
                   </button>
+
+                  {pendingBridgedClaims.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => { setSidePanelTab('ats'); setIsBridgeHighlightEnabled(true); }}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 transition-all cursor-pointer shadow-sm"
+                      title="Statements that go beyond your Master Vault — review them before sending"
+                    >
+                      <GitMerge className="w-3 h-3 text-amber-400" />
+                      <span>Bridged: {pendingBridgedClaims.length} to review</span>
+                    </button>
+                  )}
 
                   {(() => {
                     const stats = getAtsMatchStats();
@@ -7360,7 +7480,7 @@ export default function TailorWorkspace() {
                                   onChange={(val) => handleClParagraphChange(i, val, true)}
                                   onBlur={(e: any) => handleClParagraphChange(i, e.target.innerHTML, false)}
                                   isMeasurement={false}
-                                  highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(p) : undefined}
+                                  highlightHtml={isAnyHighlightOn ? getHighlightedHtml(p) : undefined}
                                   className="focus:outline-none"
                                 />
                                 <div className="no-print opacity-0 group-hover:opacity-100 absolute -right-2 top-0 flex items-center gap-1 shrink-0 transition-opacity">
@@ -7554,6 +7674,19 @@ export default function TailorWorkspace() {
             <div className="space-y-3 font-sans text-xs">
               {result ? (
                 <>
+                  {Array.isArray(result.gapAnalysis?.requirements) && (
+                    <BridgedClaimsPanel
+                      claims={bridgedClaims}
+                      acceptedKeys={acceptedClaimKeys}
+                      highlightsOn={isBridgeHighlightEnabled}
+                      hardLineRemovals={result.hardLineRemovals}
+                      workExperience={result.tailoredCv?.workExperience}
+                      onToggleHighlights={() => setIsBridgeHighlightEnabled(v => !v)}
+                      onAccept={handleAcceptClaim}
+                      onRemove={handleRemoveClaim}
+                      onAcceptAll={handleAcceptAllClaims}
+                    />
+                  )}
                   <div className="flex items-center justify-between p-3 bg-zinc-900 border border-white/10 rounded-xl">
                     <div className="flex items-center gap-2.5">
                       <span className="text-xl font-extrabold text-emerald-400">{result.matchScore}%</span>
