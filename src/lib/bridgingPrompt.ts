@@ -46,7 +46,12 @@ Job titles must be copied exactly as they appear in the profile.
 GENERAL:
 - Do NOT force a number into every bullet. A strong, specific bullet without a metric is better than an invented one.
 - Do not mention technologies that are neither in the profile nor an [ADJACENT] requirement.
-- Do not move a technology from one job to another job where the profile does not show it (except ADJACENT bridges under Aggressive Bridging).`;
+- Do not move a technology from one job to another job where the profile does not show it (except ADJACENT bridges under Aggressive Bridging).
+
+COVER LETTER — CANDIDATE PREFERENCES:
+- State the candidate's working conditions (full-time/part-time, hours, remote/hybrid/on-site, relocation, start date, salary, notice period) ONLY if they appear in the additional context / custom notes.
+- NEVER copy conditions from the job description as if they were the candidate's wishes (e.g. the ad offers "part-time from 30h, 100% remote" — do not write "I would like to work part-time remotely").
+- If salary or notice period are not provided, do not mention them.`;
 }
 
 /** First city in a free-text address like "Berlin, Germany" -> "Berlin". */

@@ -416,7 +416,7 @@ You must respond with a raw JSON object containing these exact keys:
     "salutation": "<string, e.g., 'Sehr geehrte Damen und Herren,' or 'Dear Hiring Manager,'>",
     "paragraphs": {
       "short": [<array of 2 paragraphs (introduction + concise fit) in ${clLanguage === 'DE' ? 'German' : 'English'}>],
-      "detailed": [<array of 3-4 paragraphs (introduction + detailed fit + details like salary/notice period) in ${clLanguage === 'DE' ? 'German' : 'English'}>]
+      "detailed": [<array of 3-4 paragraphs (introduction + detailed fit + salary/notice period only if provided in the additional context) in ${clLanguage === 'DE' ? 'German' : 'English'}>]
     },
     "closing": "<string, e.g., 'Mit freundlichen Grüßen,' or 'Sincerely,'>",
     "signatureName": "<string>"
