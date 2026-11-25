@@ -20,6 +20,7 @@ import CanvasViewport from './components/CanvasViewport';
 import CanvasFloatingHud from './components/CanvasFloatingHud';
 import MobileToolBottomSheet from './components/MobileToolBottomSheet';
 import RefusalReport from './components/RefusalReport';
+import DraftsList from './components/DraftsList';
 import { checkJobDescription } from '@/lib/jobDescriptionCheck';
 import { computeKeywordCoverage } from '@/lib/keywordCoverage';
 import BridgedClaimsPanel from './components/BridgedClaimsPanel';
@@ -662,6 +663,7 @@ export default function TailorWorkspace() {
   const [matchStrategy, setMatchStrategy] = useState<'TACTICAL_PIVOT' | 'AGGRESIVE_BRIDGING'>('TACTICAL_PIVOT');
   const [styleTemplate, setStyleTemplate] = useState<'CLASSIC_CORPORATE' | 'MODERN_MINIMALIST' | 'TECH_CREATIVE'>('CLASSIC_CORPORATE');
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
+  const [editingAppStatus, setEditingAppStatus] = useState<string | null>(null);
   const [cvFormatMode, setCvFormatMode] = useState<'visual' | 'ats' | 'bullet-matrix'>('visual');
   const [isAtsMode, setIsAtsMode] = useState(false);
   const [isNudgeEnabled, setIsNudgeEnabled] = useState<boolean>(true);
@@ -1621,6 +1623,61 @@ export default function TailorWorkspace() {
   const [generatingInterviewPrep, setGeneratingInterviewPrep] = useState(false);
   const [interviewPrepCustomPrompt, setInterviewPrepCustomPrompt] = useState('');
   const [expandedQuestionIdx, setExpandedQuestionIdx] = useState<number | null>(0);
+
+  // === Autosave (v2 Phase 4) ===
+  // Once a result belongs to a saved application (draft or tracked), edits are
+  // saved automatically ~2s after the last change.
+  const autosaveRef = useRef<{ appId: string | null; body: string }>({ appId: null, body: '' });
+  const [autosaveState, setAutosaveState] = useState<'idle' | 'pending' | 'saving' | 'saved' | 'error'>('idle');
+  const autosaveBody = useMemo(() => {
+    if (!editingAppId || !result?.tailoredCv) return '';
+    return JSON.stringify({
+      matchScore: result.matchScore,
+      gapAnalysis: result.gapAnalysis,
+      documents: [
+        { type: 'CV', content: JSON.stringify({ ...result.tailoredCv, sectionOrder }) },
+        ...(result.tailoredCoverLetter ? [{ type: 'COVER_LETTER', content: JSON.stringify(result.tailoredCoverLetter) }] : []),
+        ...(interviewPrepData ? [{ type: 'INTERVIEW_PREP', content: JSON.stringify(interviewPrepData) }] : []),
+        ...(outreachData ? [{ type: 'OUTREACH', content: JSON.stringify(outreachData) }] : []),
+      ],
+    });
+  }, [editingAppId, result, sectionOrder, interviewPrepData, outreachData]);
+
+  useEffect(() => {
+    if (!editingAppId || !autosaveBody) return;
+    // First snapshot for this application = what is already stored
+    if (autosaveRef.current.appId !== editingAppId) {
+      autosaveRef.current = { appId: editingAppId, body: autosaveBody };
+      setAutosaveState('saved');
+      return;
+    }
+    if (autosaveRef.current.body === autosaveBody) return;
+    setAutosaveState('pending');
+    const appId = editingAppId;
+    const body = autosaveBody;
+    const timer = setTimeout(async () => {
+      setAutosaveState('saving');
+      try {
+        const res = await fetch(`/api/applications/${appId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body });
+        if (!res.ok) throw new Error(`Autosave failed (${res.status})`);
+        if (autosaveRef.current.appId === appId) autosaveRef.current.body = body;
+        setAutosaveState('saved');
+      } catch (err) {
+        console.error(err);
+        setAutosaveState('error');
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [editingAppId, autosaveBody]);
+
+  // Warn before leaving while changes are not saved yet
+  useEffect(() => {
+    if (autosaveState !== 'pending' && autosaveState !== 'saving' && autosaveState !== 'error') return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [autosaveState]);
+
 
   const handleGenerateInterviewPrep = async () => {
     if (!jobDescription) {
@@ -4098,6 +4155,7 @@ export default function TailorWorkspace() {
         const app = await res.json();
         setCompanyName(app.company);
         setRoleName(app.role);
+        setEditingAppStatus(app.status || null);
         setJobDescription(app.rawJobDescription);
         setCvLanguage(app.targetLanguage as 'EN' | 'DE');
         setClLanguage(app.targetLanguage as 'EN' | 'DE');
@@ -4322,6 +4380,7 @@ export default function TailorWorkspace() {
           profile,
           matchStrategy,
           applicationId: editingAppId,
+          companyName,
           roleName,
           selectedProjects: allProjects,
           isNudgeEnabled
@@ -4347,6 +4406,11 @@ export default function TailorWorkspace() {
       }
       setResult(data);
       fetchTokens();
+      if ((data as any).applicationId) {
+        // Saved server-side as a DRAFT; edits now auto-save to it
+        setEditingAppId((data as any).applicationId);
+        setEditingAppStatus('DRAFT');
+      }
 
       if (data.tailoredCv?.projects && Array.isArray(data.tailoredCv.projects)) {
         setSelectedProjects(data.tailoredCv.projects.map((p: any) => p.name));
@@ -5237,6 +5301,8 @@ export default function TailorWorkspace() {
     setSaveSuccess(false);
 
     const payload = {
+      // Tracking a draft moves it into the tracker
+      ...(editingAppStatus === 'DRAFT' ? { status: 'TAILORED' } : {}),
       company: companyName || 'Target Company',
       role: roleName || 'Target Role',
       salaryExpectation,
@@ -5276,6 +5342,7 @@ export default function TailorWorkspace() {
         const savedApp = await res.json();
         if (savedApp && savedApp.id) {
           setEditingAppId(savedApp.id);
+          setEditingAppStatus(savedApp.status || null);
         }
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
@@ -5691,6 +5758,7 @@ export default function TailorWorkspace() {
           {/* TAB 1: GENERATION & STRATEGY */}
           {sidePanelTab === 'generation' && (
             <div className="space-y-4 animate-in fade-in duration-200">
+              <DraftsList currentAppId={editingAppId} refreshKey={editingAppId} limit={4} />
               {/* Source Career Persona Selection */}
               {profile?.personas && profile.personas.length > 1 && (
                 <div className="p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-xl space-y-1.5 text-left font-sans shadow-sm">
@@ -6520,7 +6588,7 @@ export default function TailorWorkspace() {
                 onSaveToTracker={saveToApplicationsTracker}
                 isSavingToTracker={isSaving}
                 saveTrackerSuccess={saveSuccess}
-                editingAppId={editingAppId}
+                editingAppId={editingAppStatus === 'DRAFT' ? null : editingAppId}
                 hasResult={!!result}
               />
             </div>
@@ -6676,6 +6744,19 @@ export default function TailorWorkspace() {
                     <Target className="w-3 h-3 text-emerald-400" />
                     <span>ATS Highlights {isAtsHighlightEnabled ? '(ON)' : '(OFF)'}</span>
                   </button>
+
+                  {editingAppId && result && (
+                    <span
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${autosaveState === 'error' ? 'border-rose-500/40 text-rose-300' : 'border-white/10 text-zinc-400'}`}
+                      title={editingAppStatus === 'DRAFT' ? 'Saved as a draft. Click Track to add it to your application tracker. Drafts are deleted after 30 days.' : 'Changes are saved automatically to this application.'}
+                    >
+                      {autosaveState === 'pending' || autosaveState === 'saving'
+                        ? 'Saving…'
+                        : autosaveState === 'error'
+                          ? 'Not saved — click Track / Update'
+                          : editingAppStatus === 'DRAFT' ? 'Draft · saved' : 'All changes saved'}
+                    </span>
+                  )}
 
                   {pendingBridgedClaims.length > 0 && (
                     <button
