@@ -172,7 +172,8 @@ GENERATE 3 DISTINCT MESSAGE TYPES:
    - Include a short tip.
 
 STRICT CONSTRAINTS:
-1. Ground all achievements strictly in the candidate's provided CV facts.
+1. Ground all achievements strictly in the candidate's provided CV facts. Do NOT add technologies, versions or metrics that are not in the CV facts.
+1b. Only state facts about the company that appear in the job description (no customers, funding, products or news from outside knowledge).
 2. Custom instruction from candidate: "${(customInstruction || 'Tailor specifically for high conversion and genuine interest.').replace(/"/g, "'")}"
 3. Output strictly valid JSON matching this schema:
 {

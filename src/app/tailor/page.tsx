@@ -21,7 +21,7 @@ import CanvasFloatingHud from './components/CanvasFloatingHud';
 import MobileToolBottomSheet from './components/MobileToolBottomSheet';
 import RefusalReport from './components/RefusalReport';
 import BridgedClaimsPanel from './components/BridgedClaimsPanel';
-import { detectBridgedClaims, removeClaim, type BridgedClaim } from '@/lib/bridging';
+import { detectBridgedClaims, removeClaim, removeClaims, summarizeKeptClaims, type BridgedClaim } from '@/lib/bridging';
 
 interface WorkExperience {
   company: string;
@@ -1335,6 +1335,13 @@ export default function TailorWorkspace() {
   const handleAcceptAllClaims = () => acceptClaimKeys(pendingBridgedClaims.filter(c => !c.isViolation).map(c => c.key));
   const handleRemoveClaim = (claim: BridgedClaim) => setResult(prev => prev ? removeClaim(prev, claim) : prev);
 
+  // Outreach and Interview Prep only see claims the user kept: unreviewed ones are stripped
+  const getCvForDownstreamAi = () => {
+    if (!result) return null;
+    const unreviewed = allBridgedClaims.filter(c => !acceptedClaimKeys.includes(c.key));
+    return unreviewed.length > 0 ? removeClaims(result, unreviewed).tailoredCv : result.tailoredCv;
+  };
+
   // Warn before exporting documents that still contain unreviewed bridged claims
   const guardExport = (run: () => void) => {
     if (pendingBridgedClaims.length === 0) {
@@ -1542,7 +1549,7 @@ export default function TailorWorkspace() {
           jobDescription,
           companyName,
           roleName,
-          tailoredCv: result?.tailoredCv || profile,
+          tailoredCv: getCvForDownstreamAi() || profile,
           targetLanguage: cvLanguage,
           recruiterName: outreachRecruiterName || result?.jobMetadata?.recruiterName || '',
           customInstruction: outreachCustomPrompt
@@ -1599,6 +1606,13 @@ export default function TailorWorkspace() {
       trap: string;
       recommendation: string;
     }>;
+    backItUp?: Array<{
+      claim: string;
+      skill: string;
+      studyPlan: string[];
+      honestFraming: string;
+      likelyProbe: string;
+    }>;
   } | null>(null);
   const [generatingInterviewPrep, setGeneratingInterviewPrep] = useState(false);
   const [interviewPrepCustomPrompt, setInterviewPrepCustomPrompt] = useState('');
@@ -1622,9 +1636,10 @@ export default function TailorWorkspace() {
           jobDescription,
           companyName,
           roleName,
-          tailoredCv: result?.tailoredCv || profile,
+          tailoredCv: getCvForDownstreamAi() || profile,
           targetLanguage: cvLanguage,
-          customInstruction: interviewPrepCustomPrompt
+          customInstruction: interviewPrepCustomPrompt,
+          keptBridgedClaims: summarizeKeptClaims(allBridgedClaims, acceptedClaimKeys)
         })
       });
 
@@ -7256,6 +7271,40 @@ export default function TailorWorkspace() {
                               <p className="text-zinc-300 text-[11px] leading-relaxed">
                                 <strong>Navigation:</strong> {trap.recommendation}
                               </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 5. Back up bridged claims */}
+                    {interviewPrepData.backItUp && interviewPrepData.backItUp.length > 0 && (
+                      <div className="glass-panel p-5 rounded-2xl border border-amber-500/25 shadow-lg space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 font-bold text-xs">
+                            🧭 Bridged claims
+                          </span>
+                          <h4 className="font-bold text-white text-sm">Prepare to Back These Up</h4>
+                        </div>
+                        <p className="text-[11px] text-zinc-400">
+                          Your CV includes these bridged statements. Expect questions on them, and prepare so you can answer honestly and confidently.
+                        </p>
+                        <div className="space-y-2.5 pt-1">
+                          {interviewPrepData.backItUp.map((item, bIdx) => (
+                            <div key={bIdx} className="p-3 bg-amber-500/5 rounded-xl border border-amber-500/15 space-y-1.5 text-xs">
+                              <p className="font-bold text-amber-200">{item.skill}</p>
+                              <p className="text-zinc-400 text-[11px] italic">"{item.claim}"</p>
+                              {item.likelyProbe && (
+                                <p className="text-zinc-300 text-[11px]"><strong>Likely question:</strong> {item.likelyProbe}</p>
+                              )}
+                              {Array.isArray(item.studyPlan) && item.studyPlan.length > 0 && (
+                                <ul className="list-disc pl-4 text-zinc-300 text-[11px] space-y-0.5">
+                                  {item.studyPlan.map((step, sIdx) => <li key={sIdx}>{step}</li>)}
+                                </ul>
+                              )}
+                              {item.honestFraming && (
+                                <p className="text-zinc-300 text-[11px] leading-relaxed"><strong>How to frame it:</strong> {item.honestFraming}</p>
+                              )}
                             </div>
                           ))}
                         </div>

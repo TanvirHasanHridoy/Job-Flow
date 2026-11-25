@@ -517,10 +517,28 @@ function syncSummaryMirror(cv: any): void {
  * descriptions, cover letter) only the sentences containing the claim are dropped.
  */
 export function removeClaim<T>(result: T, claim: BridgedClaim): T {
+  return removeClaims(result, [claim]);
+}
+
+/** Removes several claims at once (highest indices first so positions stay valid). */
+export function removeClaims<T>(result: T, claims: BridgedClaim[]): T {
   const copy = JSON.parse(JSON.stringify(result));
-  applyClaimRemoval(copy, claim, claim.terms.map(t => t.term));
+  const ordered = [...claims].sort((a, b) => (b.itemIndex ?? 0) - (a.itemIndex ?? 0));
+  for (const claim of ordered) applyClaimRemoval(copy, claim, claim.terms.map(t => t.term));
   syncSummaryMirror(copy?.tailoredCv);
   return copy;
+}
+
+/** Compact list of kept bridged claims for Interview Prep "back it up" coaching. */
+export function summarizeKeptClaims(claims: BridgedClaim[], acceptedKeys: string[]): Array<{ claim: string; terms: string[]; basis: string }> {
+  return claims
+    .filter(c => acceptedKeys.includes(c.key) && !c.isViolation)
+    .map(c => ({
+      claim: stripHtml(c.text).slice(0, 300),
+      terms: c.terms.map(t => t.term),
+      basis: Array.from(new Set(c.terms.map(t => t.source).filter(Boolean))).join('; '),
+    }))
+    .slice(0, 12);
 }
 
 /**
