@@ -10,6 +10,7 @@ import { classifySkillCategory, SKILL_CATEGORIES } from '@/lib/skills';
 import { CustomSection, CustomSectionType, CustomSectionItem, CustomSectionSubgroup, createDefaultCustomSection } from '@/lib/customSections';
 import { useTokens } from '@/context/TokenContext';
 import { useAlertModal } from '@/context/AlertModalContext';
+import { MAX_IMAGE_BYTES } from '@/lib/uploads';
 
 interface WorkExperience {
   company: string;
@@ -621,9 +622,17 @@ export default function ProfileVault() {
       if (res.ok) {
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        let message = 'Your vault could not be saved. Please try again.';
+        try {
+          const errJson = await res.json();
+          if (errJson?.error) message = errJson.error;
+        } catch {}
+        showAlert({ title: 'Save Failed', message, type: 'error' });
       }
     } catch (err) {
       console.error('Failed to save profile:', err);
+      showAlert({ title: 'Save Failed', message: 'Your vault could not be saved. Please check your connection and try again.', type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -645,6 +654,14 @@ export default function ProfileVault() {
       });
       return;
     }
+    if (file.size > MAX_IMAGE_BYTES) {
+      showAlert({
+        title: 'Image Too Large',
+        message: 'Please choose a photo under 2 MB.',
+        type: 'warning'
+      });
+      return;
+    }
     const reader = new FileReader();
     reader.onloadend = () => {
       setProfile(prev => ({ ...prev, photo: reader.result as string }));
@@ -659,6 +676,14 @@ export default function ProfileVault() {
       showAlert({
         title: 'Invalid File',
         message: 'Please select an image file.',
+        type: 'warning'
+      });
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      showAlert({
+        title: 'Image Too Large',
+        message: 'Please choose a signature image under 2 MB.',
         type: 'warning'
       });
       return;

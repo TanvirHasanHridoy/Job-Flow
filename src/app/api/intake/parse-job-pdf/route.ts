@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { enforceRateLimit } from '@/lib/rateLimit';
+import { readPdfUpload } from '@/lib/uploads';
 import { deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { getAiConfig } from '@/lib/ai';
 import 'pdf-parse/worker';
@@ -35,13 +36,14 @@ export async function POST(req: Request) {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
 
-    if (!file) {
-      return NextResponse.json({ error: 'No PDF file was uploaded.' }, { status: 400 });
+    // Size (5 MB) and PDF signature checks before any parsing or charging
+    const upload = await readPdfUpload(file);
+    if ('error' in upload) {
+      return NextResponse.json({ error: upload.error }, { status: upload.status });
     }
+    const { buffer } = upload;
 
     // 1. Extract text from the PDF buffer before charging the user
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
     
     let pdfText = '';
     try {
