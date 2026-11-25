@@ -11,6 +11,7 @@ import { CustomSection, CustomSectionType, CustomSectionItem, CustomSectionSubgr
 import { useTokens } from '@/context/TokenContext';
 import { useAlertModal } from '@/context/AlertModalContext';
 import { MAX_IMAGE_BYTES } from '@/lib/uploads';
+import { hasVaultContent, mergeImportedProfile, replaceWithImported } from '@/lib/profileMerge';
 
 interface WorkExperience {
   company: string;
@@ -133,6 +134,8 @@ export default function ProfileVault() {
   const [githubUsername, setGithubUsername] = useState('');
   const [linkedinText, setLinkedinText] = useState('');
   const [importing, setImporting] = useState(false);
+  // Imported data waiting for the user's merge/replace choice (vault already has content)
+  const [pendingImport, setPendingImport] = useState<any>(null);
 
   // Signature Background Removal Modal States
   const [showSigProcessor, setShowSigProcessor] = useState(false);
@@ -208,6 +211,32 @@ export default function ProfileVault() {
     }
   }, [sigProcessorOriginal, sigProcessorThreshold]);
 
+  const finishImport = (imported: any, mode: 'merge' | 'replace') => {
+    setProfile(prev => (mode === 'merge' ? mergeImportedProfile(prev, imported) : replaceWithImported(prev, imported)));
+    setPendingImport(null);
+    confetti({
+      particleCount: 80,
+      spread: 60,
+      origin: { y: 0.3 }
+    });
+    showAlert({
+      title: 'Import Completed',
+      message: mode === 'merge'
+        ? 'New entries from the import were added to your vault; your existing details were kept. Review them in the tabs below and click "Save Vault" to commit.'
+        : 'Your vault was replaced with the imported details (photo, signature and custom sections were kept). Review them and click "Save Vault" to commit.',
+      type: 'success'
+    });
+  };
+
+  // Ask before touching a vault that already has content; otherwise fill it directly
+  const applyImport = (imported: any) => {
+    if (hasVaultContent(profile)) {
+      setPendingImport(imported);
+    } else {
+      finishImport(imported, 'replace');
+    }
+  };
+
   const handleImport = async () => {
     if (!githubUsername.trim() && !linkedinText.trim()) {
       showAlert({
@@ -239,23 +268,12 @@ export default function ProfileVault() {
       }
 
       const parsedProfile = await res.json();
-      setProfile(parsedProfile);
-      
+
       // Update tokens count
       fetchTokens();
-      
-      confetti({
-        particleCount: 80,
-        spread: 60,
-        origin: { y: 0.3 }
-      });
 
-      showAlert({
-        title: 'Import Completed',
-        message: 'AI Import Completed! The parsed details have been pre-populated in the tabs below. Review them and click "Save Vault" to commit changes.',
-        type: 'success'
-      });
       setImportOpen(false);
+      applyImport(parsedProfile);
       setGithubUsername('');
       setLinkedinText('');
     } catch (err: any) {
@@ -313,27 +331,8 @@ export default function ProfileVault() {
       // Update tokens count
       fetchTokens();
       
-      setProfile(prev => ({
-        ...prev,
-        ...parsedProfile,
-        workExperience: parsedProfile.workExperience || [],
-        education: parsedProfile.education || [],
-        skills: parsedProfile.skills || [],
-        languages: parsedProfile.languages || []
-      }));
-
-      confetti({
-        particleCount: 80,
-        spread: 60,
-        origin: { y: 0.3 }
-      });
-
-      showAlert({
-        title: 'Import Completed',
-        message: 'AI PDF Import Completed! The parsed details have been pre-populated in the tabs below. Review them and click "Save Vault" to commit changes.',
-        type: 'success'
-      });
       setImportOpen(false);
+      applyImport(parsedProfile);
     } catch (err: any) {
       console.error(err);
       showAlert({
@@ -2973,6 +2972,43 @@ export default function ProfileVault() {
         </button>
       </aside>
 
+      {pendingImport && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 p-6 shadow-2xl space-y-4">
+            <div>
+              <h3 className="text-lg font-bold text-white">Your vault already has content</h3>
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                How should the imported details be applied? Nothing is saved until you click "Save Vault".
+              </p>
+            </div>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => finishImport(pendingImport, 'merge')}
+                className="w-full text-left p-3 rounded-xl border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 cursor-pointer"
+              >
+                <span className="block text-sm font-bold text-white">Merge (recommended)</span>
+                <span className="block text-[11px] text-zinc-400">Keep everything you have and add new jobs, education, skills, languages and projects from the import.</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => finishImport(pendingImport, 'replace')}
+                className="w-full text-left p-3 rounded-xl border border-white/10 hover:bg-white/5 cursor-pointer"
+              >
+                <span className="block text-sm font-bold text-white">Replace</span>
+                <span className="block text-[11px] text-zinc-400">Use the imported details instead. Photo, signature and custom sections are kept.</span>
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPendingImport(null)}
+              className="w-full py-2 text-xs text-zinc-400 hover:text-white cursor-pointer"
+            >
+              Cancel (discard the import)
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
