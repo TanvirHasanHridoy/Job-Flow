@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import DraftsList from '../tailor/components/DraftsList';
 import {
   Plus, Calendar, MapPin, DollarSign, Clock, FileText, Trash2, Eye, ChevronRight, ChevronLeft, Award, Sparkles, LayoutGrid, CheckCircle2, TrendingUp, Building, User, Mail, Globe, Loader2,
   HelpCircle, BookOpen, Layers, Target, Palette, Send, X
@@ -582,6 +583,9 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Drafts: generated but not tracked yet (hidden when empty) */}
+      <DraftsList className="mb-6 no-print" limit={6} />
 
       {/* View Switcher Tabs */}
       <div className="flex items-center gap-2 mb-6 border-b border-white/5 pb-4 no-print font-sans">
