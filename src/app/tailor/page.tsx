@@ -19,6 +19,7 @@ import BulletMatrixCvView from './components/BulletMatrixCvView';
 import CanvasViewport from './components/CanvasViewport';
 import CanvasFloatingHud from './components/CanvasFloatingHud';
 import MobileToolBottomSheet from './components/MobileToolBottomSheet';
+import RefusalReport from './components/RefusalReport';
 
 interface WorkExperience {
   company: string;
@@ -1279,6 +1280,8 @@ export default function TailorWorkspace() {
   // App state
   const [loading, setLoading] = useState(false);
   const [result, rawSetResult] = useState<TailorResponse | null>(null);
+  // Set when the server refuses to tailor because the role is too far from the profile
+  const [refusal, setRefusal] = useState<any>(null);
   const [history, setHistory] = useState<TailorResponse[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
 
@@ -4171,6 +4174,7 @@ export default function TailorWorkspace() {
     }
     setLoading(true);
     setResult(null);
+    setRefusal(null);
     try {
       const allProjects = profile?.projects && Array.isArray(profile.projects) && profile.projects.length > 0
         ? profile.projects.map((p: any) => p.name)
@@ -4213,7 +4217,13 @@ export default function TailorWorkspace() {
         throw new Error(errJson.error || 'Server error during tailoring');
       }
 
-      const data = (await res.json()) as TailorResponse;
+      const data = (await res.json()) as TailorResponse & { refused?: boolean };
+      if (data.refused) {
+        // Gap too big: show the gap report instead of documents (tokens were charged)
+        setRefusal(data);
+        fetchTokens();
+        return;
+      }
       setResult(data);
       fetchTokens();
 
@@ -7464,6 +7474,8 @@ export default function TailorWorkspace() {
                   )}
                 </div>
               </div>
+            ) : refusal ? (
+              <RefusalReport matchScore={refusal.matchScore} gapAnalysis={refusal.gapAnalysis || {}} tokenCost={20} />
             ) : (
               <div className="flex flex-col items-center justify-center p-12 text-center text-zinc-500 border border-dashed border-white/10 rounded-2xl w-full max-w-lg">
                 <FileText className="w-12 h-12 mb-3 text-zinc-600" />

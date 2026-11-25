@@ -9,6 +9,13 @@ import { aiResponseCache, generateCacheKey } from '@/lib/cache';
 import { getAiConfig } from '@/lib/ai';
 import { formatCityCountry } from '@/lib/customSections';
 import { buildBulletMatrixSystemPrompt } from '@/lib/bulletMatrixPrompts';
+import { callAiJson } from '@/lib/aiCall';
+import {
+  buildRequirementAnalysisPrompt,
+  normalizeRequirementAnalysis,
+  toLegacyGapArrays,
+  type RequirementAnalysis,
+} from '@/lib/requirements';
 
 // === DeepSeek API Configuration (Preserved / Commented as requested) ===
 // const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
@@ -202,6 +209,72 @@ export async function POST(req: Request) {
           console.error('Error translating German JD to English:', err);
         }
       }
+    }
+
+    // === STEP 1: Requirement analysis (MATCH / ADJACENT / GAP) + feasibility gate ===
+    const analysisPrompt = buildRequirementAnalysisPrompt(cvLanguage === 'DE' ? 'DE' : 'EN');
+    let analysis: RequirementAnalysis;
+    let analysisRaw = '';
+    try {
+      const { data, raw } = await callAiJson(aiConfig, [
+        { role: 'system', content: analysisPrompt },
+        {
+          role: 'user',
+          content: `CANDIDATE PROFILE:\n${JSON.stringify(formattedProfile, null, 2)}\n\nJOB DESCRIPTION:\n${processedJobDescription}`
+        }
+      ]);
+      analysis = normalizeRequirementAnalysis(data);
+      analysisRaw = raw;
+    } catch (analysisErr) {
+      await refundTokens();
+      console.error('Requirement analysis failed:', analysisErr);
+      return NextResponse.json({ error: AI_UNAVAILABLE_MESSAGE }, { status: 502 });
+    }
+
+    if (analysis.requirements.length === 0) {
+      // Nothing recognisable as job requirements (e.g. random text) — don't charge.
+      await refundTokens();
+      return NextResponse.json(
+        { error: 'No job requirements could be found in this text. Please paste the full job description. Your tokens were refunded.' },
+        { status: 422 }
+      );
+    }
+
+    const analysisGap = {
+      ...toLegacyGapArrays(analysis.requirements),
+      recommendations: analysis.recommendations,
+      requirements: analysis.requirements,
+      mustCoverage: analysis.mustCoverage,
+      mustHaveCount: analysis.mustHaveCount,
+      mustHaveCovered: analysis.mustHaveCovered,
+      threshold: analysis.threshold,
+    };
+
+    if (!analysis.feasible) {
+      // Owner decision: refuse when under 50% of must-haves are covered; full price is
+      // charged because the user still receives the full gap analysis report.
+      const refusal = {
+        refused: true,
+        matchScore: analysis.matchScore,
+        gapAnalysis: { ...analysisGap, matchingKeywords: [...analysisGap.exactMatches, ...analysisGap.adjacentMatches] },
+      };
+      try {
+        await prisma.tailorDiagnosticLog.create({
+          data: {
+            userId,
+            applicationId,
+            rawJobDescription: jobDescription,
+            userProfileSnapshot: JSON.stringify(formattedProfile),
+            matchStrategyUsed: matchStrategy,
+            systemPromptSent: analysisPrompt,
+            rawLlmResponse: analysisRaw
+          }
+        });
+      } catch (logError) {
+        console.error('Failed to create diagnostic log entry:', logError);
+      }
+      aiResponseCache.set(cacheKey, refusal);
+      return NextResponse.json(refusal);
     }
 
     // System prompt selection with strategies
@@ -495,29 +568,13 @@ ${contextStr}`
       return NextResponse.json({ error: 'AI produced invalid JSON output. Please retry.' }, { status: 500 });
     }
 
-    // Deterministically calculate match score from exact, adjacent, and missing skills
-    const exactMatches = tailoredResult.gapAnalysis?.exactMatches || [];
-    const adjacentMatches = tailoredResult.gapAnalysis?.adjacentMatches || [];
-    const missingSkills = tailoredResult.gapAnalysis?.missingSkills || [];
-
-    const we = 1.0;
-    const wa = 0.5;
-    const wm = 1.0;
-
-    const numerator = we * exactMatches.length + wa * adjacentMatches.length;
-    const denominator = numerator + wm * missingSkills.length;
-
-    let calculatedScore = 100;
-    if (denominator > 0) {
-      calculatedScore = Math.round((numerator / denominator) * 100);
-    }
-
-    tailoredResult.matchScore = calculatedScore;
-
-    // Maintain backwards compatibility with UI mapping
-    if (tailoredResult.gapAnalysis) {
-      tailoredResult.gapAnalysis.matchingKeywords = [...exactMatches, ...adjacentMatches];
-    }
+    // Match score and gap analysis come from the requirement analysis (step 1),
+    // computed deterministically — not from lists the generation model writes.
+    tailoredResult.matchScore = analysis.matchScore;
+    tailoredResult.gapAnalysis = {
+      ...analysisGap,
+      matchingKeywords: [...analysisGap.exactMatches, ...analysisGap.adjacentMatches],
+    };
 
     // Merge static fields back into the tailored CV response to conserve tokens
     const personalDetails = {
