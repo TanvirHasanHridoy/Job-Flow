@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { DEV_AUTH_COOKIE, resolveDevAuthUserId } from '@/lib/devAuth';
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
@@ -29,14 +30,12 @@ export async function proxy(request: NextRequest) {
     }
   );
 
-  let devAuthCookie = request.cookies.get('jobmaster_dev_auth')?.value || request.headers.get('x-dev-auth');
-  const sessionCookieHeader = request.headers.get('x-session-cookie');
-  if (!devAuthCookie && sessionCookieHeader && sessionCookieHeader.includes('jobmaster_dev_auth=')) {
-    const match = sessionCookieHeader.match(/jobmaster_dev_auth=([^;]+)/);
-    if (match && match[1]) {
-      devAuthCookie = match[1];
-    }
-  }
+  // Dev auth is only honoured outside production — see src/lib/devAuth.ts.
+  const devAuthCookie = resolveDevAuthUserId({
+    cookieValue: request.cookies.get(DEV_AUTH_COOKIE)?.value,
+    devHeader: request.headers.get('x-dev-auth'),
+    forwardedCookieHeader: request.headers.get('x-session-cookie'),
+  });
 
   // Check Bearer token from header
   const authHeader = request.headers.get('authorization');
