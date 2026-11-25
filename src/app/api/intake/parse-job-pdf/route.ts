@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
+import { AI_UNAVAILABLE_MESSAGE, PDF_UNREADABLE_MESSAGE } from '@/lib/apiErrors';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { readPdfUpload } from '@/lib/uploads';
 import { deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
@@ -53,7 +54,7 @@ export async function POST(req: Request) {
     } catch (parseErr: any) {
       console.error('pdf-parse failure on job description:', parseErr);
       return NextResponse.json(
-        { error: `Failed to extract text from the PDF document: ${parseErr.message || parseErr}` },
+        { error: PDF_UNREADABLE_MESSAGE },
         { status: 422 }
       );
     }
@@ -179,7 +180,7 @@ Please parse and return the JSON object.`;
       const errorText = await response.text().catch(() => '');
       console.error(`${aiConfig.provider} API Error during job description PDF parsing:`, errorText);
       return NextResponse.json(
-        { error: `${aiConfig.provider} API returned status ${response.status}: ${errorText}` },
+        { error: AI_UNAVAILABLE_MESSAGE },
         { status: 502 }
       );
     }
@@ -200,6 +201,6 @@ Please parse and return the JSON object.`;
   } catch (error: any) {
     await refundTokens();
     console.error('Parse job PDF API error:', error);
-    return NextResponse.json({ error: error.message || 'An error occurred during job PDF parsing' }, { status: 500 });
+    return NextResponse.json({ error: 'An error occurred while reading the job PDF. Please try again.' }, { status: 500 });
   }
 }

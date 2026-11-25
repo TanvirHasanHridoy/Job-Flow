@@ -53,7 +53,7 @@ export async function GET() {
   } catch (error: any) {
     console.error('Error checking session:', error);
     return NextResponse.json(
-      { authenticated: false, error: error.message },
+      { authenticated: false, error: 'Session check failed' },
       { status: 500 }
     );
   }

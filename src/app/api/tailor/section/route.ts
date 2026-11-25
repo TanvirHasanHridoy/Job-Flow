@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
+import { AI_UNAVAILABLE_MESSAGE } from '@/lib/apiErrors';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { getUserTokens, deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
@@ -347,7 +348,7 @@ ${JSON.stringify(profile || {}, null, 2)}`
       if (!apiRes) {
         const message = lastError?.message || 'Failed to communicate with AI model';
         console.error(`${aiConfig.provider} Section API request failed:`, message);
-        return NextResponse.json({ error: message }, { status: 502 });
+        return NextResponse.json({ error: AI_UNAVAILABLE_MESSAGE }, { status: 502 });
       }
 
       const errText = await apiRes.text().catch(() => '');
@@ -357,7 +358,8 @@ ${JSON.stringify(profile || {}, null, 2)}`
         const errJson = JSON.parse(errText);
         errMsg = errJson.error?.message || errJson.message || errMsg;
       } catch { }
-      return NextResponse.json({ error: errMsg }, { status: apiRes.status });
+      console.error(`${aiConfig.provider} Section API error message:`, errMsg);
+      return NextResponse.json({ error: AI_UNAVAILABLE_MESSAGE }, { status: 502 });
     }
 
     let contentStr = '';
@@ -428,6 +430,6 @@ ${JSON.stringify(profile || {}, null, 2)}`
   } catch (error: any) {
     await refundTokens();
     console.error('Error in /api/tailor/section:', error);
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }

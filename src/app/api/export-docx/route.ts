@@ -801,6 +801,6 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error('Error generating DOCX:', error);
-    return NextResponse.json({ error: 'Failed to generate DOCX export: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to generate the Word document. Please try again.' }, { status: 500 });
   }
 }

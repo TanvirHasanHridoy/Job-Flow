@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
+import { AI_UNAVAILABLE_MESSAGE } from '@/lib/apiErrors';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { getAiConfig } from '@/lib/ai';
@@ -245,7 +246,7 @@ Please parse and structure this data into the specified JSON format.`;
       const errorText = await response.text().catch(() => '');
       console.error(`${aiConfig.provider} API Error during import parsing:`, errorText);
       return NextResponse.json(
-        { error: `${aiConfig.provider} API returned status ${response.status}: ${errorText}` },
+        { error: AI_UNAVAILABLE_MESSAGE },
         { status: 502 }
       );
     }
@@ -266,6 +267,6 @@ Please parse and structure this data into the specified JSON format.`;
   } catch (error: any) {
     await refundTokens();
     console.error('Import profile API error:', error);
-    return NextResponse.json({ error: error.message || 'An error occurred during profile import' }, { status: 500 });
+    return NextResponse.json({ error: 'An error occurred during profile import. Please try again.' }, { status: 500 });
   }
 }

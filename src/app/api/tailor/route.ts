@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUserId } from '@/lib/auth';
+import { AI_UNAVAILABLE_MESSAGE } from '@/lib/apiErrors';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { classifySkillCategory } from '@/lib/skills';
 import { getUserTokens, deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
@@ -459,7 +460,7 @@ ${contextStr}`
       if (!response) {
         const message = lastError?.message || 'Failed to communicate with AI model';
         console.error(`${aiConfig.provider} API request failed:`, message);
-        return NextResponse.json({ error: `${aiConfig.provider} API request failed: ${message}` }, { status: 502 });
+        return NextResponse.json({ error: AI_UNAVAILABLE_MESSAGE }, { status: 502 });
       }
 
       let errorText = '';
@@ -467,7 +468,7 @@ ${contextStr}`
         errorText = await response.text();
       } catch { }
       console.error(`${aiConfig.provider} API Error response:`, errorText);
-      return NextResponse.json({ error: `${aiConfig.provider} API returned status ${response.status}: ${errorText}` }, { status: 502 });
+      return NextResponse.json({ error: AI_UNAVAILABLE_MESSAGE }, { status: 502 });
     }
 
     let generatedText = '';
@@ -732,6 +733,6 @@ ${contextStr}`
   } catch (error: any) {
     await refundTokens();
     console.error('Tailoring API Error:', error);
-    return NextResponse.json({ error: error.message || 'An error occurred during tailoring' }, { status: 500 });
+    return NextResponse.json({ error: 'An error occurred during tailoring. Any tokens for this request were refunded — please try again.' }, { status: 500 });
   }
 }

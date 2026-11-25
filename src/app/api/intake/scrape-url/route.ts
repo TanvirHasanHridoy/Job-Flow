@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
+import { AI_UNAVAILABLE_MESSAGE } from '@/lib/apiErrors';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { getAiConfig } from '@/lib/ai';
@@ -283,7 +284,7 @@ Please parse and return the JSON object.`;
       const errorText = await response.text().catch(() => '');
       console.error(`${aiConfig.provider} API Error during URL scrape parsing:`, errorText);
       return NextResponse.json(
-        { error: `${aiConfig.provider} API returned status ${response.status}: ${errorText}` },
+        { error: AI_UNAVAILABLE_MESSAGE },
         { status: 502 }
       );
     }
@@ -308,6 +309,6 @@ Please parse and return the JSON object.`;
   } catch (error: any) {
     await refundTokens();
     console.error('Scrape job URL API error:', error);
-    return NextResponse.json({ error: error.message || 'An error occurred during URL scraping' }, { status: 500 });
+    return NextResponse.json({ error: 'An error occurred while reading this job URL. Please try again or paste the description.' }, { status: 500 });
   }
 }

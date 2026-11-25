@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
+import { AI_UNAVAILABLE_MESSAGE } from '@/lib/apiErrors';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { getUserTokens, deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
@@ -283,7 +284,8 @@ ${JSON.stringify({
         } catch { }
       }
 
-      return NextResponse.json({ error: errMsg }, { status: errStatus });
+      console.error('AI provider error:', errStatus, errMsg);
+      return NextResponse.json({ error: AI_UNAVAILABLE_MESSAGE }, { status: 502 });
     }
 
     const resJson = await apiRes.json();
@@ -340,6 +342,6 @@ ${JSON.stringify({
         await topUpTokens(userId, TOKEN_PRICING.INTERVIEW_PREP);
       } catch { }
     }
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
