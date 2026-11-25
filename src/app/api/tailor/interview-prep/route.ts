@@ -253,7 +253,7 @@ ${JSON.stringify(bridgedForPrep, null, 2)}` : ''}`
         }
       ],
       response_format: { type: 'json_object' },
-      max_tokens: 4096,
+      max_tokens: 8192,
       temperature: 0.3
     };
 

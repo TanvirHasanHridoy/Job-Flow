@@ -536,14 +536,21 @@ export function removeClaims<T>(result: T, claims: BridgedClaim[]): T {
 
 /** Compact list of kept bridged claims for Interview Prep "back it up" coaching. */
 export function summarizeKeptClaims(claims: BridgedClaim[], acceptedKeys: string[]): Array<{ claim: string; terms: string[]; basis: string }> {
-  return claims
-    .filter(c => acceptedKeys.includes(c.key) && !c.isViolation)
-    .map(c => ({
-      claim: stripHtml(c.text).slice(0, 300),
-      terms: c.terms.map(t => t.term),
-      basis: Array.from(new Set(c.terms.map(t => t.source).filter(Boolean))).join('; '),
-    }))
-    .slice(0, 12);
+  // One entry per bridged term (the same bridge appears in several bullet styles,
+  // the skills list and the letter); keep the most descriptive sentence for it.
+  const byTerm = new Map<string, { claim: string; terms: string[]; basis: string }>();
+  for (const c of claims) {
+    if (!acceptedKeys.includes(c.key) || c.isViolation) continue;
+    for (const t of c.terms) {
+      const key = t.term.toLowerCase();
+      const text = stripHtml(c.text).slice(0, 300);
+      const existing = byTerm.get(key);
+      if (!existing || text.length > existing.claim.length) {
+        byTerm.set(key, { claim: text, terms: [t.term], basis: t.source || '' });
+      }
+    }
+  }
+  return Array.from(byTerm.values()).slice(0, 8);
 }
 
 /**
