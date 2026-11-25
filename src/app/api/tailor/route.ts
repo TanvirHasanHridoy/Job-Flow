@@ -11,6 +11,7 @@ import { formatCityCountry } from '@/lib/customSections';
 import { buildBulletMatrixSystemPrompt } from '@/lib/bulletMatrixPrompts';
 import { callAiJson } from '@/lib/aiCall';
 import { buildBridgingDirective, cityFromAddress } from '@/lib/bridgingPrompt';
+import { enforceHardLines, sameName } from '@/lib/bridging';
 import {
   buildRequirementAnalysisPrompt,
   normalizeRequirementAnalysis,
@@ -633,14 +634,17 @@ Signing city for date lines: ${signingCity || '(none — use the date only, with
             : `${originalJob.startDate} – ${originalJob.endDate}`)
           : originalJob.period || tailoredJob.period || '';
 
+        // Hard lines: employer, title and dates always come from the profile.
+        // A job that matches no profile employer is invented and dropped.
+        if (originalIdx === -1) return null;
         return {
-          company: originalJob.company || tailoredJob.company,
-          role: tailoredJob.role || originalJob.role,
+          company: originalJob.company,
+          role: originalJob.role || tailoredJob.role,
           location: originalJob.location || tailoredJob.location || '',
           period,
           bullets
         };
-      })
+      }).filter(Boolean)
       : [];
 
     const mergedEducation = parsedEdu.map((edu: any) => {
@@ -700,6 +704,7 @@ Signing city for date lines: ${signingCity || '(none — use the date only, with
         level = skill.level || 'Intermediate';
         category = skill.category || '';
       }
+      name = name.replace(/\s*\((?:adjacent|transferable|bridged|related)\)/gi, '').trim();
       if (name && !category) {
         category = classifySkillCategory(name);
       }
@@ -708,9 +713,9 @@ Signing city for date lines: ${signingCity || '(none — use the date only, with
 
     const mergedProjects = tailoredResult.tailoredCv?.projects
       ? tailoredResult.tailoredCv.projects.map((tailoredProj: any) => {
-        const originalProj = filteredProjects.find((p: any) =>
-          p.name.toLowerCase() === tailoredProj.name.toLowerCase()
-        ) || {};
+        const originalProj = filteredProjects.find((p: any) => sameName(String(p.name || ''), String(tailoredProj.name || '')));
+        // Projects must exist in the profile; keep the original name (the AI may append "(Open Source)" etc.)
+        if (!originalProj) return null;
 
         return {
           name: originalProj.name || tailoredProj.name,
@@ -718,7 +723,7 @@ Signing city for date lines: ${signingCity || '(none — use the date only, with
           technologies: tailoredProj.technologies || originalProj.technologies || [],
           url: originalProj.url || ''
         };
-      })
+      }).filter(Boolean)
       : [];
 
     if (cvFormat === 'bullet-matrix') {
@@ -756,6 +761,14 @@ Signing city for date lines: ${signingCity || '(none — use the date only, with
       languages: parsedLanguages,
       projects: mergedProjects
     };
+
+    // Post-check: remove hard-line violations (GAP skills claimed in the CV, invented
+    // degrees/certifications). Remaining bridged claims are tagged for review in the UI.
+    const { removed: hardLineRemovals } = enforceHardLines(tailoredResult, profile, analysis.requirements);
+    tailoredResult.hardLineRemovals = hardLineRemovals;
+    if (hardLineRemovals.length > 0) {
+      console.warn('[tailor] Removed hard-line violations:', hardLineRemovals);
+    }
 
     // Log query diagnostic data into database
     try {
