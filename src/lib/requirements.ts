@@ -172,6 +172,71 @@ export function toLegacyGapArrays(requirements: Requirement[]) {
   };
 }
 
+/* ------------------------------------------------------------------ */
+/* Experience length (computed in code — models can't do date math    */
+/* reliably and don't know today's date)                               */
+/* ------------------------------------------------------------------ */
+
+const MONTHS: Record<string, number> = {
+  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+  januar: 0, februar: 1, märz: 2, maerz: 2, mai: 4, juni: 5, juli: 6, okt: 9, dez: 11,
+};
+
+/** Parses "03/2023", "2023-03", "March 2023", "Mär 2023", "2023". Returns months since year 0. */
+function parseMonth(raw: unknown, today: Date): number | null {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  const s = raw.trim().toLowerCase();
+  if (/^(present|current|now|today|heute|aktuell|laufend|bis heute)$/.test(s)) return today.getFullYear() * 12 + today.getMonth();
+  let m = s.match(/^(\d{1,2})[./-](\d{4})$/);
+  if (m) return Number(m[2]) * 12 + Math.min(11, Math.max(0, Number(m[1]) - 1));
+  m = s.match(/^(\d{4})[./-](\d{1,2})/);
+  if (m) return Number(m[1]) * 12 + Math.min(11, Math.max(0, Number(m[2]) - 1));
+  m = s.match(/^([a-zäöü]+)\.?\s+(\d{4})$/);
+  if (m) {
+    const key = Object.keys(MONTHS).find(k => m![1].startsWith(k));
+    if (key !== undefined) return Number(m[2]) * 12 + MONTHS[key];
+  }
+  m = s.match(/^(\d{4})$/);
+  if (m) return Number(m[1]) * 12;
+  return null;
+}
+
+const INTERNSHIP_RE = /\b(intern|internship|praktik\w*|werkstudent\w*|working student|trainee|apprentice|azubi)\b/i;
+
+/**
+ * Total professional experience in years (overlaps merged), with and without
+ * internships / working-student roles.
+ */
+export function computeExperienceYears(workExperience: any[], today = new Date()): { total: number; excludingInternships: number } {
+  const intervals = (Array.isArray(workExperience) ? workExperience : [])
+    .map(j => {
+      const start = parseMonth(j?.startDate, today);
+      const isCurrent = j?.current === true || j?.current === 'true' || !j?.endDate || String(j.endDate).trim() === '';
+      const end = isCurrent ? parseMonth('present', today) : parseMonth(j?.endDate, today);
+      if (start === null || end === null || end < start) return null;
+      return { start, end: end + 1, intern: INTERNSHIP_RE.test(String(j?.role || '')) };
+    })
+    .filter((x): x is { start: number; end: number; intern: boolean } => x !== null);
+
+  const merged = (list: typeof intervals) => {
+    const sorted = [...list].sort((a, b) => a.start - b.start);
+    let months = 0;
+    let cur: { start: number; end: number } | null = null;
+    for (const iv of sorted) {
+      if (!cur || iv.start > cur.end) {
+        if (cur) months += cur.end - cur.start;
+        cur = { start: iv.start, end: iv.end };
+      } else {
+        cur.end = Math.max(cur.end, iv.end);
+      }
+    }
+    if (cur) months += cur.end - cur.start;
+    return Math.round((months / 12) * 10) / 10;
+  };
+
+  return { total: merged(intervals), excludingInternships: merged(intervals.filter(i => !i.intern)) };
+}
+
 /** Compact table of the analysis for the generation prompt. */
 export function formatRequirementsForPrompt(requirements: Requirement[]): string {
   return requirements

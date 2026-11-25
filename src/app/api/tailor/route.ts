@@ -14,6 +14,7 @@ import { buildBridgingDirective, cityFromAddress } from '@/lib/bridgingPrompt';
 import { enforceHardLines, sameName } from '@/lib/bridging';
 import {
   buildRequirementAnalysisPrompt,
+  computeExperienceYears,
   normalizeRequirementAnalysis,
   toLegacyGapArrays,
   type RequirementAnalysis,
@@ -215,6 +216,7 @@ export async function POST(req: Request) {
 
     // === STEP 1: Requirement analysis (MATCH / ADJACENT / GAP) + feasibility gate ===
     const analysisPrompt = buildRequirementAnalysisPrompt(cvLanguage === 'DE' ? 'DE' : 'EN');
+    const experienceYears = computeExperienceYears(parsedWorkExp, today);
     let analysis: RequirementAnalysis;
     let analysisRaw = '';
     try {
@@ -222,7 +224,7 @@ export async function POST(req: Request) {
         { role: 'system', content: analysisPrompt },
         {
           role: 'user',
-          content: `CANDIDATE PROFILE:\n${JSON.stringify(formattedProfile, null, 2)}\n\nJOB DESCRIPTION:\n${processedJobDescription}`
+          content: `TODAY: ${today.toISOString().slice(0, 10)}\nCOMPUTED EXPERIENCE (use these numbers for years-of-experience requirements; do not recompute): ${experienceYears.excludingInternships} years of professional experience, ${experienceYears.total} years including internships.\n\nCANDIDATE PROFILE:\n${JSON.stringify(formattedProfile, null, 2)}\n\nJOB DESCRIPTION:\n${processedJobDescription}`
         }
       ]);
       analysis = normalizeRequirementAnalysis(data);

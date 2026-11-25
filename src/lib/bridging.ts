@@ -218,6 +218,7 @@ interface DetectContext {
   candidateTerms: string[];
   adjacentTerms: Map<string, string>;   // lowercased term -> bridgeFrom
   gapTerms: Set<string>;                // lowercased GAP terms
+  matchTerms: Set<string>;              // lowercased MATCH terms (matched by meaning, e.g. 'fintech')
 }
 
 function asArray(v: unknown): any[] {
@@ -239,6 +240,7 @@ function buildContext(profile: any, requirements: Requirement[], tailoredCv: any
 
   const adjacentTerms = new Map<string, string>();
   const gapTerms = new Set<string>();
+  const matchTerms = new Set<string>();
   const reqTerms: string[] = [];
   for (const r of requirements || []) {
     if (r.category === 'education' || r.category === 'certification' || r.category === 'experience') continue;
@@ -246,6 +248,7 @@ function buildContext(profile: any, requirements: Requirement[], tailoredCv: any
       reqTerms.push(t);
       if (r.status === 'ADJACENT') adjacentTerms.set(t.toLowerCase(), r.bridgeFrom || '');
       if (r.status === 'GAP') gapTerms.add(t.toLowerCase());
+      if (r.status === 'MATCH') matchTerms.add(t.toLowerCase());
     }
   }
 
@@ -263,7 +266,7 @@ function buildContext(profile: any, requirements: Requirement[], tailoredCv: any
     candidateTerms.push(term);
   }
 
-  return { requirements, profileCorpus, jobCorpora, projectCorpora, profileNumbers, profileCredentials, candidateTerms, adjacentTerms, gapTerms };
+  return { requirements, profileCorpus, jobCorpora, projectCorpora, profileNumbers, profileCredentials, candidateTerms, adjacentTerms, gapTerms, matchTerms };
 }
 
 /** Loose name equality: ignores case, punctuation and parenthetical suffixes. */
@@ -309,6 +312,8 @@ function analyseUnit(
   for (const hit of findTerms(clean, ctx.candidateTerms)) {
     const lower = hit.term.toLowerCase();
     const inProfile = mentions(ctx.profileCorpus, hit.term);
+    // A MATCH requirement's keyword is backed by the profile even if worded differently
+    if (!inProfile && ctx.matchTerms.has(lower)) continue;
     if (!inProfile) {
       if (ctx.gapTerms.has(lower)) {
         if (!scope.allowGapMentions) terms.push({ term: hit.found, kind: 'gap-skill', source: 'missing from your profile' });
@@ -398,7 +403,7 @@ export function detectBridgedClaims(input: {
     const hits = findTerms(name, ctx.candidateTerms);
     const terms: BridgedTerm[] = [];
     for (const hit of hits) {
-      if (mentions(ctx.profileCorpus, hit.term)) continue;
+      if (mentions(ctx.profileCorpus, hit.term) || ctx.matchTerms.has(hit.term.toLowerCase())) continue;
       const lower = hit.term.toLowerCase();
       if (ctx.gapTerms.has(lower)) {
         terms.push({ term: hit.found, kind: 'gap-skill', source: 'missing from your profile' });
