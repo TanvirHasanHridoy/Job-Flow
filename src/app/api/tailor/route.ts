@@ -11,6 +11,7 @@ import { formatCityCountry } from '@/lib/customSections';
 import { buildBulletMatrixSystemPrompt } from '@/lib/bulletMatrixPrompts';
 import { callAiJson } from '@/lib/aiCall';
 import { checkJobDescription } from '@/lib/jobDescriptionCheck';
+import { saveDraftApplication, isLiveDraft, cleanupOldDrafts } from '@/lib/drafts';
 import { buildBridgingDirective, cityFromAddress } from '@/lib/bridgingPrompt';
 import { enforceHardLines, sameName } from '@/lib/bridging';
 import {
@@ -66,6 +67,7 @@ export async function POST(req: Request) {
       profile,
       matchStrategy = 'TACTICAL_PIVOT',
       applicationId = null,
+      companyName = '',
       roleName = 'Professional',
       selectedProjects = [],
       isNudgeEnabled = true
@@ -109,7 +111,23 @@ export async function POST(req: Request) {
     const cachedData = aiResponseCache.get(cacheKey);
     if (cachedData) {
       const userTokens = await getUserTokens(userId);
-      return NextResponse.json({ ...cachedData, cached: true, remainingTokens: userTokens });
+      let cachedAppId = cachedData.applicationId ?? null;
+      if (cachedData.tailoredCv && !(await isLiveDraft(userId, cachedAppId))) {
+        // The earlier draft was tracked or deleted: save this result as a new draft
+        try {
+          cachedAppId = await saveDraftApplication(userId, {
+            company: companyName, role: roleName, rawJobDescription: jobDescription, targetLanguage: cvLanguage,
+            matchScore: cachedData.matchScore, gapAnalysis: cachedData.gapAnalysis, jobMetadata: cachedData.jobMetadata,
+            salaryExpectation, noticePeriod, signingLocation, customNotes,
+            tailoredCv: cachedData.tailoredCv, tailoredCoverLetter: cachedData.tailoredCoverLetter,
+          });
+          aiResponseCache.set(cacheKey, { ...cachedData, applicationId: cachedAppId });
+        } catch (draftErr) {
+          console.error('Failed to save draft for cached result:', draftErr);
+          cachedAppId = null;
+        }
+      }
+      return NextResponse.json({ ...cachedData, applicationId: cachedAppId, cached: true, remainingTokens: userTokens });
     }
 
     // Deduct tokens on cache miss
@@ -795,6 +813,21 @@ Signing city for date lines: ${signingCity || '(none — use the date only, with
     } catch (logError) {
       console.error('Failed to create diagnostic log entry:', logError);
     }
+
+    // Save immediately as a DRAFT application (Phase 4): the paid result survives a
+    // closed tab; it stays out of the tracker until the user clicks "Track".
+    try {
+      tailoredResult.applicationId = await saveDraftApplication(userId, {
+        company: companyName, role: roleName, rawJobDescription: jobDescription, targetLanguage: cvLanguage,
+        matchScore: tailoredResult.matchScore, gapAnalysis: tailoredResult.gapAnalysis, jobMetadata: tailoredResult.jobMetadata,
+        salaryExpectation, noticePeriod, signingLocation, customNotes,
+        tailoredCv: tailoredResult.tailoredCv, tailoredCoverLetter: tailoredResult.tailoredCoverLetter,
+      });
+    } catch (draftErr) {
+      console.error('Failed to save draft application:', draftErr);
+      tailoredResult.applicationId = null;
+    }
+    void cleanupOldDrafts(userId);
 
     aiResponseCache.set(cacheKey, tailoredResult);
     return NextResponse.json(tailoredResult);
