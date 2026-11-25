@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
+import { enforceRateLimit } from '@/lib/rateLimit';
 import { getUserTokens, deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
 import { getAiConfig } from '@/lib/ai';
@@ -28,6 +29,9 @@ export async function POST(req: Request) {
     const auth = await getAuthUserId();
     if ('error' in auth) return auth.error;
     userId = auth.userId;
+
+    const rateLimited = await enforceRateLimit(userId, 'SECTION');
+    if (rateLimited) return rateLimited;
 
     const {
       sectionKey,

@@ -114,3 +114,14 @@ model UserToken {
   @@index([userId])
 }
 
+
+// Per-user fixed-window rate limit counters (see src/lib/rateLimit.ts).
+// Accessed via raw SQL so the app also runs before this migration is applied.
+model RateLimitBucket {
+  key         String
+  windowStart DateTime
+  count       Int      @default(0)
+
+  @@id([key, windowStart])
+  @@index([windowStart])
+}

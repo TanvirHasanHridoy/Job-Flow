@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
+import { enforceRateLimit } from '@/lib/rateLimit';
 import { deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { getAiConfig } from '@/lib/ai';
 import 'pdf-parse/worker';
@@ -27,6 +28,9 @@ export async function POST(req: Request) {
     const auth = await getAuthUserId();
     if ('error' in auth) return auth.error;
     userId = auth.userId;
+
+    const rateLimited = await enforceRateLimit(userId, 'IMPORT_PROFILE');
+    if (rateLimited) return rateLimited;
 
     const formData = await req.formData();
     const file = formData.get('file') as File | null;

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import puppeteer from 'puppeteer';
 import { getAuthUserId } from '@/lib/auth';
+import { enforceRateLimit } from '@/lib/rateLimit';
 
 // The client sends a full HTML snapshot of the rendered CV/letter. That HTML is
 // untrusted, so the headless browser rendering it must not run scripts or reach
@@ -28,6 +29,9 @@ let activeRenders = 0;
 export async function POST(req: Request) {
   const auth = await getAuthUserId();
   if ('error' in auth) return auth.error;
+
+  const rateLimited = await enforceRateLimit(auth.userId, 'EXPORT');
+  if (rateLimited) return rateLimited;
 
   if (activeRenders >= MAX_CONCURRENT_RENDERS) {
     return NextResponse.json(

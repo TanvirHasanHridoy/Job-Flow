@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUserId } from '@/lib/auth';
+import { enforceRateLimit } from '@/lib/rateLimit';
 import { classifySkillCategory } from '@/lib/skills';
 import { getUserTokens, deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
@@ -30,6 +31,9 @@ export async function POST(req: Request) {
     const auth = await getAuthUserId();
     if ('error' in auth) return auth.error;
     userId = auth.userId;
+
+    const rateLimited = await enforceRateLimit(userId, 'TAILOR');
+    if (rateLimited) return rateLimited;
 
     const {
       jobDescription,

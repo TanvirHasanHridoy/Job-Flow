@@ -12,9 +12,17 @@ import {
   WidthType,
   BorderStyle
 } from 'docx';
+import { getAuthUserId } from '@/lib/auth';
+import { enforceRateLimit } from '@/lib/rateLimit';
 
 export async function POST(req: Request) {
   try {
+    const auth = await getAuthUserId();
+    if ('error' in auth) return auth.error;
+
+    const rateLimited = await enforceRateLimit(auth.userId, 'EXPORT');
+    if (rateLimited) return rateLimited;
+
     const body = await req.json();
     const { tailoredCv, targetLanguage = 'EN', cvFormat = 'visual', accentColor = '2563EB', font = 'Calibri' } = body;
 
