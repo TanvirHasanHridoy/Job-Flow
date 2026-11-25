@@ -3,6 +3,7 @@ import { getAuthUserId } from '@/lib/auth';
 import { deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { getAiConfig } from '@/lib/ai';
 import * as cheerio from 'cheerio';
+import { assertPublicHttpUrl, safeFetch, UnsafeUrlError } from '@/lib/safeFetch';
 
 // === DeepSeek API Configuration (Preserved / Commented as requested) ===
 // const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
@@ -75,6 +76,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Please provide a valid job posting URL.' }, { status: 400 });
     }
 
+    // Reject URLs pointing at private/internal addresses before charging (SSRF guard)
+    try {
+      await assertPublicHttpUrl(url);
+    } catch (err) {
+      const message = err instanceof UnsafeUrlError ? err.message : 'Invalid URL.';
+      return NextResponse.json({ error: `Please provide a public job posting URL. ${message}` }, { status: 400 });
+    }
+
     // Deduct tokens only after the request has been validated
     const deduction = await deductTokens(userId, TOKEN_PRICING.INTAKE);
     if (!deduction.success) {
@@ -109,7 +118,7 @@ export async function POST(req: Request) {
 
     // --- TIER 1: Direct Fetch with rotating User-Agent ---
     try {
-      const response = await fetch(url, {
+      const { response } = await safeFetch(url, {
         headers: {
           'User-Agent': getRandomUserAgent(),
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
