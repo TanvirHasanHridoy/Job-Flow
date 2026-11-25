@@ -10,6 +10,7 @@ import { getAiConfig } from '@/lib/ai';
 import { formatCityCountry } from '@/lib/customSections';
 import { buildBulletMatrixSystemPrompt } from '@/lib/bulletMatrixPrompts';
 import { callAiJson } from '@/lib/aiCall';
+import { checkJobDescription } from '@/lib/jobDescriptionCheck';
 import { buildBridgingDirective, cityFromAddress } from '@/lib/bridgingPrompt';
 import { enforceHardLines, sameName } from '@/lib/bridging';
 import {
@@ -72,6 +73,12 @@ export async function POST(req: Request) {
 
     if (!jobDescription || !profile) {
       return NextResponse.json({ error: 'Missing required inputs: jobDescription or profile' }, { status: 400 });
+    }
+
+    // Free sanity check before any tokens are charged or AI is called
+    const jdCheck = checkJobDescription(jobDescription);
+    if (!jdCheck.ok) {
+      return NextResponse.json({ error: jdCheck.message, reason: jdCheck.reason }, { status: 422 });
     }
 
     // Response Cache check before token deduction

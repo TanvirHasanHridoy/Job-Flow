@@ -20,6 +20,7 @@ import CanvasViewport from './components/CanvasViewport';
 import CanvasFloatingHud from './components/CanvasFloatingHud';
 import MobileToolBottomSheet from './components/MobileToolBottomSheet';
 import RefusalReport from './components/RefusalReport';
+import { checkJobDescription } from '@/lib/jobDescriptionCheck';
 import BridgedClaimsPanel from './components/BridgedClaimsPanel';
 import { detectBridgedClaims, removeClaim, removeClaims, summarizeKeptClaims, type BridgedClaim } from '@/lib/bridging';
 
@@ -4275,6 +4276,16 @@ export default function TailorWorkspace() {
       showAlert({
         title: 'Missing Fields',
         message: 'Please fill out Company Name, Role Name, and Job Description.',
+        type: 'warning'
+      });
+      return;
+    }
+    // Instant, free check — avoids spending tokens on text that isn't a job ad
+    const jdCheck = checkJobDescription(jobDescription);
+    if (!jdCheck.ok) {
+      showAlert({
+        title: jdCheck.reason === 'looks-like-cv' ? 'This looks like a CV' : 'Check the job description',
+        message: jdCheck.message,
         type: 'warning'
       });
       return;

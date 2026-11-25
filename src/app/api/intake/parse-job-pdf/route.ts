@@ -3,6 +3,7 @@ import { getAuthUserId } from '@/lib/auth';
 import { AI_UNAVAILABLE_MESSAGE, PDF_UNREADABLE_MESSAGE } from '@/lib/apiErrors';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { readPdfUpload } from '@/lib/uploads';
+import { checkJobDescription } from '@/lib/jobDescriptionCheck';
 import { deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { getAiConfig } from '@/lib/ai';
 import 'pdf-parse/worker';
@@ -64,6 +65,12 @@ export async function POST(req: Request) {
         { error: 'The uploaded PDF appears to be empty or does not contain a machine-readable text layer.' },
         { status: 422 }
       );
+    }
+
+    // Free sanity check before charging (e.g. a CV uploaded instead of a job ad)
+    const jdCheck = checkJobDescription(pdfText);
+    if (!jdCheck.ok && jdCheck.reason !== 'not-a-job-ad') {
+      return NextResponse.json({ error: jdCheck.message, reason: jdCheck.reason }, { status: 422 });
     }
 
     // 2. Deduct tokens only once there is valid text to process
