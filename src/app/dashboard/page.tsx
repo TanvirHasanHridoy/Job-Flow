@@ -57,7 +57,7 @@ const COLUMNS = [
   { id: 'REJECTED', name: 'Rejected', color: 'border-red-400 bg-zinc-900/40 text-red-900' }
 ];
 
-export function getAgingStatus(app: JobApplication): {
+function getAgingStatus(app: JobApplication): {
   days: number;
   label: string;
   isStale: boolean;
@@ -103,7 +103,7 @@ export function getAgingStatus(app: JobApplication): {
   };
 }
 
-export function generateFollowUpDraft(app: JobApplication, templateType: 'status-check' | 'thank-you' | 'offer-inquiry') {
+function generateFollowUpDraft(app: JobApplication, templateType: 'status-check' | 'thank-you' | 'offer-inquiry') {
   const isDe = app.targetLanguage === 'DE';
   const recruiter = app.recruiterName || (isDe ? 'Sehr geehrtes Hiring Team' : 'Hiring Team');
   const role = app.role;
