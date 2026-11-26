@@ -4,7 +4,7 @@ import { AI_UNAVAILABLE_MESSAGE } from '@/lib/apiErrors';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { getUserTokens, deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
-import { getAiConfig } from '@/lib/ai';
+import { getAiConfig, aiFetch } from '@/lib/ai';
 import { formatCityCountry } from '@/lib/customSections';
 
 // === DeepSeek API Configuration (Preserved / Commented as requested) ===
@@ -319,15 +319,7 @@ ${JSON.stringify(profile || {}, null, 2)}`
           await new Promise(resolve => setTimeout(resolve, delay));
         }
 
-        apiRes = await fetch(aiConfig.apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${aiConfig.apiKey}`
-          },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(90000)
-        });
+        apiRes = await aiFetch(payload, { signal: AbortSignal.timeout(90000) });
 
         if (apiRes.ok) {
           lastError = null;

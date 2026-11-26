@@ -127,9 +127,23 @@ DIRECT_URL="postgresql://postgres:YOUR_PASSWORD@db.YOUR_PROJECT_REF.supabase.co:
 NEXT_PUBLIC_SUPABASE_URL="https://YOUR_PROJECT_REF.supabase.co"
 NEXT_PUBLIC_SUPABASE_ANON_KEY="your-anon-key-here"
 
-# AI Configuration
-DEEPSEEK_API_KEY="your-deepseek-api-key-here"
-DEEPSEEK_MODEL="deepseek-chat" # Option: "deepseek-chat" (V3/fast) or "deepseek-reasoner" (R1/reasoning)
+# AI providers (OpenAI-compatible). Set at least one key; others act as fallbacks.
+AI_PROVIDERS="deepseek,gemini"        # optional: order to try (default: gemini, deepseek, groq, openrouter)
+GEMINI_API_KEY="..."                  # GEMINI_MODEL defaults to gemini-3.5-flash
+DEEPSEEK_API_KEY="..."                # DEEPSEEK_MODEL defaults to deepseek-v4-flash
+GROQ_API_KEY="..."                    # GROQ_MODEL defaults to openai/gpt-oss-120b
+OPENROUTER_API_KEY="..."              # OPENROUTER_MODEL is required for OpenRouter
+GEMINI_REASONING_EFFORT="low"         # optional: faster Gemini "thinking" models
+```
+
+If a provider fails (quota, outage, invalid key, request too large) the next one is used
+automatically, and a rate-limited provider is skipped for 5 minutes.
+
+### Tokens (free plan)
+Every user gets **100 tokens per month**: the balance is raised back to 100 on the first
+activity of each calendar month (it does not accumulate). Grant extra tokens with:
+```bash
+npm run tokens:add -- <userId | profile email> <amount>
 ```
 
 ### 3. Generate Database Client & Apply Migrations
