@@ -4,7 +4,7 @@ import { AI_UNAVAILABLE_MESSAGE, PDF_UNREADABLE_MESSAGE } from '@/lib/apiErrors'
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { readPdfUpload } from '@/lib/uploads';
 import { deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
-import { getAiConfig } from '@/lib/ai';
+import { getAiConfig, aiFetch } from '@/lib/ai';
 import 'pdf-parse/worker';
 import { PDFParse } from 'pdf-parse';
 
@@ -183,13 +183,7 @@ Please parse and structure this data into the specified JSON format.`;
           await new Promise(resolve => setTimeout(resolve, delay));
         }
 
-        response = await fetch(aiConfig.apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${aiConfig.apiKey}`
-          },
-          body: JSON.stringify({
+        response = await aiFetch({
             model: aiConfig.model,
             messages: [
               { role: 'system', content: systemPrompt },
@@ -197,9 +191,7 @@ Please parse and structure this data into the specified JSON format.`;
             ],
             response_format: { type: 'json_object' },
             temperature: 0.1
-          }),
-          signal: AbortSignal.timeout(90000)
-        });
+          }, { signal: AbortSignal.timeout(90000) });
 
         if (response.ok) {
           lastError = null;

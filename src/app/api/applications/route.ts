@@ -1,20 +1,31 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUserId } from '@/lib/auth';
+import { DRAFT_STATUS, cleanupOldDrafts } from '@/lib/drafts';
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const auth = await getAuthUserId();
     if ('error' in auth) return auth.error;
     const { userId } = auth;
 
+    // Drafts (unsaved generations) are excluded unless asked for with ?status=DRAFT.
+    // ?summary=1 omits documents for lightweight lists.
+    const params = new URL(req.url).searchParams;
+    const wantDrafts = params.get('status') === DRAFT_STATUS;
+    const summary = params.get('summary') === '1';
+
+    await cleanupOldDrafts(userId);
+
     const applications = await prisma.jobApplication.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      include: { 
-        documents: true,
-        statusHistory: { orderBy: { createdAt: 'desc' } }
-      }
+      where: wantDrafts ? { userId, status: DRAFT_STATUS } : { userId, status: { not: DRAFT_STATUS } },
+      orderBy: wantDrafts ? { updatedAt: 'desc' } : { createdAt: 'desc' },
+      include: summary
+        ? { statusHistory: false }
+        : {
+            documents: true,
+            statusHistory: { orderBy: { createdAt: 'desc' } }
+          }
     });
 
     const parsedApplications = applications.map((app) => ({

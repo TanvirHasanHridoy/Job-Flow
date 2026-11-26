@@ -1,16 +1,19 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getAuthUserId } from '@/lib/auth';
 import { AI_UNAVAILABLE_MESSAGE } from '@/lib/apiErrors';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { classifySkillCategory } from '@/lib/skills';
 import { getUserTokens, deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
-import { getAiConfig } from '@/lib/ai';
+import { getAiConfig, aiFetch } from '@/lib/ai';
 import { formatCityCountry } from '@/lib/customSections';
 import { buildBulletMatrixSystemPrompt } from '@/lib/bulletMatrixPrompts';
 import { callAiJson } from '@/lib/aiCall';
 import { checkJobDescription } from '@/lib/jobDescriptionCheck';
+import { looksGerman } from '@/lib/language';
+import { logTailorDiagnostic } from '@/lib/diagnostics';
+import { hasVaultContent } from '@/lib/profileMerge';
+import { saveDraftApplication, isLiveDraft, cleanupOldDrafts } from '@/lib/drafts';
 import { buildBridgingDirective, cityFromAddress } from '@/lib/bridgingPrompt';
 import { enforceHardLines, sameName } from '@/lib/bridging';
 import {
@@ -66,6 +69,7 @@ export async function POST(req: Request) {
       profile,
       matchStrategy = 'TACTICAL_PIVOT',
       applicationId = null,
+      companyName = '',
       roleName = 'Professional',
       selectedProjects = [],
       isNudgeEnabled = true
@@ -73,6 +77,14 @@ export async function POST(req: Request) {
 
     if (!jobDescription || !profile) {
       return NextResponse.json({ error: 'Missing required inputs: jobDescription or profile' }, { status: 400 });
+    }
+
+    // An empty vault can't be tailored (nothing to base the CV on): no charge
+    if (!hasVaultContent(profile)) {
+      return NextResponse.json(
+        { error: 'Your Master Vault is empty. Add your experience (or import your CV) first.', reason: 'empty-vault' },
+        { status: 422 }
+      );
     }
 
     // Free sanity check before any tokens are charged or AI is called
@@ -109,7 +121,23 @@ export async function POST(req: Request) {
     const cachedData = aiResponseCache.get(cacheKey);
     if (cachedData) {
       const userTokens = await getUserTokens(userId);
-      return NextResponse.json({ ...cachedData, cached: true, remainingTokens: userTokens });
+      let cachedAppId = cachedData.applicationId ?? null;
+      if (cachedData.tailoredCv && !(await isLiveDraft(userId, cachedAppId))) {
+        // The earlier draft was tracked or deleted: save this result as a new draft
+        try {
+          cachedAppId = await saveDraftApplication(userId, {
+            company: companyName, role: roleName, rawJobDescription: jobDescription, targetLanguage: cvLanguage,
+            matchScore: cachedData.matchScore, gapAnalysis: cachedData.gapAnalysis, jobMetadata: cachedData.jobMetadata,
+            salaryExpectation, noticePeriod, signingLocation, customNotes,
+            tailoredCv: cachedData.tailoredCv, tailoredCoverLetter: cachedData.tailoredCoverLetter,
+          });
+          aiResponseCache.set(cacheKey, { ...cachedData, applicationId: cachedAppId });
+        } catch (draftErr) {
+          console.error('Failed to save draft for cached result:', draftErr);
+          cachedAppId = null;
+        }
+      }
+      return NextResponse.json({ ...cachedData, applicationId: cachedAppId, cached: true, remainingTokens: userTokens });
     }
 
     // Deduct tokens on cache miss
@@ -180,8 +208,8 @@ export async function POST(req: Request) {
     // Translate German job description if target CV or CL is in English
     let processedJobDescription = jobDescription;
     if (cvLanguage === 'EN' || clLanguage === 'EN') {
-      const commonGermanWords = /\b(und|der|die|das|ist|für|mit|oder|von|auf|den|dem|des|ein|eine|einen|zum|zur|arbeit|erfahrung|kenntnisse|entwickler|gesucht)\b/i;
-      if (commonGermanWords.test(jobDescription)) {
+      // Translate only text that is clearly German (word-frequency check, src/lib/language.ts)
+      if (looksGerman(jobDescription)) {
         try {
           const translationPayload = {
             model: aiConfig.model,
@@ -202,14 +230,7 @@ export async function POST(req: Request) {
           //   body: JSON.stringify({ model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro', ...translationPayload })
           // });
 
-          const translationRes = await fetch(aiConfig.apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${aiConfig.apiKey}`
-            },
-            body: JSON.stringify(translationPayload)
-          });
+          const translationRes = await aiFetch(translationPayload);
 
           if (translationRes.ok) {
             const transJson = await translationRes.json();
@@ -269,24 +290,24 @@ export async function POST(req: Request) {
         matchScore: analysis.matchScore,
         gapAnalysis: { ...analysisGap, matchingKeywords: [...analysisGap.exactMatches, ...analysisGap.adjacentMatches] },
       };
-      try {
-        await prisma.tailorDiagnosticLog.create({
-          data: {
-            userId,
-            applicationId,
-            rawJobDescription: jobDescription,
-            userProfileSnapshot: JSON.stringify(formattedProfile),
-            matchStrategyUsed: matchStrategy,
-            systemPromptSent: analysisPrompt,
-            rawLlmResponse: analysisRaw
-          }
-        });
-      } catch (logError) {
-        console.error('Failed to create diagnostic log entry:', logError);
-      }
+      await logTailorDiagnostic({
+        userId,
+        applicationId,
+        rawJobDescription: jobDescription,
+        profileSnapshot: formattedProfile,
+        matchStrategy,
+        systemPrompt: analysisPrompt,
+        rawResponse: analysisRaw,
+      });
       aiResponseCache.set(cacheKey, refusal);
       return NextResponse.json(refusal);
     }
+
+    // Generate only the displayed variants (owner decision 7.3): one bullet style and
+    // one cover-letter length. Regenerating the letter later produces both lengths.
+    const bulletKey: 'star' | 'punchy' | 'standard' =
+      bulletStyle === 'STAR Method' ? 'star' : /punchy/i.test(String(bulletStyle)) ? 'punchy' : 'standard';
+    const clKey: 'short' | 'detailed' = String(clLength).includes('Short') ? 'short' : 'detailed';
 
     // Gap-bridging rules (strategy + hard lines) built from the requirement analysis
     const strategyDirective = buildBridgingDirective({
@@ -338,7 +359,7 @@ CRITICAL CONSTRAINTS:
 2. TONE & CUSTOMIZATION OPTIONS:
    - Tone/Style: ${tone}
    - Skills Highlight Mode: ${skillsFocus}
-   - Generate all bullet style variants (star, punchy, standard) and cover letter paragraph length variants (short, detailed) in a single response.
+   - Write the experience bullets in ONE style only ("${bulletKey}") and the cover letter in ONE length only ("${clKey}"). Do not generate other variants.
 
 ${lengthDirective}
 
@@ -395,9 +416,7 @@ You must respond with a raw JSON object containing these exact keys:
         "company": "<exact original company name from the profile experience list to map back>",
         "role": "<the job title copied exactly from the profile>",
         "bullets": {
-          "star": [<array of tailored achievement strings following the 4-part STAR formula (Strong Action Verb + Concrete Metric + Tech Stack + Business Context) in ${cvLanguage === 'DE' ? 'German' : 'English'}, written directly as a single cohesive sentence WITHOUT any literal labels or prefixes like "Situation:", "Action:", etc.>],
-          "punchy": [<array of tailored achievement strings that are short, high-impact highlights in ${cvLanguage === 'DE' ? 'German' : 'English'}>],
-          "standard": [<array of tailored achievement strings of standard roles/responsibilities in ${cvLanguage === 'DE' ? 'German' : 'English'}>]
+          "${bulletKey}": [<array of tailored achievement strings in ${cvLanguage === 'DE' ? 'German' : 'English'}, ${bulletKey === 'star' ? 'following the STAR formula (Strong Action Verb + Result + Tech Stack + Business Context)' : bulletKey === 'punchy' ? 'as short, high-impact highlights' : 'as standard role responsibilities'}, each written as a single cohesive sentence WITHOUT literal labels or prefixes like "Situation:", "Action:", etc.>]
         }
       }
     ],
@@ -424,8 +443,7 @@ You must respond with a raw JSON object containing these exact keys:
     "subjectLine": "<string, subject block content>",
     "salutation": "<string, e.g., 'Sehr geehrte Damen und Herren,' or 'Dear Hiring Manager,'>",
     "paragraphs": {
-      "short": [<array of 2 paragraphs (introduction + concise fit) in ${clLanguage === 'DE' ? 'German' : 'English'}>],
-      "detailed": [<array of 3-4 paragraphs (introduction + detailed fit + salary/notice period only if provided in the additional context) in ${clLanguage === 'DE' ? 'German' : 'English'}>]
+      "${clKey}": [<${clKey === 'short' ? 'array of 2 paragraphs (introduction + concise fit)' : 'array of 3-4 paragraphs (introduction + detailed fit + salary/notice period only if provided in the additional context)'} in ${clLanguage === 'DE' ? 'German' : 'English'}>]
     },
     "closing": "<string, e.g., 'Mit freundlichen Grüßen,' or 'Sincerely,'>",
     "signatureName": "<string>"
@@ -456,7 +474,9 @@ You must respond with a raw JSON object containing these exact keys:
         themeDirective,
         matchStrategy,
         currentDateStr,
-        bridgingDirective: strategyDirective
+        bridgingDirective: strategyDirective,
+        bulletKey,
+        clKey
       })
       : systemPrompt;
 
@@ -503,15 +523,7 @@ Signing city for date lines: ${signingCity || '(none — use the date only, with
           await new Promise(resolve => setTimeout(resolve, delay));
         }
 
-        response = await fetch(aiConfig.apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${aiConfig.apiKey}`
-          },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(120000)
-        });
+        response = await aiFetch(payload, { signal: AbortSignal.timeout(120000) });
 
         if (response.ok) {
           lastError = null;
@@ -615,20 +627,12 @@ Signing city for date lines: ${signingCity || '(none — use the date only, with
           matchedIndices.add(originalIdx);
         }
 
+        // Only the generated style is stored; the preview and exports fall back to it
         let bullets = tailoredJob.bullets;
         if (!bullets) {
-          const origBullets = originalJob.bullets || [];
-          bullets = {
-            star: origBullets,
-            punchy: origBullets,
-            standard: origBullets
-          };
+          bullets = { [bulletKey]: originalJob.bullets || [] };
         } else if (Array.isArray(bullets)) {
-          bullets = {
-            star: bullets,
-            punchy: bullets,
-            standard: bullets
-          };
+          bullets = { [bulletKey]: bullets };
         }
 
         const isCurrent = originalJob.current === true ||
@@ -676,14 +680,11 @@ Signing city for date lines: ${signingCity || '(none — use the date only, with
     // Make sure tailoredCoverLetter.paragraphs is in the { short, detailed } shape
     let paragraphs = tailoredResult.tailoredCoverLetter?.paragraphs;
     if (paragraphs && Array.isArray(paragraphs)) {
-      paragraphs = {
-        short: paragraphs,
-        detailed: paragraphs
-      };
+      paragraphs = { [clKey]: paragraphs };
     }
 
     if (tailoredResult.tailoredCoverLetter) {
-      tailoredResult.tailoredCoverLetter.paragraphs = paragraphs || { short: [], detailed: [] };
+      tailoredResult.tailoredCoverLetter.paragraphs = paragraphs || { [clKey]: [] };
 
       // Ensure senderAddress has clean newline formatting (Name, Address, Phone, Email)
       let senderAddr = tailoredResult.tailoredCoverLetter.senderAddress || '';
@@ -780,21 +781,30 @@ Signing city for date lines: ${signingCity || '(none — use the date only, with
     }
 
     // Log query diagnostic data into database
+    await logTailorDiagnostic({
+      userId,
+      applicationId,
+      rawJobDescription: jobDescription,
+      profileSnapshot: formattedProfile,
+      matchStrategy,
+      systemPrompt: activeSystemPrompt,
+      rawResponse: generatedText,
+    });
+
+    // Save immediately as a DRAFT application (Phase 4): the paid result survives a
+    // closed tab; it stays out of the tracker until the user clicks "Track".
     try {
-      await prisma.tailorDiagnosticLog.create({
-        data: {
-          userId,
-          applicationId: applicationId,
-          rawJobDescription: jobDescription,
-          userProfileSnapshot: JSON.stringify(formattedProfile),
-          matchStrategyUsed: matchStrategy,
-          systemPromptSent: activeSystemPrompt,
-          rawLlmResponse: generatedText
-        }
+      tailoredResult.applicationId = await saveDraftApplication(userId, {
+        company: companyName, role: roleName, rawJobDescription: jobDescription, targetLanguage: cvLanguage,
+        matchScore: tailoredResult.matchScore, gapAnalysis: tailoredResult.gapAnalysis, jobMetadata: tailoredResult.jobMetadata,
+        salaryExpectation, noticePeriod, signingLocation, customNotes,
+        tailoredCv: tailoredResult.tailoredCv, tailoredCoverLetter: tailoredResult.tailoredCoverLetter,
       });
-    } catch (logError) {
-      console.error('Failed to create diagnostic log entry:', logError);
+    } catch (draftErr) {
+      console.error('Failed to save draft application:', draftErr);
+      tailoredResult.applicationId = null;
     }
+    void cleanupOldDrafts(userId);
 
     aiResponseCache.set(cacheKey, tailoredResult);
     return NextResponse.json(tailoredResult);
