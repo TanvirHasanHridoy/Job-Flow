@@ -6,7 +6,7 @@ import React from 'react';
  * Minimal, safe markdown renderer for AI-written analysis text:
  * "### Heading", "- bullet" / "* bullet", and **bold**. No HTML is injected.
  */
-function renderInline(text: string): React.ReactNode[] {
+export function renderInline(text: string): React.ReactNode[] {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((part, i) =>
     part.startsWith('**') && part.endsWith('**')

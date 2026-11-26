@@ -20,6 +20,7 @@ import CanvasViewport from './components/CanvasViewport';
 import CanvasFloatingHud from './components/CanvasFloatingHud';
 import MobileToolBottomSheet from './components/MobileToolBottomSheet';
 import RefusalReport from './components/RefusalReport';
+import { renderInline } from './components/MarkdownLite';
 import DraftsList from './components/DraftsList';
 import { checkJobDescription } from '@/lib/jobDescriptionCheck';
 import { computeKeywordCoverage } from '@/lib/keywordCoverage';
@@ -328,7 +329,7 @@ const renderRecommendation = (text: string) => {
 
         // Match headers
         if (trimmed.startsWith('###') || trimmed.startsWith('##') || trimmed.startsWith('#')) {
-          const headerText = trimmed.replace(/^#+\s*/, '');
+          const headerText = trimmed.replace(/^#+\s*/, '').replace(/\*\*/g, '');
           if (headerText.toLowerCase().includes('positive')) {
             currentSection = 'positives';
             return (
@@ -357,8 +358,8 @@ const renderRecommendation = (text: string) => {
         }
 
         // Match bullet points
-        if (trimmed.startsWith('-') || trimmed.startsWith('*')) {
-          const bulletText = trimmed.substring(1).trim();
+        if (/^[-*•]s+/.test(trimmed)) {
+          const bulletText = trimmed.replace(/^[-*•]s+/, '');
           let bulletColorClass = 'text-zinc-300';
           let bulletIcon = <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 mt-1.5 shrink-0" />;
 
@@ -376,7 +377,7 @@ const renderRecommendation = (text: string) => {
           return (
             <div key={idx} className="flex items-start gap-2 pl-1.5">
               {bulletIcon}
-              <span className={`${bulletColorClass} leading-relaxed`}>{bulletText}</span>
+              <span className={`${bulletColorClass} leading-relaxed`}>{renderInline(bulletText)}</span>
             </div>
           );
         }
@@ -384,7 +385,7 @@ const renderRecommendation = (text: string) => {
         // Regular paragraph text
         return (
           <p key={idx} className="text-zinc-300 leading-relaxed pl-0.5">
-            {trimmed}
+            {renderInline(trimmed)}
           </p>
         );
       })}
