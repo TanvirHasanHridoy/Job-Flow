@@ -12,9 +12,17 @@ import {
   WidthType,
   BorderStyle
 } from 'docx';
+import { getAuthUserId } from '@/lib/auth';
+import { enforceRateLimit } from '@/lib/rateLimit';
 
 export async function POST(req: Request) {
   try {
+    const auth = await getAuthUserId();
+    if ('error' in auth) return auth.error;
+
+    const rateLimited = await enforceRateLimit(auth.userId, 'EXPORT');
+    if (rateLimited) return rateLimited;
+
     const body = await req.json();
     const { tailoredCv, targetLanguage = 'EN', cvFormat = 'visual', accentColor = '2563EB', font = 'Calibri' } = body;
 
@@ -478,7 +486,8 @@ export async function POST(req: Request) {
         if (Array.isArray(exp.bullets)) {
           bulletsList = exp.bullets;
         } else if (exp.bullets && typeof exp.bullets === 'object') {
-          bulletsList = exp.bullets.standard || exp.bullets.punchy || exp.bullets.star || [];
+          const firstNonEmpty = [exp.bullets.star, exp.bullets.standard, exp.bullets.punchy].find((b: unknown) => Array.isArray(b) && b.length > 0);
+          bulletsList = (firstNonEmpty as string[]) || [];
         }
 
         bulletsList.forEach((bullet: string) => {
@@ -793,6 +802,6 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error('Error generating DOCX:', error);
-    return NextResponse.json({ error: 'Failed to generate DOCX export: ' + error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to generate the Word document. Please try again.' }, { status: 500 });
   }
 }

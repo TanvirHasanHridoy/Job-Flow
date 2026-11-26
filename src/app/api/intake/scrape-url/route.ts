@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
+import { AI_UNAVAILABLE_MESSAGE } from '@/lib/apiErrors';
+import { enforceRateLimit } from '@/lib/rateLimit';
 import { deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
-import { getAiConfig } from '@/lib/ai';
+import { getAiConfig, aiFetch } from '@/lib/ai';
 import * as cheerio from 'cheerio';
+import { assertPublicHttpUrl, safeFetch, UnsafeUrlError } from '@/lib/safeFetch';
+import { extractStructuredJob } from '@/lib/jobIntake';
+import { checkJobDescription } from '@/lib/jobDescriptionCheck';
 
 // === DeepSeek API Configuration (Preserved / Commented as requested) ===
 // const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
@@ -69,12 +74,45 @@ export async function POST(req: Request) {
     if ('error' in auth) return auth.error;
     userId = auth.userId;
 
+    const rateLimited = await enforceRateLimit(userId, 'INTAKE');
+    if (rateLimited) return rateLimited;
+
     const { url } = await req.json();
 
     if (!url || typeof url !== 'string' || !url.startsWith('http')) {
       return NextResponse.json({ error: 'Please provide a valid job posting URL.' }, { status: 400 });
     }
 
+    // Reject URLs pointing at private/internal addresses before charging (SSRF guard)
+    try {
+      await assertPublicHttpUrl(url);
+    } catch (err) {
+      const message = err instanceof UnsafeUrlError ? err.message : 'Invalid URL.';
+      return NextResponse.json({ error: `Please provide a public job posting URL. ${message}` }, { status: 400 });
+    }
+
+    // === Free tiers (no AI, no charge): job-board APIs, then JSON-LD in the page ===
+    const structured = await extractStructuredJob(url);
+    if (structured.kind === 'closed') {
+      return NextResponse.json({ fallback: true, closed: true, message: structured.message });
+    }
+    if (structured.kind === 'ok') {
+      const { job } = structured;
+      return NextResponse.json({
+        fallback: false,
+        tier: job.source,
+        cost: 0,
+        roleName: job.roleName,
+        companyName: job.companyName,
+        jobDescription: job.jobDescription,
+        location: job.location,
+        employmentType: job.employmentType,
+        warning: job.warning,
+      });
+    }
+    const prefetched = structured.page;
+
+    // === Paid tier: AI extraction from the page text ===
     // Deduct tokens only after the request has been validated
     const deduction = await deductTokens(userId, TOKEN_PRICING.INTAKE);
     if (!deduction.success) {
@@ -103,13 +141,13 @@ export async function POST(req: Request) {
     //   );
     // }
 
-    let html = '';
-    let status = 200;
-    let tierUsed = 'Tier 1 (Direct)';
+    let html = prefetched?.html || '';
+    let status = prefetched?.status ?? 200;
+    let tierUsed = 'AI extraction';
 
-    // --- TIER 1: Direct Fetch with rotating User-Agent ---
-    try {
-      const response = await fetch(url, {
+    // --- Direct fetch with rotating User-Agent (skipped if the free tier already has the page) ---
+    if (!prefetched) try {
+      const { response } = await safeFetch(url, {
         headers: {
           'User-Agent': getRandomUserAgent(),
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -161,9 +199,12 @@ export async function POST(req: Request) {
     // --- TIER 3: Fallback Notice ---
     if (isBlocked || !html.trim()) {
       await refundTokens();
+      const antiBot = status === 403 || status === 429 || (!!html && isAntiBotProtected(html));
       return NextResponse.json({
         fallback: true,
-        message: 'Anti-bot security (like Cloudflare or CAPTCHA) blocked automated extraction for this site. Please copy-paste the text of the job description directly into the workspace.'
+        message: antiBot
+          ? 'This site blocks automated reading (anti-bot protection). Nothing was charged. Please copy-paste the job description into the workspace.'
+          : `We couldn't read this page automatically${status ? ` (HTTP ${status})` : ''}. Nothing was charged. Please copy-paste the job description into the workspace.`
       });
     }
 
@@ -181,6 +222,16 @@ export async function POST(req: Request) {
       return NextResponse.json({
         fallback: true,
         message: 'Extracted content seems too short or empty. Please copy-paste the job description text manually.'
+      });
+    }
+
+    // Free check before calling the AI: skip pages that clearly aren't job ads
+    const pageCheck = checkJobDescription(rawText);
+    if (!pageCheck.ok && pageCheck.reason !== 'looks-like-cv') {
+      await refundTokens();
+      return NextResponse.json({
+        fallback: true,
+        message: "This page doesn't look like a job posting. Nothing was charged. Check the link, or paste the job description into the workspace."
       });
     }
 
@@ -227,13 +278,7 @@ Please parse and return the JSON object.`;
           await new Promise(resolve => setTimeout(resolve, delay));
         }
 
-        response = await fetch(aiConfig.apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${aiConfig.apiKey}`
-          },
-          body: JSON.stringify({
+        response = await aiFetch({
             model: aiConfig.model,
             messages: [
               { role: 'system', content: systemPrompt },
@@ -241,9 +286,7 @@ Please parse and return the JSON object.`;
             ],
             response_format: { type: 'json_object' },
             temperature: 0.1
-          }),
-          signal: AbortSignal.timeout(90000)
-        });
+          }, { signal: AbortSignal.timeout(90000) });
 
         if (response.ok) {
           lastError = null;
@@ -264,13 +307,13 @@ Please parse and return the JSON object.`;
       if (!response) {
         const message = lastError?.message || 'Failed to communicate with AI model';
         console.error(`${aiConfig.provider} API request failed during URL scrape parsing:`, message);
-        return NextResponse.json({ error: message }, { status: 502 });
+        return NextResponse.json({ error: AI_UNAVAILABLE_MESSAGE }, { status: 502 });
       }
 
       const errorText = await response.text().catch(() => '');
       console.error(`${aiConfig.provider} API Error during URL scrape parsing:`, errorText);
       return NextResponse.json(
-        { error: `${aiConfig.provider} API returned status ${response.status}: ${errorText}` },
+        { error: AI_UNAVAILABLE_MESSAGE },
         { status: 502 }
       );
     }
@@ -287,14 +330,26 @@ Please parse and return the JSON object.`;
       return NextResponse.json({ error: 'AI produced invalid JSON output. Please retry.' }, { status: 502 });
     }
 
+    // The AI may "succeed" on a page without a real posting (e.g. 'Not specified'): refund
+    const outputCheck = checkJobDescription(parsedData?.jobDescription);
+    const noRole = !parsedData?.roleName || /^not specified$/i.test(String(parsedData.roleName).trim());
+    if (!outputCheck.ok || noRole) {
+      await refundTokens();
+      return NextResponse.json({
+        fallback: true,
+        message: "We couldn't find a job posting on this page. Nothing was charged. Please paste the job description into the workspace."
+      });
+    }
+
     return NextResponse.json({
       fallback: false,
       tier: tierUsed,
+      cost: TOKEN_PRICING.INTAKE,
       ...parsedData
     });
   } catch (error: any) {
     await refundTokens();
     console.error('Scrape job URL API error:', error);
-    return NextResponse.json({ error: error.message || 'An error occurred during URL scraping' }, { status: 500 });
+    return NextResponse.json({ error: 'An error occurred while reading this job URL. Please try again or paste the description.' }, { status: 500 });
   }
 }

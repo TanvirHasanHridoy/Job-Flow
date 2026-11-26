@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import DraftsList from '../tailor/components/DraftsList';
+import OnboardingCard from '../components/OnboardingCard';
+import { hasVaultContent } from '@/lib/profileMerge';
 import {
   Plus, Calendar, MapPin, DollarSign, Clock, FileText, Trash2, Eye, ChevronRight, ChevronLeft, Award, Sparkles, LayoutGrid, CheckCircle2, TrendingUp, Building, User, Mail, Globe, Loader2,
   HelpCircle, BookOpen, Layers, Target, Palette, Send, X
@@ -154,6 +157,14 @@ function generateFollowUpDraft(app: JobApplication, templateType: 'status-check'
 export default function Dashboard() {
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [loading, setLoading] = useState(true);
+  // null until known; drives the getting-started card for new users
+  const [vaultReady, setVaultReady] = useState<boolean | null>(null);
+  useEffect(() => {
+    fetch('/api/profile')
+      .then(r => (r.ok ? r.json() : null))
+      .then(p => setVaultReady(p ? hasVaultContent(p) : null))
+      .catch(() => setVaultReady(null));
+  }, []);
   const [selectedApp, setSelectedApp] = useState<JobApplication | null>(null);
   const [currentView, setCurrentView] = useState<'kanban' | 'spreadsheet' | 'calendar'>('kanban');
   const [calendarDate, setCalendarDate] = useState(new Date());
@@ -242,7 +253,7 @@ export default function Dashboard() {
       let desc = '';
       desc += `Company: ${calendarModalApp.company}\n`;
       desc += `Role: ${calendarModalApp.role}\n`;
-      desc += `Match Score: ${calendarModalApp.matchScore}%\n`;
+      desc += `Profile fit: ${calendarModalApp.matchScore}%\n`;
       if (calendarModalApp.techStack) desc += `Tech Stack: ${calendarModalApp.techStack}\n`;
       if (calendarModalApp.recruiterName) desc += `Recruiter: ${calendarModalApp.recruiterName} (${calendarModalApp.contactInfo || ''})\n`;
       if (calendarModalApp.mainRequirements) desc += `Requirements:\n${calendarModalApp.mainRequirements}\n`;
@@ -577,11 +588,18 @@ export default function Dashboard() {
             <TrendingUp className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider block">Average Match %</span>
+            <span className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider block">Average Profile Fit</span>
             <span className="text-2xl font-bold text-white">{avgMatchScore}%</span>
           </div>
         </div>
       </div>
+
+      {/* Drafts: generated but not tracked yet (hidden when empty) */}
+      {vaultReady !== null && (
+        <OnboardingCard vaultReady={vaultReady} hasApplications={applications.length > 0} />
+      )}
+
+      <DraftsList className="mb-6 no-print" limit={6} />
 
       {/* View Switcher Tabs */}
       <div className="flex items-center gap-2 mb-6 border-b border-white/5 pb-4 no-print font-sans">
@@ -737,7 +755,7 @@ export default function Dashboard() {
                               <span className={`inline-flex items-center gap-1 text-xs font-bold ${app.matchScore >= 80 ? 'text-emerald-400' : app.matchScore >= 60 ? 'text-amber-400' : 'text-zinc-400'
                                 }`}>
                                 <Award className="w-3.5 h-3.5" />
-                                {app.matchScore}% Match
+                                {app.matchScore}% fit
                               </span>
                             </div>
 
@@ -1188,7 +1206,7 @@ export default function Dashboard() {
 
                 <div className="space-y-1">
                   <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1">
-                    <Award className="w-3.5 h-3.5" /> AI Match Score
+                    <Award className="w-3.5 h-3.5" /> Profile Fit
                   </span>
                   <p className="text-emerald-400 font-bold">{selectedApp.matchScore}% Fit</p>
                 </div>
@@ -1688,7 +1706,7 @@ export default function Dashboard() {
                   Paste the target Job Description, URL, or upload a PDF. Choose strict 1-page limits, tone, STAR bullet styles, and DIN 5008 German or International layout.
                 </p>
                 <div className="p-2 rounded-lg bg-zinc-900/60 border border-white/5 text-[10px] text-zinc-400">
-                  🎯 <strong className="text-zinc-200">Gap Analysis:</strong> Check matching vs missing keywords and deterministic match score before applying.
+                  🎯 <strong className="text-zinc-200">Gap Analysis:</strong> Check how well your profile fits the job (profile fit) and which job keywords your CV contains before applying.
                 </div>
               </div>
 

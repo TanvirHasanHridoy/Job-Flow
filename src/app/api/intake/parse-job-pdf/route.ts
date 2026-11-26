@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
+import { AI_UNAVAILABLE_MESSAGE, PDF_UNREADABLE_MESSAGE } from '@/lib/apiErrors';
+import { enforceRateLimit } from '@/lib/rateLimit';
+import { readPdfUpload } from '@/lib/uploads';
+import { checkJobDescription } from '@/lib/jobDescriptionCheck';
 import { deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
-import { getAiConfig } from '@/lib/ai';
+import { getAiConfig, aiFetch } from '@/lib/ai';
 import 'pdf-parse/worker';
 import { PDFParse } from 'pdf-parse';
 
@@ -28,16 +32,20 @@ export async function POST(req: Request) {
     if ('error' in auth) return auth.error;
     userId = auth.userId;
 
+    const rateLimited = await enforceRateLimit(userId, 'INTAKE');
+    if (rateLimited) return rateLimited;
+
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
 
-    if (!file) {
-      return NextResponse.json({ error: 'No PDF file was uploaded.' }, { status: 400 });
+    // Size (5 MB) and PDF signature checks before any parsing or charging
+    const upload = await readPdfUpload(file);
+    if ('error' in upload) {
+      return NextResponse.json({ error: upload.error }, { status: upload.status });
     }
+    const { buffer } = upload;
 
     // 1. Extract text from the PDF buffer before charging the user
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
     
     let pdfText = '';
     try {
@@ -47,7 +55,7 @@ export async function POST(req: Request) {
     } catch (parseErr: any) {
       console.error('pdf-parse failure on job description:', parseErr);
       return NextResponse.json(
-        { error: `Failed to extract text from the PDF document: ${parseErr.message || parseErr}` },
+        { error: PDF_UNREADABLE_MESSAGE },
         { status: 422 }
       );
     }
@@ -57,6 +65,12 @@ export async function POST(req: Request) {
         { error: 'The uploaded PDF appears to be empty or does not contain a machine-readable text layer.' },
         { status: 422 }
       );
+    }
+
+    // Free sanity check before charging (e.g. a CV uploaded instead of a job ad)
+    const jdCheck = checkJobDescription(pdfText);
+    if (!jdCheck.ok && jdCheck.reason !== 'not-a-job-ad') {
+      return NextResponse.json({ error: jdCheck.message, reason: jdCheck.reason }, { status: 422 });
     }
 
     // 2. Deduct tokens only once there is valid text to process
@@ -130,13 +144,7 @@ Please parse and return the JSON object.`;
           await new Promise(resolve => setTimeout(resolve, delay));
         }
 
-        response = await fetch(aiConfig.apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${aiConfig.apiKey}`
-          },
-          body: JSON.stringify({
+        response = await aiFetch({
             model: aiConfig.model,
             messages: [
               { role: 'system', content: systemPrompt },
@@ -144,9 +152,7 @@ Please parse and return the JSON object.`;
             ],
             response_format: { type: 'json_object' },
             temperature: 0.1
-          }),
-          signal: AbortSignal.timeout(90000)
-        });
+          }, { signal: AbortSignal.timeout(90000) });
 
         if (response.ok) {
           lastError = null;
@@ -173,7 +179,7 @@ Please parse and return the JSON object.`;
       const errorText = await response.text().catch(() => '');
       console.error(`${aiConfig.provider} API Error during job description PDF parsing:`, errorText);
       return NextResponse.json(
-        { error: `${aiConfig.provider} API returned status ${response.status}: ${errorText}` },
+        { error: AI_UNAVAILABLE_MESSAGE },
         { status: 502 }
       );
     }
@@ -194,6 +200,6 @@ Please parse and return the JSON object.`;
   } catch (error: any) {
     await refundTokens();
     console.error('Parse job PDF API error:', error);
-    return NextResponse.json({ error: error.message || 'An error occurred during job PDF parsing' }, { status: 500 });
+    return NextResponse.json({ error: 'An error occurred while reading the job PDF. Please try again.' }, { status: 500 });
   }
 }

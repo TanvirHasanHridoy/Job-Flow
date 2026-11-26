@@ -98,7 +98,7 @@ export default function MobileToolBottomSheet({
                 <Award className="w-3 h-3 text-amber-300" />
                 <span>ATS</span>
                 {matchScore !== undefined && (
-                  <span className="text-[9px] px-1 rounded bg-emerald-500/20 text-emerald-300 font-extrabold">
+                  <span title="Profile fit" className="text-[9px] px-1 rounded bg-emerald-500/20 text-emerald-300 font-extrabold">
                     {matchScore}%
                   </span>
                 )}

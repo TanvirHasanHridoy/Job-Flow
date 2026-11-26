@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { FREE_MONTHLY_TOKENS } from '@/lib/tokens';
 
 export async function GET() {
   try {
@@ -48,12 +49,12 @@ export async function GET() {
         email: profile?.email || ''
       },
       personas,
-      tokens: tokenRecord?.tokens ?? 200
+      tokens: tokenRecord?.tokens ?? FREE_MONTHLY_TOKENS
     });
   } catch (error: any) {
     console.error('Error checking session:', error);
     return NextResponse.json(
-      { authenticated: false, error: error.message },
+      { authenticated: false, error: 'Session check failed' },
       { status: 500 }
     );
   }

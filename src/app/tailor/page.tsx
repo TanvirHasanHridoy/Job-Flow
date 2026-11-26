@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Sparkles, FileText, Download, Briefcase, Award, CheckCircle2, AlertTriangle, Languages, Save, Check,
   List, ListOrdered, AlignLeft, AlignCenter, AlignRight, Palette, Highlighter, RotateCcw, Sliders, Coins, Plus, FolderGit,
-  ChevronUp, ChevronDown, Eye, EyeOff, Wand2, RefreshCw, Target, X, GitCompare, Loader2, Layers, Trash2, Tag, ArrowUp, ArrowDown,
+  ChevronUp, ChevronDown, Eye, EyeOff, Wand2, RefreshCw, Target, X, GitCompare, GitMerge, Loader2, Layers, Trash2, Tag, ArrowUp, ArrowDown,
   Settings, CheckSquare, Square, PenTool, ChevronRight, SlidersHorizontal, PlusCircle, ExternalLink, Bookmark
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -19,6 +19,14 @@ import BulletMatrixCvView from './components/BulletMatrixCvView';
 import CanvasViewport from './components/CanvasViewport';
 import CanvasFloatingHud from './components/CanvasFloatingHud';
 import MobileToolBottomSheet from './components/MobileToolBottomSheet';
+import RefusalReport from './components/RefusalReport';
+import { renderInline } from './components/MarkdownLite';
+import { hasVaultContent } from '@/lib/profileMerge';
+import DraftsList from './components/DraftsList';
+import { checkJobDescription } from '@/lib/jobDescriptionCheck';
+import { computeKeywordCoverage } from '@/lib/keywordCoverage';
+import BridgedClaimsPanel from './components/BridgedClaimsPanel';
+import { detectBridgedClaims, removeClaim, removeClaims, summarizeKeptClaims, type BridgedClaim } from '@/lib/bridging';
 
 interface WorkExperience {
   company: string;
@@ -76,6 +84,10 @@ interface TailoredCv {
   certifications?: string[];
   customSections?: CustomSection[];
   signingLine?: string;
+  // Keys of bridged claims the user chose to keep (see src/lib/bridging.ts)
+  acceptedClaimKeys?: string[];
+  // Photo on the CV; undefined = language default (DE on, EN off)
+  showPhoto?: boolean;
 }
 
 interface TailoredCoverLetter {
@@ -101,7 +113,10 @@ interface TailorResponse {
     recommendations: string;
     exactMatches?: string[];
     adjacentMatches?: string[];
+    requirements?: any[];
+    mustCoverage?: number;
   };
+  hardLineRemovals?: string[];
   tailoredCv: TailoredCv;
   tailoredCoverLetter: TailoredCoverLetter;
   jobMetadata?: {
@@ -245,13 +260,24 @@ const getRenderedBullets = (exp: any, bulletStyle: string, lengthTarget: string,
   return bulletsArray;
 };
 
+// Only the selected letter length is generated (v2 Phase 7.3). If the user later
+// switches length, show (and edit) the version that exists until they regenerate.
+const getDisplayedClKey = (cl: any, clLength: string): 'short' | 'detailed' => {
+  const selected = clLength.includes('Short') ? 'short' : 'detailed';
+  const other = selected === 'short' ? 'detailed' : 'short';
+  const paras = cl?.paragraphs;
+  if (!paras || Array.isArray(paras)) return selected;
+  if (Array.isArray(paras[selected]) && paras[selected].length > 0) return selected;
+  if (Array.isArray(paras[other]) && paras[other].length > 0) return other;
+  return selected;
+};
+
 const getRenderedParagraphs = (cl: any, clLength: string) => {
   if (!cl || !cl.paragraphs) return [];
   if (Array.isArray(cl.paragraphs)) {
     return cl.paragraphs;
   }
-  const key = clLength.includes('Short') ? 'short' : 'detailed';
-  return cl.paragraphs[key] || cl.paragraphs.short || cl.paragraphs.detailed || [];
+  return cl.paragraphs[getDisplayedClKey(cl, clLength)] || [];
 };
 
 const getGroupedSkills = (skills: any[]) => {
@@ -315,7 +341,7 @@ const renderRecommendation = (text: string) => {
 
         // Match headers
         if (trimmed.startsWith('###') || trimmed.startsWith('##') || trimmed.startsWith('#')) {
-          const headerText = trimmed.replace(/^#+\s*/, '');
+          const headerText = trimmed.replace(/^#+\s*/, '').replace(/\*\*/g, '');
           if (headerText.toLowerCase().includes('positive')) {
             currentSection = 'positives';
             return (
@@ -344,8 +370,8 @@ const renderRecommendation = (text: string) => {
         }
 
         // Match bullet points
-        if (trimmed.startsWith('-') || trimmed.startsWith('*')) {
-          const bulletText = trimmed.substring(1).trim();
+        if (/^[-*•]s+/.test(trimmed)) {
+          const bulletText = trimmed.replace(/^[-*•]s+/, '');
           let bulletColorClass = 'text-zinc-300';
           let bulletIcon = <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 mt-1.5 shrink-0" />;
 
@@ -363,7 +389,7 @@ const renderRecommendation = (text: string) => {
           return (
             <div key={idx} className="flex items-start gap-2 pl-1.5">
               {bulletIcon}
-              <span className={`${bulletColorClass} leading-relaxed`}>{bulletText}</span>
+              <span className={`${bulletColorClass} leading-relaxed`}>{renderInline(bulletText)}</span>
             </div>
           );
         }
@@ -371,7 +397,7 @@ const renderRecommendation = (text: string) => {
         // Regular paragraph text
         return (
           <p key={idx} className="text-zinc-300 leading-relaxed pl-0.5">
-            {trimmed}
+            {renderInline(trimmed)}
           </p>
         );
       })}
@@ -652,6 +678,7 @@ export default function TailorWorkspace() {
   const [matchStrategy, setMatchStrategy] = useState<'TACTICAL_PIVOT' | 'AGGRESIVE_BRIDGING'>('TACTICAL_PIVOT');
   const [styleTemplate, setStyleTemplate] = useState<'CLASSIC_CORPORATE' | 'MODERN_MINIMALIST' | 'TECH_CREATIVE'>('CLASSIC_CORPORATE');
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
+  const [editingAppStatus, setEditingAppStatus] = useState<string | null>(null);
   const [cvFormatMode, setCvFormatMode] = useState<'visual' | 'ats' | 'bullet-matrix'>('visual');
   const [isAtsMode, setIsAtsMode] = useState(false);
   const [isNudgeEnabled, setIsNudgeEnabled] = useState<boolean>(true);
@@ -880,27 +907,32 @@ export default function TailorWorkspace() {
     setProjectPolishModal({ isOpen: false, projectIndex: -1, originalDescription: '', projectName: '', variations: null });
   };
 
+  // Keyword coverage: how many job keywords appear in the CV text as exported
+  // (what ATS filters scan). Distinct from profile fit (result.matchScore).
   const getAtsMatchStats = () => {
-    if (!result?.gapAnalysis) return null;
+    if (!result?.gapAnalysis || !result.tailoredCv) return null;
     const gap = result.gapAnalysis;
-    const exacts = (gap.exactMatches?.length ?? gap.matchingKeywords?.length) || 0;
-    const adjacents = gap.adjacentMatches?.length || 0;
-    const missing = gap.missingSkills?.length || 0;
-    const total = exacts + adjacents + missing;
-    if (total === 0) return null;
-    const matched = exacts + adjacents;
-    const percentage = Math.round((matched / total) * 100);
-    return { exacts, adjacents, missing, total, matched, percentage };
+    const coverage = computeKeywordCoverage({
+      tailoredCv: result.tailoredCv,
+      requirements: gap.requirements,
+      legacyKeywords: [...(gap.exactMatches || gap.matchingKeywords || []), ...(gap.adjacentMatches || []), ...(gap.missingSkills || [])],
+      bulletVariant: activeBulletVariant,
+    });
+    if (!coverage) return null;
+    return { matched: coverage.found.length, total: coverage.total, percentage: coverage.percentage, found: coverage.found, missing: coverage.missing };
   };
 
   const getHighlightedHtml = (text: string) => {
-    if (!isAtsHighlightEnabled || !result?.gapAnalysis || !text) return text;
+    if (!text) return text;
+    const withBridgeMarks = (html: string) =>
+      isBridgeHighlightEnabled && pendingBridgedClaims.length > 0 ? applyBridgeMarks(html, text) : html;
+    if (!isAtsHighlightEnabled || !result?.gapAnalysis) return withBridgeMarks(text);
 
     const exacts = result.gapAnalysis.exactMatches || result.gapAnalysis.matchingKeywords || [];
     const adjacents = result.gapAnalysis.adjacentMatches || [];
     const keywords = Array.from(new Set([...exacts, ...adjacents])).filter(k => k && k.length >= 2);
 
-    if (keywords.length === 0) return text;
+    if (keywords.length === 0) return withBridgeMarks(text);
 
     const escaped = keywords
       .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
@@ -908,14 +940,14 @@ export default function TailorWorkspace() {
 
     const regex = new RegExp(`\\b(${escaped.join('|')})\\b`, 'gi');
 
-    return text.replace(regex, (matched) => {
+    return withBridgeMarks(text.replace(regex, (matched) => {
       const lower = matched.toLowerCase();
       const isExact = exacts.some(e => e.toLowerCase() === lower);
       if (isExact) {
         return `<mark style="background-color: rgba(16, 185, 129, 0.28); color: #064e3b; font-weight: 700; padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(16, 185, 129, 0.5);">${matched}</mark>`;
       }
       return `<mark style="background-color: rgba(99, 102, 241, 0.28); color: #1e1b4b; font-weight: 700; padding: 1px 4px; border-radius: 4px; border: 1px solid rgba(99, 102, 241, 0.5);">${matched}</mark>`;
-    });
+    }));
   };
 
   const handleMoveSection = (sectionKey: string, direction: 'up' | 'down') => {
@@ -1279,6 +1311,114 @@ export default function TailorWorkspace() {
   // App state
   const [loading, setLoading] = useState(false);
   const [result, rawSetResult] = useState<TailorResponse | null>(null);
+  // Set when the server refuses to tailor because the role is too far from the profile
+  const [refusal, setRefusal] = useState<any>(null);
+
+  // === Bridged-claim review (v2 Phase 2) ===
+  // Claims are derived from the current result + profile, so they update after
+  // manual edits and AI section regeneration. Kept claims persist in tailoredCv.
+  const [isBridgeHighlightEnabled, setIsBridgeHighlightEnabled] = useState<boolean>(true);
+  const allBridgedClaims = useMemo<BridgedClaim[]>(() => {
+    const requirements = result?.gapAnalysis?.requirements;
+    if (!result?.tailoredCv || !profile || !Array.isArray(requirements)) return [];
+    try {
+      return detectBridgedClaims({
+        tailoredCv: result.tailoredCv,
+        coverLetter: result.tailoredCoverLetter,
+        profile,
+        requirements,
+      });
+    } catch (err) {
+      console.warn('Bridged-claim detection failed:', err);
+      return [];
+    }
+  }, [result, profile]);
+  const activeBulletVariant = bulletStyle === 'STAR Method' ? 'star' : bulletStyle === 'Short & Punchy' ? 'punchy' : 'standard';
+  const activeParagraphSet = result?.tailoredCoverLetter ? getDisplayedClKey(result.tailoredCoverLetter, clLength) : (clLength.includes('Short') ? 'short' : 'detailed');
+  const bridgedClaims = allBridgedClaims.filter(c =>
+    (c.section !== 'experience' || c.variant === activeBulletVariant) &&
+    (c.section !== 'coverLetter' || c.paragraphSet === activeParagraphSet)
+  );
+  const acceptedClaimKeys: string[] = result?.tailoredCv?.acceptedClaimKeys || [];
+  const pendingBridgedClaims = bridgedClaims.filter(c => !acceptedClaimKeys.includes(c.key));
+  const isAnyHighlightOn = isAtsHighlightEnabled || (isBridgeHighlightEnabled && pendingBridgedClaims.length > 0);
+
+  const acceptClaimKeys = (keys: string[]) => {
+    setResult(prev => prev ? {
+      ...prev,
+      tailoredCv: {
+        ...prev.tailoredCv,
+        acceptedClaimKeys: Array.from(new Set([...(prev.tailoredCv.acceptedClaimKeys || []), ...keys])),
+      },
+    } : prev);
+  };
+  // Photo: only when one is uploaded. German CVs show it by default; English CVs
+  // don't (UK/US norm). The user can override with the toolbar toggle.
+  const showPhotoOnCv = !!result?.tailoredCv?.personalDetails?.photo &&
+    (result?.tailoredCv?.showPhoto ?? cvLanguage === 'DE');
+  // Cover-letter enclosures: default to the CV only (owner decision); the list is
+  // editable on the letter and omitted from exports when emptied.
+  const defaultEnclosure = clLanguage === 'DE' ? '- Lebenslauf' : '- Curriculum Vitae';
+  const enclosureLabel = clLanguage === 'DE' ? 'Anlagen:' : 'Enclosure:';
+
+  // Tailoring needs real experience to work from
+  const vaultIsEmpty = !!profile && !hasVaultContent(profile);
+
+  const toggleCvPhoto = () => setResult(prev => prev ? {
+    ...prev,
+    tailoredCv: { ...prev.tailoredCv, showPhoto: !showPhotoOnCv },
+  } : prev);
+
+  const handleAcceptClaim = (claim: BridgedClaim) => acceptClaimKeys([claim.key]);
+  const handleAcceptAllClaims = () => acceptClaimKeys(pendingBridgedClaims.filter(c => !c.isViolation).map(c => c.key));
+  const handleRemoveClaim = (claim: BridgedClaim) => setResult(prev => prev ? removeClaim(prev, claim) : prev);
+
+  // Outreach and Interview Prep only see claims the user kept: unreviewed ones are stripped
+  const getCvForDownstreamAi = () => {
+    if (!result) return null;
+    const unreviewed = allBridgedClaims.filter(c => !acceptedClaimKeys.includes(c.key));
+    return unreviewed.length > 0 ? removeClaims(result, unreviewed).tailoredCv : result.tailoredCv;
+  };
+
+  // Warn before exporting documents that still contain unreviewed bridged claims
+  const guardExport = (run: () => void) => {
+    if (pendingBridgedClaims.length === 0) {
+      run();
+      return;
+    }
+    const n = pendingBridgedClaims.length;
+    showAlert({
+      title: 'Unreviewed bridged claims',
+      message: `${n} statement${n === 1 ? '' : 's'} in your documents go${n === 1 ? 'es' : ''} beyond your Master Vault and ${n === 1 ? "hasn't" : "haven't"} been reviewed yet. Review them under ATS & Insights → Bridged claims, or export anyway.`,
+      type: 'warning',
+      confirmLabel: 'Export anyway',
+      onConfirm: run,
+    });
+  };
+
+  // Wraps the terms of pending bridged claims found in `text` with amber marks
+  // (only outside existing HTML tags, so ATS highlight markup stays intact).
+  const applyBridgeMarks = (html: string, plainText: string): string => {
+    const norm = (t: string) => t.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    const target = norm(plainText);
+    if (!target) return html;
+    const matches = pendingBridgedClaims.filter(c => {
+      const ct = norm(c.text);
+      return ct === target || (ct.length > 20 && (target.includes(ct) || ct.includes(target)));
+    });
+    if (matches.length === 0) return html;
+    const termSources = new Map<string, string>();
+    matches.forEach(c => c.terms.forEach(t => { if (!termSources.has(t.term)) termSources.set(t.term, t.source || 'not in your profile'); }));
+    const escaped = Array.from(termSources.keys())
+      .map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .sort((a, b) => b.length - a.length);
+    if (escaped.length === 0) return html;
+    const re = new RegExp(`(?<![A-Za-z0-9.])(${escaped.join('|')})(?![A-Za-z0-9])`, 'gi');
+    return html.split(/(<[^>]+>)/g).map(part => part.startsWith('<') ? part : part.replace(re, (m) => {
+      const source = termSources.get(Array.from(termSources.keys()).find(k => k.toLowerCase() === m.toLowerCase()) || '') || '';
+      return `<mark data-bridged="1" title="Bridged claim: ${source.replace(/"/g, '&quot;')}" style="background-color: rgba(245, 158, 11, 0.28); color: #78350f; padding: 0 2px; border-radius: 3px; border-bottom: 2px dashed #d97706;">${m}</mark>`;
+    })).join('');
+  };
   const [history, setHistory] = useState<TailorResponse[]>([]);
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
 
@@ -1447,7 +1587,7 @@ export default function TailorWorkspace() {
           jobDescription,
           companyName,
           roleName,
-          tailoredCv: result?.tailoredCv || profile,
+          tailoredCv: getCvForDownstreamAi() || profile,
           targetLanguage: cvLanguage,
           recruiterName: outreachRecruiterName || result?.jobMetadata?.recruiterName || '',
           customInstruction: outreachCustomPrompt
@@ -1504,10 +1644,72 @@ export default function TailorWorkspace() {
       trap: string;
       recommendation: string;
     }>;
+    backItUp?: Array<{
+      claim: string;
+      skill: string;
+      studyPlan: string[];
+      honestFraming: string;
+      likelyProbe: string;
+    }>;
   } | null>(null);
   const [generatingInterviewPrep, setGeneratingInterviewPrep] = useState(false);
   const [interviewPrepCustomPrompt, setInterviewPrepCustomPrompt] = useState('');
   const [expandedQuestionIdx, setExpandedQuestionIdx] = useState<number | null>(0);
+
+  // === Autosave (v2 Phase 4) ===
+  // Once a result belongs to a saved application (draft or tracked), edits are
+  // saved automatically ~2s after the last change.
+  const autosaveRef = useRef<{ appId: string | null; body: string }>({ appId: null, body: '' });
+  const [autosaveState, setAutosaveState] = useState<'idle' | 'pending' | 'saving' | 'saved' | 'error'>('idle');
+  const autosaveBody = useMemo(() => {
+    if (!editingAppId || !result?.tailoredCv) return '';
+    return JSON.stringify({
+      matchScore: result.matchScore,
+      gapAnalysis: result.gapAnalysis,
+      documents: [
+        { type: 'CV', content: JSON.stringify({ ...result.tailoredCv, sectionOrder }) },
+        ...(result.tailoredCoverLetter ? [{ type: 'COVER_LETTER', content: JSON.stringify(result.tailoredCoverLetter) }] : []),
+        ...(interviewPrepData ? [{ type: 'INTERVIEW_PREP', content: JSON.stringify(interviewPrepData) }] : []),
+        ...(outreachData ? [{ type: 'OUTREACH', content: JSON.stringify(outreachData) }] : []),
+      ],
+    });
+  }, [editingAppId, result, sectionOrder, interviewPrepData, outreachData]);
+
+  useEffect(() => {
+    if (!editingAppId || !autosaveBody) return;
+    // First snapshot for this application = what is already stored
+    if (autosaveRef.current.appId !== editingAppId) {
+      autosaveRef.current = { appId: editingAppId, body: autosaveBody };
+      setAutosaveState('saved');
+      return;
+    }
+    if (autosaveRef.current.body === autosaveBody) return;
+    setAutosaveState('pending');
+    const appId = editingAppId;
+    const body = autosaveBody;
+    const timer = setTimeout(async () => {
+      setAutosaveState('saving');
+      try {
+        const res = await fetch(`/api/applications/${appId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body });
+        if (!res.ok) throw new Error(`Autosave failed (${res.status})`);
+        if (autosaveRef.current.appId === appId) autosaveRef.current.body = body;
+        setAutosaveState('saved');
+      } catch (err) {
+        console.error(err);
+        setAutosaveState('error');
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [editingAppId, autosaveBody]);
+
+  // Warn before leaving while changes are not saved yet
+  useEffect(() => {
+    if (autosaveState !== 'pending' && autosaveState !== 'saving' && autosaveState !== 'error') return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [autosaveState]);
+
 
   const handleGenerateInterviewPrep = async () => {
     if (!jobDescription) {
@@ -1527,9 +1729,10 @@ export default function TailorWorkspace() {
           jobDescription,
           companyName,
           roleName,
-          tailoredCv: result?.tailoredCv || profile,
+          tailoredCv: getCvForDownstreamAi() || profile,
           targetLanguage: cvLanguage,
-          customInstruction: interviewPrepCustomPrompt
+          customInstruction: interviewPrepCustomPrompt,
+          keptBridgedClaims: summarizeKeptClaims(allBridgedClaims, acceptedClaimKeys)
         })
       });
 
@@ -2009,25 +2212,21 @@ export default function TailorWorkspace() {
             />
           </div>
 
-          <div
-            className="bg-gray-200 rounded-sm overflow-hidden flex-shrink-0 border border-gray-300 flex items-center justify-center relative font-sans"
-            style={{
-              width: `${photoHeight * 0.81}px`,
-              height: `${photoHeight}px`
-            }}
-          >
-            {result.tailoredCv.personalDetails.photo ? (
+          {showPhotoOnCv && (
+            <div
+              className="bg-gray-200 rounded-sm overflow-hidden flex-shrink-0 border border-gray-300 flex items-center justify-center relative font-sans"
+              style={{
+                width: `${photoHeight * 0.81}px`,
+                height: `${photoHeight}px`
+              }}
+            >
               <img
                 src={result.tailoredCv.personalDetails.photo}
                 alt="Profile Photo"
                 className="w-full h-full object-cover"
               />
-            ) : (
-              <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -2317,7 +2516,7 @@ export default function TailorWorkspace() {
                       });
                     }}
                     isMeasurement={isMeasurement}
-                    highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(bText) : undefined}
+                    highlightHtml={isAnyHighlightOn ? getHighlightedHtml(bText) : undefined}
                     className="focus:outline-none flex-1 text-black"
                   />
                   {!isMeasurement && (
@@ -2395,7 +2594,7 @@ export default function TailorWorkspace() {
                 onChange={(val) => handleCvSummaryChange(val, true)}
                 onBlur={(e: any) => handleCvSummaryChange(e.target.innerHTML, false)}
                 isMeasurement={isMeasurement}
-                highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(cleanSummary) : undefined}
+                highlightHtml={isAnyHighlightOn ? getHighlightedHtml(cleanSummary) : undefined}
                 className="text-gray-700 text-left font-sans focus:outline-none"
                 style={{
                   fontSize: `${fontSize}px`,
@@ -2496,7 +2695,7 @@ export default function TailorWorkspace() {
                     onChange={(val) => handleWorkExperienceBulletChange(idx, bIdx, val, true)}
                     onBlur={(e: any) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerHTML, false)}
                     isMeasurement={isMeasurement}
-                    highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(b) : undefined}
+                    highlightHtml={isAnyHighlightOn ? getHighlightedHtml(b) : undefined}
                     className="focus:outline-none flex-1 text-black"
                   />
                   {!isMeasurement && (
@@ -2623,7 +2822,7 @@ export default function TailorWorkspace() {
                     onChange={(val) => handleWorkExperienceBulletChange(idx, bIdx, val, true)}
                     onBlur={(e: any) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerHTML, false)}
                     isMeasurement={isMeasurement}
-                    highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(b) : undefined}
+                    highlightHtml={isAnyHighlightOn ? getHighlightedHtml(b) : undefined}
                     className="focus:outline-none flex-1"
                   />
                   {!isMeasurement && (
@@ -2760,7 +2959,7 @@ export default function TailorWorkspace() {
                           onChange={(val) => handleWorkExperienceBulletChange(idx, bIdx, val, true)}
                           onBlur={(e: any) => handleWorkExperienceBulletChange(idx, bIdx, e.target.innerHTML, false)}
                           isMeasurement={isMeasurement}
-                          highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(b) : undefined}
+                          highlightHtml={isAnyHighlightOn ? getHighlightedHtml(b) : undefined}
                           className="focus:outline-none flex-1"
                         />
                         {!isMeasurement && (
@@ -3091,7 +3290,7 @@ export default function TailorWorkspace() {
                       onChange={(val) => handleProjectChange(idx, 'description', val, true)}
                       onBlur={(e: any) => handleProjectChange(idx, 'description', e.target.innerHTML, false)}
                       isMeasurement={isMeasurement}
-                      highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(proj.description) : undefined}
+                      highlightHtml={isAnyHighlightOn ? getHighlightedHtml(proj.description) : undefined}
                       className="focus:outline-none"
                     />
                     {')'}
@@ -3204,7 +3403,7 @@ export default function TailorWorkspace() {
                   onBlur={(e: any) => handleProjectChange(idx, 'technologies', e.target.innerText, false)}
                   useInnerText={true}
                   isMeasurement={isMeasurement}
-                  highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies) : undefined}
+                  highlightHtml={isAnyHighlightOn ? getHighlightedHtml(Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies) : undefined}
                   className="focus:outline-none"
                 />
               </p>
@@ -3215,7 +3414,7 @@ export default function TailorWorkspace() {
               onChange={(val) => handleProjectChange(idx, 'description', val, true)}
               onBlur={(e: any) => handleProjectChange(idx, 'description', e.target.innerHTML, false)}
               isMeasurement={isMeasurement}
-              highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(proj.description) : undefined}
+              highlightHtml={isAnyHighlightOn ? getHighlightedHtml(proj.description) : undefined}
               className="text-gray-700 text-left font-sans focus:outline-none"
               style={{
                 fontSize: `${fontSize}px`,
@@ -3268,7 +3467,7 @@ export default function TailorWorkspace() {
                             onBlur={(e: any) => handleProjectChange(idx, 'technologies', e.target.innerText, false)}
                             useInnerText={true}
                             isMeasurement={isMeasurement}
-                            highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies) : undefined}
+                            highlightHtml={isAnyHighlightOn ? getHighlightedHtml(Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies) : undefined}
                             className="focus:outline-none"
                           />
                         </span>
@@ -3317,7 +3516,7 @@ export default function TailorWorkspace() {
                     onChange={(val) => handleProjectChange(idx, 'description', val, true)}
                     onBlur={(e: any) => handleProjectChange(idx, 'description', e.target.innerHTML, false)}
                     isMeasurement={isMeasurement}
-                    highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(proj.description) : undefined}
+                    highlightHtml={isAnyHighlightOn ? getHighlightedHtml(proj.description) : undefined}
                     className="text-gray-700 text-left font-sans focus:outline-none"
                     style={{
                       fontSize: `${fontSize}px`,
@@ -3360,7 +3559,7 @@ export default function TailorWorkspace() {
                     >
                       <span className="text-black leading-none mt-[3px] shrink-0 select-none font-bold">•</span>
                       <span className="text-black">
-                        {isAtsHighlightEnabled ? (
+                        {isAnyHighlightOn ? (
                           <span dangerouslySetInnerHTML={{ __html: names.map(n => getHighlightedHtml(n)).join(' | ') + '.' }} />
                         ) : (
                           <span>{names.join(' | ')}.</span>
@@ -3391,7 +3590,7 @@ export default function TailorWorkspace() {
                       <span className="text-gray-500 leading-none mt-[2px] shrink-0">•</span>
                       <span>
                         <span className="font-semibold text-gray-800">{levelLabel}:</span>{' '}
-                        {isAtsHighlightEnabled ? (
+                        {isAnyHighlightOn ? (
                           <span className="text-gray-700" dangerouslySetInnerHTML={{ __html: names.map(n => getHighlightedHtml(n)).join(', ') }} />
                         ) : (
                           <span className="text-gray-700">{names.join(', ')}</span>
@@ -3416,7 +3615,7 @@ export default function TailorWorkspace() {
                       <span className="text-gray-500 leading-none mt-[2px] shrink-0">•</span>
                       <span>
                         <span className="font-semibold text-gray-800">{cat}:</span>{' '}
-                        {isAtsHighlightEnabled ? (
+                        {isAnyHighlightOn ? (
                           <span className="text-gray-700" dangerouslySetInnerHTML={{ __html: names.map(n => getHighlightedHtml(n)).join(', ') }} />
                         ) : (
                           <span className="text-gray-700">{names.join(', ')}</span>
@@ -3708,25 +3907,7 @@ export default function TailorWorkspace() {
                   aria-hidden="true"
                   className="max-h-full max-w-[120px] object-contain"
                 />
-              ) : (
-                <svg
-                  width="80"
-                  height="32"
-                  viewBox="0 0 80 32"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                  className="text-gray-800"
-                >
-                  <path
-                    d="M 8 20 C 8 8, 16 6, 20 18 C 24 10, 28 8, 30 18 C 32 18, 34 22, 36 20 C 38 18, 42 16, 46 22 C 48 24, 50 16, 52 18 C 54 20, 56 22, 58 20 C 60 18, 62 20, 66 22 C 68 24, 70 20, 74 18"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )
+              ) : null
             )}
           </div>
           <ContentEditable
@@ -3888,7 +4069,7 @@ export default function TailorWorkspace() {
         }
       };
     }
-  }, [result, fontSize, sectionSpacing, pagePaddingTop, pagePaddingBottom, pagePaddingSide, bulletSpacing, signatureSpacing, photoHeight, headerSpacing, bulletStyle, lengthTarget, previewTab, showSignatureImage, showSignatureSection, sectionOrder, selectedProjects, isAtsHighlightEnabled, hiddenSections, customSections, sectionMargins]);
+  }, [result, fontSize, sectionSpacing, pagePaddingTop, pagePaddingBottom, pagePaddingSide, bulletSpacing, signatureSpacing, photoHeight, headerSpacing, bulletStyle, lengthTarget, previewTab, showSignatureImage, showSignatureSection, sectionOrder, selectedProjects, isAtsHighlightEnabled, isAnyHighlightOn, hiddenSections, customSections, sectionMargins]);
 
 
   const handleSelectPersona = (personaId: string) => {
@@ -3984,6 +4165,7 @@ export default function TailorWorkspace() {
         const app = await res.json();
         setCompanyName(app.company);
         setRoleName(app.role);
+        setEditingAppStatus(app.status || null);
         setJobDescription(app.rawJobDescription);
         setCvLanguage(app.targetLanguage as 'EN' | 'DE');
         setClLanguage(app.targetLanguage as 'EN' | 'DE');
@@ -4078,7 +4260,10 @@ export default function TailorWorkspace() {
       }
 
       const data = await res.json();
-      if (data.fallback) {
+      if (data.closed) {
+        // Posting is gone (404 / redirected to the jobs list): nothing was charged
+        setScrapeError(data.message);
+      } else if (data.fallback) {
         setScrapeWarning(data.message);
         // Switch to text mode so they know they need to paste it
         setIntakeMethod('text');
@@ -4086,8 +4271,10 @@ export default function TailorWorkspace() {
         if (data.roleName) setRoleName(data.roleName);
         if (data.companyName) setCompanyName(data.companyName);
         if (data.jobDescription) setJobDescription(data.jobDescription);
+        // Possibly expired posting: imported anyway, with a heads-up
+        if (data.warning) setScrapeWarning(data.warning);
 
-        fetchTokens();
+        if (data.cost) fetchTokens();
         confetti({
           particleCount: 50,
           spread: 45,
@@ -4169,8 +4356,27 @@ export default function TailorWorkspace() {
       });
       return;
     }
+    if (vaultIsEmpty) {
+      showAlert({
+        title: 'Your Master Vault is empty',
+        message: 'Add your experience first (import your CV, LinkedIn or GitHub in the Master Vault). The AI can only tailor what is in your vault.',
+        type: 'warning'
+      });
+      return;
+    }
+    // Instant, free check — avoids spending tokens on text that isn't a job ad
+    const jdCheck = checkJobDescription(jobDescription);
+    if (!jdCheck.ok) {
+      showAlert({
+        title: jdCheck.reason === 'looks-like-cv' ? 'This looks like a CV' : 'Check the job description',
+        message: jdCheck.message,
+        type: 'warning'
+      });
+      return;
+    }
     setLoading(true);
     setResult(null);
+    setRefusal(null);
     try {
       const allProjects = profile?.projects && Array.isArray(profile.projects) && profile.projects.length > 0
         ? profile.projects.map((p: any) => p.name)
@@ -4197,6 +4403,7 @@ export default function TailorWorkspace() {
           profile,
           matchStrategy,
           applicationId: editingAppId,
+          companyName,
           roleName,
           selectedProjects: allProjects,
           isNudgeEnabled
@@ -4213,9 +4420,20 @@ export default function TailorWorkspace() {
         throw new Error(errJson.error || 'Server error during tailoring');
       }
 
-      const data = (await res.json()) as TailorResponse;
+      const data = (await res.json()) as TailorResponse & { refused?: boolean };
+      if (data.refused) {
+        // Gap too big: show the gap report instead of documents (tokens were charged)
+        setRefusal(data);
+        fetchTokens();
+        return;
+      }
       setResult(data);
       fetchTokens();
+      if ((data as any).applicationId) {
+        // Saved server-side as a DRAFT; edits now auto-save to it
+        setEditingAppId((data as any).applicationId);
+        setEditingAppStatus('DRAFT');
+      }
 
       if (data.tailoredCv?.projects && Array.isArray(data.tailoredCv.projects)) {
         setSelectedProjects(data.tailoredCv.projects.map((p: any) => p.name));
@@ -4306,6 +4524,9 @@ export default function TailorWorkspace() {
     // 2. Remove any interactive buttons or input fields
     clone.querySelectorAll('button, input, textarea, select, [role="button"]').forEach(el => el.remove());
 
+    // 2b. Unwrap ATS / bridged-claim highlight marks so they never reach the exported file
+    clone.querySelectorAll('mark').forEach(m => m.replaceWith(...Array.from(m.childNodes)));
+
     // 3. For Cover Letter: Format address blocks & enclosures into pristine paragraph stacks BEFORE stripping attributes
     if (docType === 'cl') {
       // 3a. Sender Address
@@ -4378,7 +4599,11 @@ export default function TailorWorkspace() {
       // 3c. Enclosures
       const enclosureEl = clone.querySelector('[data-cl-field="enclosure"]');
       if (enclosureEl) {
-        const encLines = extractCleanLines(enclosureEl, result?.tailoredCoverLetter?.enclosure || "- Curriculum Vitae\n- Bachelor Degree Diploma\n- Reference letter from previous employers");
+        const encSource = result?.tailoredCoverLetter?.enclosure !== undefined ? result.tailoredCoverLetter.enclosure : defaultEnclosure;
+        const encLines = String(encSource).trim() ? extractCleanLines(enclosureEl, encSource) : [];
+        if (encLines.length === 0) {
+          clone.querySelector('[data-cl-block="enclosure"]')?.remove();
+        }
         const div = clone.ownerDocument.createElement('div');
         div.setAttribute('style', `
           margin-left: 16px !important;
@@ -4403,7 +4628,7 @@ export default function TailorWorkspace() {
           div.appendChild(p);
         });
 
-        enclosureEl.parentNode?.replaceChild(div, enclosureEl);
+        if (encLines.length > 0) enclosureEl.parentNode?.replaceChild(div, enclosureEl);
       }
     }
 
@@ -4950,9 +5175,9 @@ export default function TailorWorkspace() {
 
       const enclosureContent = cl.enclosure !== undefined
         ? cl.enclosure
-        : "- Curriculum Vitae\n- Bachelor Degree Diploma\n- Reference letter from previous employers";
-      if (enclosureContent) {
-        textContent += `\nEnclosure:\n${enclosureContent}\n`;
+        : defaultEnclosure;
+      if (String(enclosureContent).trim()) {
+        textContent += `\n${enclosureLabel}\n${enclosureContent}\n`;
       }
     }
 
@@ -5103,6 +5328,8 @@ export default function TailorWorkspace() {
     setSaveSuccess(false);
 
     const payload = {
+      // Tracking a draft moves it into the tracker
+      ...(editingAppStatus === 'DRAFT' ? { status: 'TAILORED' } : {}),
       company: companyName || 'Target Company',
       role: roleName || 'Target Role',
       salaryExpectation,
@@ -5142,6 +5369,7 @@ export default function TailorWorkspace() {
         const savedApp = await res.json();
         if (savedApp && savedApp.id) {
           setEditingAppId(savedApp.id);
+          setEditingAppStatus(savedApp.status || null);
         }
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
@@ -5393,7 +5621,7 @@ export default function TailorWorkspace() {
 
   const handleClParagraphChange = (index: number, val: string, isRealtime = false) => {
     if (!result) return;
-    const activeLengthKey = clLength.includes('Short') ? 'short' : 'detailed';
+    const activeLengthKey = getDisplayedClKey(result.tailoredCoverLetter, clLength);
     const newCl = { ...result.tailoredCoverLetter };
 
     let currentParasObj = newCl.paragraphs;
@@ -5536,7 +5764,7 @@ export default function TailorWorkspace() {
               <Award className="w-3.5 h-3.5" />
               <span>ATS &amp; Insights</span>
               {result?.matchScore !== undefined && (
-                <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                <span title="Profile fit" className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
                   {result.matchScore}%
                 </span>
               )}
@@ -5557,6 +5785,18 @@ export default function TailorWorkspace() {
           {/* TAB 1: GENERATION & STRATEGY */}
           {sidePanelTab === 'generation' && (
             <div className="space-y-4 animate-in fade-in duration-200">
+              {vaultIsEmpty && (
+                <div className="p-4 rounded-2xl border border-indigo-500/30 bg-indigo-500/10 text-xs space-y-2">
+                  <p className="font-bold text-white">Start with your Master Vault</p>
+                  <p className="text-zinc-300 leading-relaxed">
+                    Your vault has no experience yet. Import your CV (PDF), LinkedIn or GitHub — or add it by hand — so the AI has real facts to tailor.
+                  </p>
+                  <Link href="/profile" className="inline-flex px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[11px]">
+                    Open Master Vault →
+                  </Link>
+                </div>
+              )}
+              <DraftsList currentAppId={editingAppId} refreshKey={editingAppId} limit={4} />
               {/* Source Career Persona Selection */}
               {profile?.personas && profile.personas.length > 1 && (
                 <div className="p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-xl space-y-1.5 text-left font-sans shadow-sm">
@@ -5733,6 +5973,11 @@ export default function TailorWorkspace() {
                       <option value="Short & Punchy (under 300 words)">Short & Punchy</option>
                       <option value="Detailed & Elaborate">Detailed & Elaborate</option>
                     </select>
+                    {result?.tailoredCoverLetter && getDisplayedClKey(result.tailoredCoverLetter, clLength) !== (clLength.includes('Short') ? 'short' : 'detailed') && (
+                      <p className="text-[10px] text-amber-300 leading-snug">
+                        This letter was written in the other length. Use “Regenerate Cover Letter” on the letter (5 tokens) to get this version.
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex flex-col gap-1">
@@ -5861,13 +6106,16 @@ export default function TailorWorkspace() {
                       {scraping ? (
                         <>
                           <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          <span>Scraping...</span>
+                          <span>Importing...</span>
                         </>
                       ) : (
-                        <span>Scrape (5 tokens)</span>
+                        <span>Import job</span>
                       )}
                     </button>
                   </div>
+                  <p className="text-[10px] text-zinc-500 leading-relaxed">
+                    Free and instant for Greenhouse, Lever, Ashby, Personio, SmartRecruiters and sites that publish job data. Other pages are read by AI for 5 tokens (refunded if it fails).
+                  </p>
                   {scrapeWarning && (
                     <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
@@ -6018,11 +6266,11 @@ export default function TailorWorkspace() {
                   </div>
                   <p className="text-zinc-400 leading-relaxed">
                     {!profile.photo && !profile.signature ? (
-                      <>Your profile is missing a <strong>photo</strong> and a <strong>signature</strong> image. Default placeholders will be used on the documents. You can upload them in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
+                      <>No <strong>photo</strong> or <strong>signature</strong> uploaded. Your CV will have no photo (usual for UK/US; German CVs normally include one) and the letter leaves space to sign by hand. You can upload both in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
                     ) : !profile.photo ? (
-                      <>Your profile is missing a <strong>photo</strong>. A placeholder silhouette will be used. You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
+                      <>No <strong>photo</strong> uploaded, so your CV will have none (usual for UK/US; German CVs normally include one). You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
                     ) : (
-                      <>Your profile is missing a <strong>signature</strong>. A demo cursive signature will be used. You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
+                      <>No <strong>signature</strong> uploaded, so the letter leaves space to sign by hand. You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
                     )}
                   </p>
                 </div>
@@ -6073,6 +6321,19 @@ export default function TailorWorkspace() {
                 </div>
               ) : (
                 <div className="space-y-5">
+                  {Array.isArray(result.gapAnalysis?.requirements) && (
+                    <BridgedClaimsPanel
+                      claims={bridgedClaims}
+                      acceptedKeys={acceptedClaimKeys}
+                      highlightsOn={isBridgeHighlightEnabled}
+                      hardLineRemovals={result.hardLineRemovals}
+                      workExperience={result.tailoredCv?.workExperience}
+                      onToggleHighlights={() => setIsBridgeHighlightEnabled(v => !v)}
+                      onAccept={handleAcceptClaim}
+                      onRemove={handleRemoveClaim}
+                      onAcceptAll={handleAcceptAllClaims}
+                    />
+                  )}
                   <div>
                     <h2 className="text-md font-bold text-white mb-2 flex items-center gap-1.5">
                       <Award className="w-4 h-4 text-emerald-400" />
@@ -6084,10 +6345,23 @@ export default function TailorWorkspace() {
                         <span className="font-extrabold text-white text-lg">{result.matchScore}%</span>
                       </div>
                       <div>
-                        <h4 className="font-bold text-white text-sm">Keyword / Skill Alignment</h4>
-                        <p className="text-xs text-zinc-400">Based on factual CV entries parsed against target requirements.</p>
+                        <h4 className="font-bold text-white text-sm">Profile fit</h4>
+                        <p className="text-xs text-zinc-400">How well your Master Vault meets this job's requirements. Must-haves count double; related skills count half.</p>
                       </div>
                     </div>
+                    {(() => {
+                      const kc = getAtsMatchStats();
+                      if (!kc) return null;
+                      return (
+                        <div className="mt-2 flex items-start gap-3 bg-white/[0.02] px-4 py-3 rounded-xl border border-white/5">
+                          <span className="font-extrabold text-white text-sm shrink-0 w-16 text-center">{kc.matched}/{kc.total}</span>
+                          <div>
+                            <h4 className="font-bold text-white text-xs">Keywords in your CV</h4>
+                            <p className="text-[11px] text-zinc-400">Job keywords that appear in this CV's text — what ATS filters scan for.{kc.missing.length > 0 ? ` Not in the CV: ${kc.missing.join(', ')}.` : ''}</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -6354,13 +6628,13 @@ export default function TailorWorkspace() {
                 isStrictOnePage={lengthTarget.includes('1-Page')}
                 isAtsHighlightEnabled={isAtsHighlightEnabled}
                 onToggleAtsHighlight={() => setIsAtsHighlightEnabled(!isAtsHighlightEnabled)}
-                onExportPdf={() => handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl')}
-                onExportDocx={() => handleExportDocx()}
-                onExportPlainText={() => handleCopyAtsPlainText()}
+                onExportPdf={() => guardExport(() => handleExportPdf(previewTab === 'cv' ? 'cv' : 'cl'))}
+                onExportDocx={() => guardExport(() => handleExportDocx())}
+                onExportPlainText={() => guardExport(() => handleCopyAtsPlainText())}
                 onSaveToTracker={saveToApplicationsTracker}
                 isSavingToTracker={isSaving}
                 saveTrackerSuccess={saveSuccess}
-                editingAppId={editingAppId}
+                editingAppId={editingAppStatus === 'DRAFT' ? null : editingAppId}
                 hasResult={!!result}
               />
             </div>
@@ -6504,6 +6778,19 @@ export default function TailorWorkspace() {
                     <span>⚖️ Compare</span>
                   </button>
 
+                  {result?.tailoredCv?.personalDetails?.photo && previewTab === 'cv' && (
+                    <button
+                      type="button"
+                      onClick={toggleCvPhoto}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${showPhotoOnCv
+                        ? 'bg-sky-500/15 text-sky-300 border-sky-500/40'
+                        : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'}`}
+                      title="German CVs usually include a photo; UK/US employers usually expect CVs without one."
+                    >
+                      <span>📷 Photo {showPhotoOnCv ? '(ON)' : '(OFF)'}</span>
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => setIsAtsHighlightEnabled((prev) => !prev)}
@@ -6517,6 +6804,31 @@ export default function TailorWorkspace() {
                     <span>ATS Highlights {isAtsHighlightEnabled ? '(ON)' : '(OFF)'}</span>
                   </button>
 
+                  {editingAppId && result && (
+                    <span
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${autosaveState === 'error' ? 'border-rose-500/40 text-rose-300' : 'border-white/10 text-zinc-400'}`}
+                      title={editingAppStatus === 'DRAFT' ? 'Saved as a draft. Click Track to add it to your application tracker. Drafts are deleted after 30 days.' : 'Changes are saved automatically to this application.'}
+                    >
+                      {autosaveState === 'pending' || autosaveState === 'saving'
+                        ? 'Saving…'
+                        : autosaveState === 'error'
+                          ? 'Not saved — click Track / Update'
+                          : editingAppStatus === 'DRAFT' ? 'Draft · saved' : 'All changes saved'}
+                    </span>
+                  )}
+
+                  {pendingBridgedClaims.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => { setSidePanelTab('ats'); setIsBridgeHighlightEnabled(true); }}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 transition-all cursor-pointer shadow-sm"
+                      title="Statements that go beyond your Master Vault — review them before sending"
+                    >
+                      <GitMerge className="w-3 h-3 text-amber-400" />
+                      <span>Bridged: {pendingBridgedClaims.length} to review</span>
+                    </button>
+                  )}
+
                   {(() => {
                     const stats = getAtsMatchStats();
                     if (!stats) return null;
@@ -6526,8 +6838,8 @@ export default function TailorWorkspace() {
                         ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
                         : 'bg-rose-500/10 border-rose-500/30 text-rose-300';
                     return (
-                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold ${colorClass}`} title={`${stats.matched} matched out of ${stats.total} total extracted job keywords`}>
-                        <span>ATS: {stats.matched}/{stats.total} ({stats.percentage}%)</span>
+                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold ${colorClass}`} title={`Keyword coverage: ${stats.matched} of ${stats.total} job keywords appear in this CV's text — what ATS keyword filters scan for.${stats.missing.length ? ` Missing: ${stats.missing.join(', ')}` : ''}`}>
+                        <span>Keywords in CV: {stats.matched}/{stats.total} ({stats.percentage}%)</span>
                       </div>
                     );
                   })()}
@@ -7131,6 +7443,40 @@ export default function TailorWorkspace() {
                         </div>
                       </div>
                     )}
+
+                    {/* 5. Back up bridged claims */}
+                    {interviewPrepData.backItUp && interviewPrepData.backItUp.length > 0 && (
+                      <div className="glass-panel p-5 rounded-2xl border border-amber-500/25 shadow-lg space-y-3">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 font-bold text-xs">
+                            🧭 Bridged claims
+                          </span>
+                          <h4 className="font-bold text-white text-sm">Prepare to Back These Up</h4>
+                        </div>
+                        <p className="text-[11px] text-zinc-400">
+                          Your CV includes these bridged statements. Expect questions on them, and prepare so you can answer honestly and confidently.
+                        </p>
+                        <div className="space-y-2.5 pt-1">
+                          {interviewPrepData.backItUp.map((item, bIdx) => (
+                            <div key={bIdx} className="p-3 bg-amber-500/5 rounded-xl border border-amber-500/15 space-y-1.5 text-xs">
+                              <p className="font-bold text-amber-200">{item.skill}</p>
+                              <p className="text-zinc-400 text-[11px] italic">"{item.claim}"</p>
+                              {item.likelyProbe && (
+                                <p className="text-zinc-300 text-[11px]"><strong>Likely question:</strong> {item.likelyProbe}</p>
+                              )}
+                              {Array.isArray(item.studyPlan) && item.studyPlan.length > 0 && (
+                                <ul className="list-disc pl-4 text-zinc-300 text-[11px] space-y-0.5">
+                                  {item.studyPlan.map((step, sIdx) => <li key={sIdx}>{step}</li>)}
+                                </ul>
+                              )}
+                              {item.honestFraming && (
+                                <p className="text-zinc-300 text-[11px] leading-relaxed"><strong>How to frame it:</strong> {item.honestFraming}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="p-8 text-center glass-panel rounded-2xl border border-dashed border-white/10 space-y-3">
@@ -7350,7 +7696,7 @@ export default function TailorWorkspace() {
                                   onChange={(val) => handleClParagraphChange(i, val, true)}
                                   onBlur={(e: any) => handleClParagraphChange(i, e.target.innerHTML, false)}
                                   isMeasurement={false}
-                                  highlightHtml={isAtsHighlightEnabled ? getHighlightedHtml(p) : undefined}
+                                  highlightHtml={isAnyHighlightOn ? getHighlightedHtml(p) : undefined}
                                   className="focus:outline-none"
                                 />
                                 <div className="no-print opacity-0 group-hover:opacity-100 absolute -right-2 top-0 flex items-center gap-1 shrink-0 transition-opacity">
@@ -7388,25 +7734,7 @@ export default function TailorWorkspace() {
                                 aria-hidden="true"
                                 className="max-h-full max-w-[120px] object-contain"
                               />
-                            ) : (
-                              <svg
-                                width="80"
-                                height="32"
-                                viewBox="0 0 80 32"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg"
-                                aria-hidden="true"
-                                className="text-[#1a1a1a]"
-                              >
-                                <path
-                                  d="M 10 24 C 10 8, 22 2, 22 14 C 22 20, 16 26, 12 24 C 10 22, 14 18, 20 18 C 24 18, 26 22, 28 20 C 30 18, 30 20, 32 20 C 34 20, 34 22, 36 20 C 44 8, 48 2, 46 16 C 45 24, 40 28, 43 28 C 46 28, 52 14, 56 16 C 58 17, 58 20, 60 20 C 62 20, 62 18, 64 18 C 66 18, 67 22, 70 20"
-                                  stroke="currentColor"
-                                  strokeWidth="1.5"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
-                            )}
+                            ) : null}
                           </div>
 
                           {/* Printed Name */}
@@ -7421,15 +7749,15 @@ export default function TailorWorkspace() {
                           />
 
                           {/* Enclosures */}
-                          <div className="mt-8 text-[11.5px] text-left font-sans">
-                            <p>Enclosure:</p>
+                          <div className="mt-8 text-[11.5px] text-left font-sans" data-cl-block="enclosure">
+                            <p>{enclosureLabel}</p>
                             <ContentEditable
                               tagName="div"
                               data-cl-field="enclosure"
                               value={
                                 result.tailoredCoverLetter.enclosure !== undefined
                                   ? result.tailoredCoverLetter.enclosure
-                                  : "- Curriculum Vitae\n- Bachelor Degree Diploma\n- Reference letter from previous employers"
+                                  : defaultEnclosure
                               }
                               onChange={(val) => handleClChange('enclosure', val, true)}
                               onBlur={(e: any) => handleClChange('enclosure', e.target.innerText, false)}
@@ -7464,6 +7792,8 @@ export default function TailorWorkspace() {
                   )}
                 </div>
               </div>
+            ) : refusal ? (
+              <RefusalReport matchScore={refusal.matchScore} gapAnalysis={refusal.gapAnalysis || {}} tokenCost={20} />
             ) : (
               <div className="flex flex-col items-center justify-center p-12 text-center text-zinc-500 border border-dashed border-white/10 rounded-2xl w-full max-w-lg">
                 <FileText className="w-12 h-12 mb-3 text-zinc-600" />
@@ -7542,12 +7872,25 @@ export default function TailorWorkspace() {
             <div className="space-y-3 font-sans text-xs">
               {result ? (
                 <>
+                  {Array.isArray(result.gapAnalysis?.requirements) && (
+                    <BridgedClaimsPanel
+                      claims={bridgedClaims}
+                      acceptedKeys={acceptedClaimKeys}
+                      highlightsOn={isBridgeHighlightEnabled}
+                      hardLineRemovals={result.hardLineRemovals}
+                      workExperience={result.tailoredCv?.workExperience}
+                      onToggleHighlights={() => setIsBridgeHighlightEnabled(v => !v)}
+                      onAccept={handleAcceptClaim}
+                      onRemove={handleRemoveClaim}
+                      onAcceptAll={handleAcceptAllClaims}
+                    />
+                  )}
                   <div className="flex items-center justify-between p-3 bg-zinc-900 border border-white/10 rounded-xl">
                     <div className="flex items-center gap-2.5">
                       <span className="text-xl font-extrabold text-emerald-400">{result.matchScore}%</span>
                       <div>
-                        <span className="font-bold text-white block text-xs">ATS Match Score</span>
-                        <span className="text-[10px] text-zinc-400">{result.gapAnalysis.matchingKeywords.length} matching / {result.gapAnalysis.missingSkills.length} missing</span>
+                        <span className="font-bold text-white block text-xs">Profile fit</span>
+                        <span className="text-[10px] text-zinc-400">{(() => { const kc = getAtsMatchStats(); return kc ? `Keywords in CV: ${kc.matched}/${kc.total}` : `${result.gapAnalysis.matchingKeywords.length} matching / ${result.gapAnalysis.missingSkills.length} missing`; })()}</span>
                       </div>
                     </div>
                     {result.gapAnalysis.missingSkills.length > 0 && (
@@ -8264,7 +8607,7 @@ export default function TailorWorkspace() {
               <div className="p-6 space-y-4 bg-zinc-950">
                 <div className="sticky top-0 bg-indigo-950/90 backdrop-blur-sm p-2 rounded-lg border border-indigo-800/50 font-bold text-indigo-300 uppercase tracking-wider text-[11px] mb-3 flex items-center justify-between">
                   <span>✨ AI Tailored Document Output</span>
-                  <span className="text-emerald-400 text-[10px]">Match Score: {result.matchScore}%</span>
+                  <span className="text-emerald-400 text-[10px]">Profile fit: {result.matchScore}%</span>
                 </div>
                 <div>
                   <h4 className="font-bold text-white mb-1">Full Name: {result.tailoredCv.personalDetails.fullName}</h4>

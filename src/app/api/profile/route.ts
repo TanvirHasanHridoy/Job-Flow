@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getAuthUserId } from '@/lib/auth';
+import { validateImageDataUri } from '@/lib/uploads';
 
 export async function GET() {
   try {
@@ -113,6 +114,12 @@ export async function POST(req: Request) {
       customSections = [],
       personas = []
     } = body;
+
+    // Photo/signature must be image data URIs under 2 MB
+    const imageError = validateImageDataUri(photo, 'Profile photo') || validateImageDataUri(signature, 'Signature');
+    if (imageError) {
+      return NextResponse.json({ error: imageError }, { status: 400 });
+    }
 
     const data = {
       fullName,

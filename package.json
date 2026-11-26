@@ -1,6 +1,6 @@
 {
   "name": "temp-app",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev -H 0.0.0.0",
@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "build:extension": "npm run build --prefix extension",
-    "dev:extension": "npm run dev --prefix extension"
+    "dev:extension": "npm run dev --prefix extension",
+    "tokens:add": "node --env-file=.env scripts/add-tokens.cjs"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

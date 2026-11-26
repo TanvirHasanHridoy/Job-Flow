@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
+import { AI_UNAVAILABLE_MESSAGE, PDF_UNREADABLE_MESSAGE } from '@/lib/apiErrors';
+import { enforceRateLimit } from '@/lib/rateLimit';
+import { readPdfUpload } from '@/lib/uploads';
 import { deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
-import { getAiConfig } from '@/lib/ai';
+import { getAiConfig, aiFetch } from '@/lib/ai';
 import 'pdf-parse/worker';
 import { PDFParse } from 'pdf-parse';
 
@@ -28,16 +31,20 @@ export async function POST(req: Request) {
     if ('error' in auth) return auth.error;
     userId = auth.userId;
 
+    const rateLimited = await enforceRateLimit(userId, 'IMPORT_PROFILE');
+    if (rateLimited) return rateLimited;
+
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
 
-    if (!file) {
-      return NextResponse.json({ error: 'No PDF file was uploaded.' }, { status: 400 });
+    // Size (5 MB) and PDF signature checks before any parsing or charging
+    const upload = await readPdfUpload(file);
+    if ('error' in upload) {
+      return NextResponse.json({ error: upload.error }, { status: upload.status });
     }
+    const { buffer } = upload;
 
     // 1. Extract text from the PDF buffer before charging the user
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
     
     let pdfText = '';
     try {
@@ -47,7 +54,7 @@ export async function POST(req: Request) {
     } catch (parseErr: any) {
       console.error('pdf-parse failure:', parseErr);
       return NextResponse.json(
-        { error: `Failed to extract text from the PDF document: ${parseErr.message || parseErr}` },
+        { error: PDF_UNREADABLE_MESSAGE },
         { status: 422 }
       );
     }
@@ -93,7 +100,7 @@ export async function POST(req: Request) {
 CRITICAL RULES:
 1. TRUTHFULNESS: Rely ONLY on the facts, dates, coordinates, and skills contained in the inputs. Do not invent company names or credentials.
 2. SYNTHESIZE PROJECTS & SKILLS: Extract programming languages, framework keywords, and technical systems and list them as technical skills or achievements.
-3. SKILL LEVEL MAPPING: For each skill, search the raw text for self-reported seniority or experience indicators (e.g., "Senior TypeScript Architect" or "6 years experience in Java" -> Expert; "Mid-level React Developer" -> Advanced or Intermediate; "Junior Python coder" -> Beginner; "experience with AWS" -> Intermediate; "basic understanding of Docker" -> Beginner). Map all detected skill proficiencies strictly to one of these four levels: 'Expert', 'Advanced', 'Intermediate', 'Beginner'. If no seniority/experience is indicated for a skill, default to 'Intermediate'.
+3. SKILL LEVELS: Only set a level when the source text explicitly states it for that skill (e.g. "expert in TypeScript", "basic knowledge of Docker", "5 years of Java" -> Expert/Advanced/Intermediate/Beginner accordingly). If the text does not state a level for a skill, leave "level" as an empty string. Never guess or default a level.
 4. SKILL CATEGORY MAPPING: Map each skill to one of these four categories based on its nature: 'Frontend', 'Backend', 'Database', or 'Tools'. Default to 'Tools' if it doesn't clearly fit others.
 5. OUTPUT FORMAT: You must return a raw JSON object matching the exact keys below. Experience and Education dates should be parsed cleanly (e.g. "Jan 2021" or "2018").
 
@@ -131,7 +138,7 @@ Return a JSON object conforming to this template:
     }
   ],
   "skills": [
-    { "name": "<string>", "level": "<string, strictly one of: Expert, Advanced, Intermediate, Beginner>", "category": "<string, strictly one of: Frontend, Backend, Database, Tools>" }
+    { "name": "<string>", "level": "<one of Expert, Advanced, Intermediate, Beginner ONLY if stated in the text, otherwise an empty string>", "category": "<string, strictly one of: Frontend, Backend, Database, Tools>" }
   ],
   "languages": [
     { "language": "<string>", "level": "<string, e.g. Native, C1, B2>" }
@@ -176,13 +183,7 @@ Please parse and structure this data into the specified JSON format.`;
           await new Promise(resolve => setTimeout(resolve, delay));
         }
 
-        response = await fetch(aiConfig.apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${aiConfig.apiKey}`
-          },
-          body: JSON.stringify({
+        response = await aiFetch({
             model: aiConfig.model,
             messages: [
               { role: 'system', content: systemPrompt },
@@ -190,9 +191,7 @@ Please parse and structure this data into the specified JSON format.`;
             ],
             response_format: { type: 'json_object' },
             temperature: 0.1
-          }),
-          signal: AbortSignal.timeout(90000)
-        });
+          }, { signal: AbortSignal.timeout(90000) });
 
         if (response.ok) {
           lastError = null;
@@ -219,7 +218,7 @@ Please parse and structure this data into the specified JSON format.`;
       const errorText = await response.text().catch(() => '');
       console.error(`${aiConfig.provider} API Error during PDF parsing:`, errorText);
       return NextResponse.json(
-        { error: `${aiConfig.provider} API returned status ${response.status}: ${errorText}` },
+        { error: AI_UNAVAILABLE_MESSAGE },
         { status: 502 }
       );
     }
@@ -240,6 +239,6 @@ Please parse and structure this data into the specified JSON format.`;
   } catch (error: any) {
     await refundTokens();
     console.error('Import PDF profile API error:', error);
-    return NextResponse.json({ error: error.message || 'An error occurred during PDF profile import' }, { status: 500 });
+    return NextResponse.json({ error: 'An error occurred during PDF profile import. Please try again.' }, { status: 500 });
   }
 }
