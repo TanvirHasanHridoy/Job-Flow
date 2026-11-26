@@ -4250,7 +4250,10 @@ export default function TailorWorkspace() {
       }
 
       const data = await res.json();
-      if (data.fallback) {
+      if (data.closed) {
+        // Posting is gone (404 / redirected to the jobs list): nothing was charged
+        setScrapeError(data.message);
+      } else if (data.fallback) {
         setScrapeWarning(data.message);
         // Switch to text mode so they know they need to paste it
         setIntakeMethod('text');
@@ -4258,8 +4261,10 @@ export default function TailorWorkspace() {
         if (data.roleName) setRoleName(data.roleName);
         if (data.companyName) setCompanyName(data.companyName);
         if (data.jobDescription) setJobDescription(data.jobDescription);
+        // Possibly expired posting: imported anyway, with a heads-up
+        if (data.warning) setScrapeWarning(data.warning);
 
-        fetchTokens();
+        if (data.cost) fetchTokens();
         confetti({
           particleCount: 50,
           spread: 45,
@@ -6063,13 +6068,16 @@ export default function TailorWorkspace() {
                       {scraping ? (
                         <>
                           <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          <span>Scraping...</span>
+                          <span>Importing...</span>
                         </>
                       ) : (
-                        <span>Scrape (5 tokens)</span>
+                        <span>Import job</span>
                       )}
                     </button>
                   </div>
+                  <p className="text-[10px] text-zinc-500 leading-relaxed">
+                    Free and instant for Greenhouse, Lever, Ashby, Personio, SmartRecruiters and sites that publish job data. Other pages are read by AI for 5 tokens (refunded if it fails).
+                  </p>
                   {scrapeWarning && (
                     <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />

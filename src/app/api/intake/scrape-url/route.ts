@@ -6,6 +6,7 @@ import { deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { getAiConfig } from '@/lib/ai';
 import * as cheerio from 'cheerio';
 import { assertPublicHttpUrl, safeFetch, UnsafeUrlError } from '@/lib/safeFetch';
+import { extractStructuredJob } from '@/lib/jobIntake';
 
 // === DeepSeek API Configuration (Preserved / Commented as requested) ===
 // const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
@@ -89,6 +90,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Please provide a public job posting URL. ${message}` }, { status: 400 });
     }
 
+    // === Free tiers (no AI, no charge): job-board APIs, then JSON-LD in the page ===
+    const structured = await extractStructuredJob(url);
+    if (structured.kind === 'closed') {
+      return NextResponse.json({ fallback: true, closed: true, message: structured.message });
+    }
+    if (structured.kind === 'ok') {
+      const { job } = structured;
+      return NextResponse.json({
+        fallback: false,
+        tier: job.source,
+        cost: 0,
+        roleName: job.roleName,
+        companyName: job.companyName,
+        jobDescription: job.jobDescription,
+        location: job.location,
+        employmentType: job.employmentType,
+        warning: job.warning,
+      });
+    }
+    const prefetched = structured.page;
+
+    // === Paid tier: AI extraction from the page text ===
     // Deduct tokens only after the request has been validated
     const deduction = await deductTokens(userId, TOKEN_PRICING.INTAKE);
     if (!deduction.success) {
@@ -117,12 +140,12 @@ export async function POST(req: Request) {
     //   );
     // }
 
-    let html = '';
-    let status = 200;
-    let tierUsed = 'Tier 1 (Direct)';
+    let html = prefetched?.html || '';
+    let status = prefetched?.status ?? 200;
+    let tierUsed = 'AI extraction';
 
-    // --- TIER 1: Direct Fetch with rotating User-Agent ---
-    try {
+    // --- Direct fetch with rotating User-Agent (skipped if the free tier already has the page) ---
+    if (!prefetched) try {
       const { response } = await safeFetch(url, {
         headers: {
           'User-Agent': getRandomUserAgent(),
@@ -175,9 +198,12 @@ export async function POST(req: Request) {
     // --- TIER 3: Fallback Notice ---
     if (isBlocked || !html.trim()) {
       await refundTokens();
+      const antiBot = status === 403 || status === 429 || (!!html && isAntiBotProtected(html));
       return NextResponse.json({
         fallback: true,
-        message: 'Anti-bot security (like Cloudflare or CAPTCHA) blocked automated extraction for this site. Please copy-paste the text of the job description directly into the workspace.'
+        message: antiBot
+          ? 'This site blocks automated reading (anti-bot protection). Nothing was charged. Please copy-paste the job description into the workspace.'
+          : `We couldn't read this page automatically${status ? ` (HTTP ${status})` : ''}. Nothing was charged. Please copy-paste the job description into the workspace.`
       });
     }
 
@@ -278,7 +304,7 @@ Please parse and return the JSON object.`;
       if (!response) {
         const message = lastError?.message || 'Failed to communicate with AI model';
         console.error(`${aiConfig.provider} API request failed during URL scrape parsing:`, message);
-        return NextResponse.json({ error: message }, { status: 502 });
+        return NextResponse.json({ error: AI_UNAVAILABLE_MESSAGE }, { status: 502 });
       }
 
       const errorText = await response.text().catch(() => '');
@@ -304,6 +330,7 @@ Please parse and return the JSON object.`;
     return NextResponse.json({
       fallback: false,
       tier: tierUsed,
+      cost: TOKEN_PRICING.INTAKE,
       ...parsedData
     });
   } catch (error: any) {
