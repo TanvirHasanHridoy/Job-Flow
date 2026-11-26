@@ -315,6 +315,12 @@ export async function POST(req: Request) {
       return NextResponse.json(refusal);
     }
 
+    // Generate only the displayed variants (owner decision 7.3): one bullet style and
+    // one cover-letter length. Regenerating the letter later produces both lengths.
+    const bulletKey: 'star' | 'punchy' | 'standard' =
+      bulletStyle === 'STAR Method' ? 'star' : /punchy/i.test(String(bulletStyle)) ? 'punchy' : 'standard';
+    const clKey: 'short' | 'detailed' = String(clLength).includes('Short') ? 'short' : 'detailed';
+
     // Gap-bridging rules (strategy + hard lines) built from the requirement analysis
     const strategyDirective = buildBridgingDirective({
       matchStrategy,
@@ -365,7 +371,7 @@ CRITICAL CONSTRAINTS:
 2. TONE & CUSTOMIZATION OPTIONS:
    - Tone/Style: ${tone}
    - Skills Highlight Mode: ${skillsFocus}
-   - Generate all bullet style variants (star, punchy, standard) and cover letter paragraph length variants (short, detailed) in a single response.
+   - Write the experience bullets in ONE style only ("${bulletKey}") and the cover letter in ONE length only ("${clKey}"). Do not generate other variants.
 
 ${lengthDirective}
 
@@ -422,9 +428,7 @@ You must respond with a raw JSON object containing these exact keys:
         "company": "<exact original company name from the profile experience list to map back>",
         "role": "<the job title copied exactly from the profile>",
         "bullets": {
-          "star": [<array of tailored achievement strings following the 4-part STAR formula (Strong Action Verb + Concrete Metric + Tech Stack + Business Context) in ${cvLanguage === 'DE' ? 'German' : 'English'}, written directly as a single cohesive sentence WITHOUT any literal labels or prefixes like "Situation:", "Action:", etc.>],
-          "punchy": [<array of tailored achievement strings that are short, high-impact highlights in ${cvLanguage === 'DE' ? 'German' : 'English'}>],
-          "standard": [<array of tailored achievement strings of standard roles/responsibilities in ${cvLanguage === 'DE' ? 'German' : 'English'}>]
+          "${bulletKey}": [<array of tailored achievement strings in ${cvLanguage === 'DE' ? 'German' : 'English'}, ${bulletKey === 'star' ? 'following the STAR formula (Strong Action Verb + Result + Tech Stack + Business Context)' : bulletKey === 'punchy' ? 'as short, high-impact highlights' : 'as standard role responsibilities'}, each written as a single cohesive sentence WITHOUT literal labels or prefixes like "Situation:", "Action:", etc.>]
         }
       }
     ],
@@ -451,8 +455,7 @@ You must respond with a raw JSON object containing these exact keys:
     "subjectLine": "<string, subject block content>",
     "salutation": "<string, e.g., 'Sehr geehrte Damen und Herren,' or 'Dear Hiring Manager,'>",
     "paragraphs": {
-      "short": [<array of 2 paragraphs (introduction + concise fit) in ${clLanguage === 'DE' ? 'German' : 'English'}>],
-      "detailed": [<array of 3-4 paragraphs (introduction + detailed fit + salary/notice period only if provided in the additional context) in ${clLanguage === 'DE' ? 'German' : 'English'}>]
+      "${clKey}": [<${clKey === 'short' ? 'array of 2 paragraphs (introduction + concise fit)' : 'array of 3-4 paragraphs (introduction + detailed fit + salary/notice period only if provided in the additional context)'} in ${clLanguage === 'DE' ? 'German' : 'English'}>]
     },
     "closing": "<string, e.g., 'Mit freundlichen Grüßen,' or 'Sincerely,'>",
     "signatureName": "<string>"
@@ -483,7 +486,9 @@ You must respond with a raw JSON object containing these exact keys:
         themeDirective,
         matchStrategy,
         currentDateStr,
-        bridgingDirective: strategyDirective
+        bridgingDirective: strategyDirective,
+        bulletKey,
+        clKey
       })
       : systemPrompt;
 
@@ -642,20 +647,12 @@ Signing city for date lines: ${signingCity || '(none — use the date only, with
           matchedIndices.add(originalIdx);
         }
 
+        // Only the generated style is stored; the preview and exports fall back to it
         let bullets = tailoredJob.bullets;
         if (!bullets) {
-          const origBullets = originalJob.bullets || [];
-          bullets = {
-            star: origBullets,
-            punchy: origBullets,
-            standard: origBullets
-          };
+          bullets = { [bulletKey]: originalJob.bullets || [] };
         } else if (Array.isArray(bullets)) {
-          bullets = {
-            star: bullets,
-            punchy: bullets,
-            standard: bullets
-          };
+          bullets = { [bulletKey]: bullets };
         }
 
         const isCurrent = originalJob.current === true ||
@@ -703,14 +700,11 @@ Signing city for date lines: ${signingCity || '(none — use the date only, with
     // Make sure tailoredCoverLetter.paragraphs is in the { short, detailed } shape
     let paragraphs = tailoredResult.tailoredCoverLetter?.paragraphs;
     if (paragraphs && Array.isArray(paragraphs)) {
-      paragraphs = {
-        short: paragraphs,
-        detailed: paragraphs
-      };
+      paragraphs = { [clKey]: paragraphs };
     }
 
     if (tailoredResult.tailoredCoverLetter) {
-      tailoredResult.tailoredCoverLetter.paragraphs = paragraphs || { short: [], detailed: [] };
+      tailoredResult.tailoredCoverLetter.paragraphs = paragraphs || { [clKey]: [] };
 
       // Ensure senderAddress has clean newline formatting (Name, Address, Phone, Email)
       let senderAddr = tailoredResult.tailoredCoverLetter.senderAddress || '';

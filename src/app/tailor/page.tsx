@@ -260,13 +260,24 @@ const getRenderedBullets = (exp: any, bulletStyle: string, lengthTarget: string,
   return bulletsArray;
 };
 
+// Only the selected letter length is generated (v2 Phase 7.3). If the user later
+// switches length, show (and edit) the version that exists until they regenerate.
+const getDisplayedClKey = (cl: any, clLength: string): 'short' | 'detailed' => {
+  const selected = clLength.includes('Short') ? 'short' : 'detailed';
+  const other = selected === 'short' ? 'detailed' : 'short';
+  const paras = cl?.paragraphs;
+  if (!paras || Array.isArray(paras)) return selected;
+  if (Array.isArray(paras[selected]) && paras[selected].length > 0) return selected;
+  if (Array.isArray(paras[other]) && paras[other].length > 0) return other;
+  return selected;
+};
+
 const getRenderedParagraphs = (cl: any, clLength: string) => {
   if (!cl || !cl.paragraphs) return [];
   if (Array.isArray(cl.paragraphs)) {
     return cl.paragraphs;
   }
-  const key = clLength.includes('Short') ? 'short' : 'detailed';
-  return cl.paragraphs[key] || cl.paragraphs.short || cl.paragraphs.detailed || [];
+  return cl.paragraphs[getDisplayedClKey(cl, clLength)] || [];
 };
 
 const getGroupedSkills = (skills: any[]) => {
@@ -1323,7 +1334,7 @@ export default function TailorWorkspace() {
     }
   }, [result, profile]);
   const activeBulletVariant = bulletStyle === 'STAR Method' ? 'star' : bulletStyle === 'Short & Punchy' ? 'punchy' : 'standard';
-  const activeParagraphSet = clLength.includes('Short') ? 'short' : 'detailed';
+  const activeParagraphSet = result?.tailoredCoverLetter ? getDisplayedClKey(result.tailoredCoverLetter, clLength) : (clLength.includes('Short') ? 'short' : 'detailed');
   const bridgedClaims = allBridgedClaims.filter(c =>
     (c.section !== 'experience' || c.variant === activeBulletVariant) &&
     (c.section !== 'coverLetter' || c.paragraphSet === activeParagraphSet)
@@ -5610,7 +5621,7 @@ export default function TailorWorkspace() {
 
   const handleClParagraphChange = (index: number, val: string, isRealtime = false) => {
     if (!result) return;
-    const activeLengthKey = clLength.includes('Short') ? 'short' : 'detailed';
+    const activeLengthKey = getDisplayedClKey(result.tailoredCoverLetter, clLength);
     const newCl = { ...result.tailoredCoverLetter };
 
     let currentParasObj = newCl.paragraphs;
@@ -5962,6 +5973,11 @@ export default function TailorWorkspace() {
                       <option value="Short & Punchy (under 300 words)">Short & Punchy</option>
                       <option value="Detailed & Elaborate">Detailed & Elaborate</option>
                     </select>
+                    {result?.tailoredCoverLetter && getDisplayedClKey(result.tailoredCoverLetter, clLength) !== (clLength.includes('Short') ? 'short' : 'detailed') && (
+                      <p className="text-[10px] text-amber-300 leading-snug">
+                        This letter was written in the other length. Use “Regenerate Cover Letter” on the letter (5 tokens) to get this version.
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex flex-col gap-1">
