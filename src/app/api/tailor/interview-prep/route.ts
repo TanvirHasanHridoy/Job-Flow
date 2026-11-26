@@ -4,7 +4,7 @@ import { AI_UNAVAILABLE_MESSAGE } from '@/lib/apiErrors';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { getUserTokens, deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
-import { getAiConfig } from '@/lib/ai';
+import { getAiConfig, aiFetch } from '@/lib/ai';
 
 function safeParseArray(val: any): any[] {
   if (!val) return [];
@@ -95,8 +95,19 @@ export async function POST(req: Request) {
       roleName = '',
       tailoredCv,
       targetLanguage = 'EN',
-      customInstruction = ''
+      customInstruction = '',
+      keptBridgedClaims = []
     } = await req.json();
+
+    // Bridged claims the user chose to keep in their CV (see src/lib/bridging.ts)
+    const bridgedForPrep: Array<{ claim: string; terms: string[]; basis: string }> = (Array.isArray(keptBridgedClaims) ? keptBridgedClaims : [])
+      .filter((c: any) => c && typeof c.claim === 'string')
+      .slice(0, 12)
+      .map((c: any) => ({
+        claim: String(c.claim).slice(0, 300),
+        terms: Array.isArray(c.terms) ? c.terms.map(String).slice(0, 6) : [],
+        basis: String(c.basis || '').slice(0, 200),
+      }));
 
     if (!jobDescription) {
       return NextResponse.json({ error: 'Missing jobDescription parameter' }, { status: 400 });
@@ -116,7 +127,8 @@ export async function POST(req: Request) {
       targetLanguage,
       customInstruction,
       cvSummary: normalizedSummaryText,
-      cvSkills: normalizedSkillList.join(',')
+      cvSkills: normalizedSkillList.join(','),
+      bridged: bridgedForPrep
     });
 
     const cachedData = aiResponseCache.get(cacheKey);
@@ -172,8 +184,12 @@ CRITICAL REQUIREMENTS & OUTPUT SECTIONS:
 4. "redFlagTraps":
    - Array of 2-3 specific technical/behavioral traps for this role/tech stack and how the candidate should gracefully handle them.
 
+5. "backItUp":
+   - ${bridgedForPrep.length > 0 ? 'One entry per BRIDGED CLAIM listed in the user message. These are statements in the CV that go beyond the candidate\'s documented experience (often a related skill presented as the target skill).' : 'Return an empty array.'}
+   - For each: "claim" (short restatement), "skill" (the bridged skill/figure), "studyPlan" (3-4 concrete things to learn or build before the interview), "honestFraming" (how to talk about it truthfully if probed, anchored in the related real experience), "likelyProbe" (the follow-up question an interviewer would ask).
+
 STRICT CONSTRAINTS:
-1. Rely strictly on real background facts from the provided CV.
+1. Rely strictly on real background facts from the provided CV. Do NOT add technologies, versions, metrics or project details that are not in the CV facts.
 2. Custom candidate instruction: "${(customInstruction || 'Provide actionable, concrete talking points.').replace(/"/g, "'")}"
 3. Output strictly valid JSON matching this schema:
 {
@@ -198,6 +214,15 @@ STRICT CONSTRAINTS:
         "trap": "<string>",
         "recommendation": "<string>"
       }
+    ],
+    "backItUp": [
+      {
+        "claim": "<string>",
+        "skill": "<string>",
+        "studyPlan": ["<string>", "<string>", "<string>"],
+        "honestFraming": "<string>",
+        "likelyProbe": "<string>"
+      }
     ]
   }
 }`;
@@ -221,11 +246,14 @@ ${JSON.stringify({
             skills: normalizedSkillList,
             workExperience: parsedWorkExp.slice(0, 3),
             projects: parsedProjects.slice(0, 3)
-          }, null, 2)}`
+          }, null, 2)}
+${bridgedForPrep.length > 0 ? `
+BRIDGED CLAIMS kept in the CV (coach the candidate to back these up — "basis" is the real experience they come from):
+${JSON.stringify(bridgedForPrep, null, 2)}` : ''}`
         }
       ],
       response_format: { type: 'json_object' },
-      max_tokens: 4096,
+      max_tokens: 8192,
       temperature: 0.3
     };
 
@@ -241,15 +269,7 @@ ${JSON.stringify({
           await new Promise(resolve => setTimeout(resolve, delay));
         }
 
-        apiRes = await fetch(aiConfig.apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${aiConfig.apiKey}`
-          },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(65000)
-        });
+        apiRes = await aiFetch(payload, { signal: AbortSignal.timeout(65000) });
 
         if (apiRes.ok) {
           lastError = null;
@@ -324,7 +344,8 @@ ${JSON.stringify({
       elevatorPitch: typeof rawPrep.elevatorPitch === 'string' ? rawPrep.elevatorPitch : '',
       predictedQuestions: Array.isArray(rawPrep.predictedQuestions) ? rawPrep.predictedQuestions : [],
       reverseQuestions: Array.isArray(rawPrep.reverseQuestions) ? rawPrep.reverseQuestions : [],
-      redFlagTraps: Array.isArray(rawPrep.redFlagTraps) ? rawPrep.redFlagTraps : []
+      redFlagTraps: Array.isArray(rawPrep.redFlagTraps) ? rawPrep.redFlagTraps : [],
+      backItUp: bridgedForPrep.length > 0 && Array.isArray(rawPrep.backItUp) ? rawPrep.backItUp : []
     };
 
     const finalResponseData = { interviewPrep: normalizedPrep };

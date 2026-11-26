@@ -1,14 +1,28 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getAuthUserId } from '@/lib/auth';
 import { AI_UNAVAILABLE_MESSAGE } from '@/lib/apiErrors';
 import { enforceRateLimit } from '@/lib/rateLimit';
 import { classifySkillCategory } from '@/lib/skills';
 import { getUserTokens, deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
-import { getAiConfig } from '@/lib/ai';
+import { getAiConfig, aiFetch } from '@/lib/ai';
 import { formatCityCountry } from '@/lib/customSections';
 import { buildBulletMatrixSystemPrompt } from '@/lib/bulletMatrixPrompts';
+import { callAiJson } from '@/lib/aiCall';
+import { checkJobDescription } from '@/lib/jobDescriptionCheck';
+import { looksGerman } from '@/lib/language';
+import { logTailorDiagnostic } from '@/lib/diagnostics';
+import { hasVaultContent } from '@/lib/profileMerge';
+import { saveDraftApplication, isLiveDraft, cleanupOldDrafts } from '@/lib/drafts';
+import { buildBridgingDirective, cityFromAddress } from '@/lib/bridgingPrompt';
+import { enforceHardLines, sameName } from '@/lib/bridging';
+import {
+  buildRequirementAnalysisPrompt,
+  computeExperienceYears,
+  normalizeRequirementAnalysis,
+  toLegacyGapArrays,
+  type RequirementAnalysis,
+} from '@/lib/requirements';
 
 // === DeepSeek API Configuration (Preserved / Commented as requested) ===
 // const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
@@ -55,6 +69,7 @@ export async function POST(req: Request) {
       profile,
       matchStrategy = 'TACTICAL_PIVOT',
       applicationId = null,
+      companyName = '',
       roleName = 'Professional',
       selectedProjects = [],
       isNudgeEnabled = true
@@ -62,6 +77,20 @@ export async function POST(req: Request) {
 
     if (!jobDescription || !profile) {
       return NextResponse.json({ error: 'Missing required inputs: jobDescription or profile' }, { status: 400 });
+    }
+
+    // An empty vault can't be tailored (nothing to base the CV on): no charge
+    if (!hasVaultContent(profile)) {
+      return NextResponse.json(
+        { error: 'Your Master Vault is empty. Add your experience (or import your CV) first.', reason: 'empty-vault' },
+        { status: 422 }
+      );
+    }
+
+    // Free sanity check before any tokens are charged or AI is called
+    const jdCheck = checkJobDescription(jobDescription);
+    if (!jdCheck.ok) {
+      return NextResponse.json({ error: jdCheck.message, reason: jdCheck.reason }, { status: 422 });
     }
 
     // Response Cache check before token deduction
@@ -92,7 +121,23 @@ export async function POST(req: Request) {
     const cachedData = aiResponseCache.get(cacheKey);
     if (cachedData) {
       const userTokens = await getUserTokens(userId);
-      return NextResponse.json({ ...cachedData, cached: true, remainingTokens: userTokens });
+      let cachedAppId = cachedData.applicationId ?? null;
+      if (cachedData.tailoredCv && !(await isLiveDraft(userId, cachedAppId))) {
+        // The earlier draft was tracked or deleted: save this result as a new draft
+        try {
+          cachedAppId = await saveDraftApplication(userId, {
+            company: companyName, role: roleName, rawJobDescription: jobDescription, targetLanguage: cvLanguage,
+            matchScore: cachedData.matchScore, gapAnalysis: cachedData.gapAnalysis, jobMetadata: cachedData.jobMetadata,
+            salaryExpectation, noticePeriod, signingLocation, customNotes,
+            tailoredCv: cachedData.tailoredCv, tailoredCoverLetter: cachedData.tailoredCoverLetter,
+          });
+          aiResponseCache.set(cacheKey, { ...cachedData, applicationId: cachedAppId });
+        } catch (draftErr) {
+          console.error('Failed to save draft for cached result:', draftErr);
+          cachedAppId = null;
+        }
+      }
+      return NextResponse.json({ ...cachedData, applicationId: cachedAppId, cached: true, remainingTokens: userTokens });
     }
 
     // Deduct tokens on cache miss
@@ -163,8 +208,8 @@ export async function POST(req: Request) {
     // Translate German job description if target CV or CL is in English
     let processedJobDescription = jobDescription;
     if (cvLanguage === 'EN' || clLanguage === 'EN') {
-      const commonGermanWords = /\b(und|der|die|das|ist|für|mit|oder|von|auf|den|dem|des|ein|eine|einen|zum|zur|arbeit|erfahrung|kenntnisse|entwickler|gesucht)\b/i;
-      if (commonGermanWords.test(jobDescription)) {
+      // Translate only text that is clearly German (word-frequency check, src/lib/language.ts)
+      if (looksGerman(jobDescription)) {
         try {
           const translationPayload = {
             model: aiConfig.model,
@@ -185,14 +230,7 @@ export async function POST(req: Request) {
           //   body: JSON.stringify({ model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro', ...translationPayload })
           // });
 
-          const translationRes = await fetch(aiConfig.apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${aiConfig.apiKey}`
-            },
-            body: JSON.stringify(translationPayload)
-          });
+          const translationRes = await aiFetch(translationPayload);
 
           if (translationRes.ok) {
             const transJson = await translationRes.json();
@@ -204,17 +242,83 @@ export async function POST(req: Request) {
       }
     }
 
-    // System prompt selection with strategies
-    let strategyDirective = '';
-    if (matchStrategy === 'TACTICAL_PIVOT') {
-      strategyDirective = `
-CRITICAL MATCH STRATEGY - TACTICAL_PIVOT (Honest Justification):
-The user has skill gaps for this job. Keep the CV/Resume strictly factual based *only* on their profile. Do NOT invent data, certifications, or employers. In the Cover Letter, explicitly address these gaps using a constructive, professional justification in ${clLanguage === 'DE' ? 'German' : 'English'}. Explain how their adjacent skills, rapid learning curve, and existing core expertise make them the right fit despite the missing keywords.`;
-    } else {
-      strategyDirective = `
-CRITICAL MATCH STRATEGY - AGGRESIVE_BRIDGING (Terminology Optimization):
-The user wants maximum keyword alignment. Without fabricating non-existent employers, fake job titles, or fake degrees, aggressively crawl their real history for transferable skills. Rephrase their genuine accomplishments using the exact technical verbs and phrasing found in the job description to pass strict ATS filters, translated into the target language (${cvLanguage === 'DE' ? 'German' : 'English'} for CV, ${clLanguage === 'DE' ? 'German' : 'English'} for Cover Letter).`;
+    // === STEP 1: Requirement analysis (MATCH / ADJACENT / GAP) + feasibility gate ===
+    const analysisPrompt = buildRequirementAnalysisPrompt(cvLanguage === 'DE' ? 'DE' : 'EN');
+    const experienceYears = computeExperienceYears(parsedWorkExp, today);
+    let analysis: RequirementAnalysis;
+    let analysisRaw = '';
+    try {
+      const { data, raw } = await callAiJson(aiConfig, [
+        { role: 'system', content: analysisPrompt },
+        {
+          role: 'user',
+          content: `TODAY: ${today.toISOString().slice(0, 10)}\nCOMPUTED EXPERIENCE (use these numbers for years-of-experience requirements; do not recompute): ${experienceYears.excludingInternships} years of professional experience, ${experienceYears.total} years including internships.\n\nCANDIDATE PROFILE:\n${JSON.stringify(formattedProfile, null, 2)}\n\nJOB DESCRIPTION:\n${processedJobDescription}`
+        }
+      ]);
+      analysis = normalizeRequirementAnalysis(data);
+      analysisRaw = raw;
+    } catch (analysisErr) {
+      await refundTokens();
+      console.error('Requirement analysis failed:', analysisErr);
+      return NextResponse.json({ error: AI_UNAVAILABLE_MESSAGE }, { status: 502 });
     }
+
+    if (analysis.requirements.length === 0) {
+      // Nothing recognisable as job requirements (e.g. random text) — don't charge.
+      await refundTokens();
+      return NextResponse.json(
+        { error: 'No job requirements could be found in this text. Please paste the full job description. Your tokens were refunded.' },
+        { status: 422 }
+      );
+    }
+
+    const analysisGap = {
+      ...toLegacyGapArrays(analysis.requirements),
+      recommendations: analysis.recommendations,
+      requirements: analysis.requirements,
+      mustCoverage: analysis.mustCoverage,
+      mustHaveCount: analysis.mustHaveCount,
+      mustHaveCovered: analysis.mustHaveCovered,
+      threshold: analysis.threshold,
+    };
+
+    if (!analysis.feasible) {
+      // Owner decision: refuse when under 50% of must-haves are covered; full price is
+      // charged because the user still receives the full gap analysis report.
+      const refusal = {
+        refused: true,
+        matchScore: analysis.matchScore,
+        gapAnalysis: { ...analysisGap, matchingKeywords: [...analysisGap.exactMatches, ...analysisGap.adjacentMatches] },
+      };
+      await logTailorDiagnostic({
+        userId,
+        applicationId,
+        rawJobDescription: jobDescription,
+        profileSnapshot: formattedProfile,
+        matchStrategy,
+        systemPrompt: analysisPrompt,
+        rawResponse: analysisRaw,
+      });
+      aiResponseCache.set(cacheKey, refusal);
+      return NextResponse.json(refusal);
+    }
+
+    // Generate only the displayed variants (owner decision 7.3): one bullet style and
+    // one cover-letter length. Regenerating the letter later produces both lengths.
+    const bulletKey: 'star' | 'punchy' | 'standard' =
+      bulletStyle === 'STAR Method' ? 'star' : /punchy/i.test(String(bulletStyle)) ? 'punchy' : 'standard';
+    const clKey: 'short' | 'detailed' = String(clLength).includes('Short') ? 'short' : 'detailed';
+
+    // Gap-bridging rules (strategy + hard lines) built from the requirement analysis
+    const strategyDirective = buildBridgingDirective({
+      matchStrategy,
+      requirements: analysis.requirements,
+      cvLanguage,
+      clLanguage,
+    });
+
+    // Signing city: explicit override, else the candidate's own city (never a hard-coded example)
+    const signingCity = (signingLocation && String(signingLocation).trim()) || cityFromAddress(formatCityCountry(profile.address) || profile.address);
 
     const lengthDirective = lengthTarget.includes('1-Page')
       ? `CV LENGTH CONSTRAINT: STRICT 1-PAGE TARGET
@@ -231,7 +335,7 @@ The user wants maximum keyword alignment. Without fabricating non-existent emplo
 [USER NARRATIVE DIRECTIVE]
 The user has requested a specific overarching theme for this generation: "${themeDirective}"
 - INSTRUCTION: Prioritize this theme in the professional summary, the cover letter narrative, and by highlighting relevant metrics in the bullet points.
-- STRICT CONSTRAINT: This theme DOES NOT override the Absolute Truthfulness rule. Do not invent facts to satisfy this theme. 
+- STRICT CONSTRAINT: This theme DOES NOT override the GAP BRIDGING RULES. Do not invent facts to satisfy this theme.
 - STRICT CONSTRAINT: This theme DOES NOT override the JSON formatting rules. You must still output the exact required JSON schema without any conversational filler.
 ` : '';
 
@@ -251,18 +355,18 @@ CV TARGET LANGUAGE: Write the tailored CV (summary, roles, bullets, skills) enti
 COVER LETTER TARGET LANGUAGE: Write the tailored Cover Letter entirely in ${clLanguage === 'DE' ? 'German' : 'English'}.
 
 CRITICAL CONSTRAINTS:
-1. ABSOLUTE TRUTHFULNESS: Rely ONLY on facts, positions, and skills present in the User Profile or current Custom Notes. Do NOT invent work history, company names, credentials, or certifications.
+1. TRUTHFULNESS & BRIDGING: Base everything on the User Profile and Custom Notes, and follow the GAP BRIDGING RULES below exactly. They define what may be bridged and what may never be invented.
 2. TONE & CUSTOMIZATION OPTIONS:
    - Tone/Style: ${tone}
    - Skills Highlight Mode: ${skillsFocus}
-   - Generate all bullet style variants (star, punchy, standard) and cover letter paragraph length variants (short, detailed) in a single response.
+   - Write the experience bullets in ONE style only ("${bulletKey}") and the cover letter in ONE length only ("${clKey}"). Do not generate other variants.
 
 ${lengthDirective}
 
 3. CV FORMATTING & CONTENT RULES (Targeting ${cvLanguage}):
    ${cvLanguage === 'DE' ? `
    - Must support a clean tabular German Lebenslauf format.
-   - Include a signing line at the bottom showing the city and current date (e.g. "München, [Datum]").
+   - Include a signing line at the bottom showing the city and current date: "${signingCity ? signingCity + ', ' : ''}${currentDateStr}".
    - Write all tailored fields in formal professional German.
    ` : `
    - US/UK/International Resume Style.
@@ -272,12 +376,12 @@ ${lengthDirective}
    
    ADDITIONAL CV WRITING GUIDELINES:
     - **Internal Promotions:** If a candidate has been promoted or changed departments/roles within the same company, treat each role as a completely separate job/experience entry. This demonstrates growth, distinct responsibilities, and loyalty.
-    - **Internships:** When listing an internship, explicitly append " (Internship)" (or " (Praktikum)" in German) right next to the job title.
+    - **Job Titles:** Copy every job title exactly as it appears in the profile (hard line). Do not rename, upgrade or translate-and-reword titles.
     - **Relevancy Cut-offs:** ${lengthTarget.includes('1-Page') ? 'Filter and list only the last three companies' : 'Filter and list only the last four companies'} in the tailored work experience. Mention the total cumulative years of experience in the professional summary instead.
     - **Show, Don't Tell Soft Skills:** Do NOT list soft skills standalone. Integrate them naturally within the professional summary or the work history bullet points (e.g., "Strong communication skills developed through customer-facing roles...").
     - **Strict Rules for Hobbies:** Exclude generic hobbies like "reading," "traveling," or "music". Only include hobbies if they are directly relevant to the target job or demonstrate valuable workplace traits like leadership or teamwork.
-    - **Software Developer Bullet Progression:** Transform weak bullet points into high-impact, metrics-driven, and result-oriented outcomes following a 4-part formula: (1) start with a strong action verb, (2) provide a concrete metric or result, (3) specify the technical implementation detail (how it was done, including tech stack/tools), and (4) explain the business context/value.
-    - **No Literal Labels or Prefixes:** In all generated bullets (including "star", "punchy", and "standard" categories), you MUST write the bullet points directly as cohesive sentences. Never include literal labels or prefixes such as "STAR Method:", "Situation:", "Task:", "Action:", "Result:", "Context:", or "Value:". The formula must be baked into the sentence naturally (e.g., "Developed a scalable CRM API that handled 50,000 monthly active users using React and WebSockets, improving user engagement by 15%").
+    - **Software Developer Bullet Progression:** Transform weak bullet points into high-impact, result-oriented outcomes: (1) start with a strong action verb, (2) state the concrete result — include a metric only when the GAP BRIDGING RULES allow it, never force one, (3) specify the technical implementation detail (tech stack/tools), and (4) explain the business context/value.
+    - **No Literal Labels or Prefixes:** In all generated bullets (including "star", "punchy", and "standard" categories), you MUST write the bullet points directly as cohesive sentences. Never include literal labels or prefixes such as "STAR Method:", "Situation:", "Task:", "Action:", "Result:", "Context:", or "Value:". The formula must be baked into the sentence naturally (e.g., "Developed a CRM API with Node.js and WebSockets that gave the sales team real-time visibility into client pipelines").
     - **References:** Do NOT include the phrase "References available upon request". Keep it completely out.
     - **Gender Pronouns:** Gender pronouns are optional. Do not include them by default. If requested or explicitly provided in custom notes, place them directly under the signature/signing line as "Pronouns: [pronouns]".
     - **Projects:** If any projects are provided in the user profile, you must tailor their descriptions and listed technologies to highlight accomplishments, skills, and architectures that directly align with and showcase competence for the requirements in the target Job Description, written entirely in ${cvLanguage === 'DE' ? 'German' : 'English'}.
@@ -303,38 +407,23 @@ ${lengthDirective}
    
 ${strategyDirective}
 
-5. DETERMINISTIC MATCH SCORE RULE:
-   - Do NOT calculate or output a match score or percentage yourself. 
-   - You are only responsible for listing the specific semantic keyword categorization in the arrays: exactMatches, adjacentMatches, and missingSkills. 
-   - The final score will be calculated programmatically on the backend.
-
-${themeInjection}
-
 You must respond with a raw JSON object containing these exact keys:
 {
-  "gapAnalysis": {
-    "exactMatches": [<array of strings of skills/keywords that match exactly between profile and JD>],
-    "adjacentMatches": [<array of strings of adjacent/transferable skills that align between profile and JD>],
-    "missingSkills": [<array of strings of skills/requirements mentioned in JD but missing in profile>],
-    "recommendations": "<detailed and elaborate analysis of user suitability for the role. Highlight their Positives (e.g. strong matches, years of experience, relevant tech stacks, certifications, exceed requirements) and their Negatives (critical skill gaps, missing tools/methods, or areas they may face pushback). Use clear bullet points and headings within the text in markdown format (### Positives\\n- ...\\n\\n### Negatives\\n- ...\\n\\n### Actionable Advice\\n...).>"
-  },
   "tailoredCv": {
     "summary": "<short professional summary tailored to the job, in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
     "workExperience": [
       {
         "company": "<exact original company name from the profile experience list to map back>",
-        "role": "<tailored job title / role name in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
+        "role": "<the job title copied exactly from the profile>",
         "bullets": {
-          "star": [<array of tailored achievement strings following the 4-part STAR formula (Strong Action Verb + Concrete Metric + Tech Stack + Business Context) in ${cvLanguage === 'DE' ? 'German' : 'English'}, written directly as a single cohesive sentence WITHOUT any literal labels or prefixes like "Situation:", "Action:", etc.>],
-          "punchy": [<array of tailored achievement strings that are short, high-impact highlights in ${cvLanguage === 'DE' ? 'German' : 'English'}>],
-          "standard": [<array of tailored achievement strings of standard roles/responsibilities in ${cvLanguage === 'DE' ? 'German' : 'English'}>]
+          "${bulletKey}": [<array of tailored achievement strings in ${cvLanguage === 'DE' ? 'German' : 'English'}, ${bulletKey === 'star' ? 'following the STAR formula (Strong Action Verb + Result + Tech Stack + Business Context)' : bulletKey === 'punchy' ? 'as short, high-impact highlights' : 'as standard role responsibilities'}, each written as a single cohesive sentence WITHOUT literal labels or prefixes like "Situation:", "Action:", etc.>]
         }
       }
     ],
     "skills": [
       {
         "name": "<name of tailored skill in ${cvLanguage === 'DE' ? 'German' : 'English'}>",
-        "level": "<skill level matching user's profile if present, otherwise assign 'Expert' | 'Advanced' | 'Intermediate' | 'Beginner' based on context>",
+        "level": "<the skill level from the profile if one is stated, otherwise an empty string>",
         "category": "<category of skill, strictly one of: Frontend, Backend, Database, Tools>"
       }
     ],
@@ -345,7 +434,7 @@ You must respond with a raw JSON object containing these exact keys:
         "technologies": [<array of strings representing tailored/relevant technologies used, matching the user's profile and aligned with the job description>]
       }
     ],
-    "signingLine": "<string for signature, e.g. 'München, 17. Juni 2026' or empty if EN>"
+    "signingLine": "<${cvLanguage === 'DE' ? (signingCity ? signingCity + ', ' : '') + currentDateStr : 'empty string'}>"
   },
   "tailoredCoverLetter": {
     "senderAddress": "<string, formatted with newlines>",
@@ -354,8 +443,7 @@ You must respond with a raw JSON object containing these exact keys:
     "subjectLine": "<string, subject block content>",
     "salutation": "<string, e.g., 'Sehr geehrte Damen und Herren,' or 'Dear Hiring Manager,'>",
     "paragraphs": {
-      "short": [<array of 2 paragraphs (introduction + concise fit) in ${clLanguage === 'DE' ? 'German' : 'English'}>],
-      "detailed": [<array of 3-4 paragraphs (introduction + detailed fit + details like salary/notice period) in ${clLanguage === 'DE' ? 'German' : 'English'}>]
+      "${clKey}": [<${clKey === 'short' ? 'array of 2 paragraphs (introduction + concise fit)' : 'array of 3-4 paragraphs (introduction + detailed fit + salary/notice period only if provided in the additional context)'} in ${clLanguage === 'DE' ? 'German' : 'English'}>]
     },
     "closing": "<string, e.g., 'Mit freundlichen Grüßen,' or 'Sincerely,'>",
     "signatureName": "<string>"
@@ -381,11 +469,14 @@ You must respond with a raw JSON object containing these exact keys:
         skillsFocus: typeof skillsFocus === 'string' ? [skillsFocus] : (skillsFocus || []),
         salaryExpectation,
         noticePeriod,
-        signingLocation,
+        signingLocation: signingCity,
         customNotes,
         themeDirective,
         matchStrategy,
-        currentDateStr
+        currentDateStr,
+        bridgingDirective: strategyDirective,
+        bulletKey,
+        clKey
       })
       : systemPrompt;
 
@@ -402,7 +493,8 @@ Here is the Target Job Description (already pre-translated to English if necessa
 ${processedJobDescription}
 
 Here is the additional context / overrides:
-${contextStr}`
+${contextStr}
+Signing city for date lines: ${signingCity || '(none — use the date only, without a city)'}`
         }
       ],
       response_format: { type: 'json_object' },
@@ -431,15 +523,7 @@ ${contextStr}`
           await new Promise(resolve => setTimeout(resolve, delay));
         }
 
-        response = await fetch(aiConfig.apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${aiConfig.apiKey}`
-          },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(120000)
-        });
+        response = await aiFetch(payload, { signal: AbortSignal.timeout(120000) });
 
         if (response.ok) {
           lastError = null;
@@ -495,29 +579,13 @@ ${contextStr}`
       return NextResponse.json({ error: 'AI produced invalid JSON output. Please retry.' }, { status: 500 });
     }
 
-    // Deterministically calculate match score from exact, adjacent, and missing skills
-    const exactMatches = tailoredResult.gapAnalysis?.exactMatches || [];
-    const adjacentMatches = tailoredResult.gapAnalysis?.adjacentMatches || [];
-    const missingSkills = tailoredResult.gapAnalysis?.missingSkills || [];
-
-    const we = 1.0;
-    const wa = 0.5;
-    const wm = 1.0;
-
-    const numerator = we * exactMatches.length + wa * adjacentMatches.length;
-    const denominator = numerator + wm * missingSkills.length;
-
-    let calculatedScore = 100;
-    if (denominator > 0) {
-      calculatedScore = Math.round((numerator / denominator) * 100);
-    }
-
-    tailoredResult.matchScore = calculatedScore;
-
-    // Maintain backwards compatibility with UI mapping
-    if (tailoredResult.gapAnalysis) {
-      tailoredResult.gapAnalysis.matchingKeywords = [...exactMatches, ...adjacentMatches];
-    }
+    // Match score and gap analysis come from the requirement analysis (step 1),
+    // computed deterministically — not from lists the generation model writes.
+    tailoredResult.matchScore = analysis.matchScore;
+    tailoredResult.gapAnalysis = {
+      ...analysisGap,
+      matchingKeywords: [...analysisGap.exactMatches, ...analysisGap.adjacentMatches],
+    };
 
     // Merge static fields back into the tailored CV response to conserve tokens
     const personalDetails = {
@@ -559,20 +627,12 @@ ${contextStr}`
           matchedIndices.add(originalIdx);
         }
 
+        // Only the generated style is stored; the preview and exports fall back to it
         let bullets = tailoredJob.bullets;
         if (!bullets) {
-          const origBullets = originalJob.bullets || [];
-          bullets = {
-            star: origBullets,
-            punchy: origBullets,
-            standard: origBullets
-          };
+          bullets = { [bulletKey]: originalJob.bullets || [] };
         } else if (Array.isArray(bullets)) {
-          bullets = {
-            star: bullets,
-            punchy: bullets,
-            standard: bullets
-          };
+          bullets = { [bulletKey]: bullets };
         }
 
         const isCurrent = originalJob.current === true ||
@@ -587,14 +647,17 @@ ${contextStr}`
             : `${originalJob.startDate} – ${originalJob.endDate}`)
           : originalJob.period || tailoredJob.period || '';
 
+        // Hard lines: employer, title and dates always come from the profile.
+        // A job that matches no profile employer is invented and dropped.
+        if (originalIdx === -1) return null;
         return {
-          company: originalJob.company || tailoredJob.company,
-          role: tailoredJob.role || originalJob.role,
+          company: originalJob.company,
+          role: originalJob.role || tailoredJob.role,
           location: originalJob.location || tailoredJob.location || '',
           period,
           bullets
         };
-      })
+      }).filter(Boolean)
       : [];
 
     const mergedEducation = parsedEdu.map((edu: any) => {
@@ -617,14 +680,11 @@ ${contextStr}`
     // Make sure tailoredCoverLetter.paragraphs is in the { short, detailed } shape
     let paragraphs = tailoredResult.tailoredCoverLetter?.paragraphs;
     if (paragraphs && Array.isArray(paragraphs)) {
-      paragraphs = {
-        short: paragraphs,
-        detailed: paragraphs
-      };
+      paragraphs = { [clKey]: paragraphs };
     }
 
     if (tailoredResult.tailoredCoverLetter) {
-      tailoredResult.tailoredCoverLetter.paragraphs = paragraphs || { short: [], detailed: [] };
+      tailoredResult.tailoredCoverLetter.paragraphs = paragraphs || { [clKey]: [] };
 
       // Ensure senderAddress has clean newline formatting (Name, Address, Phone, Email)
       let senderAddr = tailoredResult.tailoredCoverLetter.senderAddress || '';
@@ -654,6 +714,7 @@ ${contextStr}`
         level = skill.level || 'Intermediate';
         category = skill.category || '';
       }
+      name = name.replace(/\s*\((?:adjacent|transferable|bridged|related)\)/gi, '').trim();
       if (name && !category) {
         category = classifySkillCategory(name);
       }
@@ -662,9 +723,9 @@ ${contextStr}`
 
     const mergedProjects = tailoredResult.tailoredCv?.projects
       ? tailoredResult.tailoredCv.projects.map((tailoredProj: any) => {
-        const originalProj = filteredProjects.find((p: any) =>
-          p.name.toLowerCase() === tailoredProj.name.toLowerCase()
-        ) || {};
+        const originalProj = filteredProjects.find((p: any) => sameName(String(p.name || ''), String(tailoredProj.name || '')));
+        // Projects must exist in the profile; keep the original name (the AI may append "(Open Source)" etc.)
+        if (!originalProj) return null;
 
         return {
           name: originalProj.name || tailoredProj.name,
@@ -672,7 +733,7 @@ ${contextStr}`
           technologies: tailoredProj.technologies || originalProj.technologies || [],
           url: originalProj.url || ''
         };
-      })
+      }).filter(Boolean)
       : [];
 
     if (cvFormat === 'bullet-matrix') {
@@ -711,22 +772,39 @@ ${contextStr}`
       projects: mergedProjects
     };
 
-    // Log query diagnostic data into database
-    try {
-      await prisma.tailorDiagnosticLog.create({
-        data: {
-          userId,
-          applicationId: applicationId,
-          rawJobDescription: jobDescription,
-          userProfileSnapshot: JSON.stringify(formattedProfile),
-          matchStrategyUsed: matchStrategy,
-          systemPromptSent: activeSystemPrompt,
-          rawLlmResponse: generatedText
-        }
-      });
-    } catch (logError) {
-      console.error('Failed to create diagnostic log entry:', logError);
+    // Post-check: remove hard-line violations (GAP skills claimed in the CV, invented
+    // degrees/certifications). Remaining bridged claims are tagged for review in the UI.
+    const { removed: hardLineRemovals } = enforceHardLines(tailoredResult, profile, analysis.requirements);
+    tailoredResult.hardLineRemovals = hardLineRemovals;
+    if (hardLineRemovals.length > 0) {
+      console.warn('[tailor] Removed hard-line violations:', hardLineRemovals);
     }
+
+    // Log query diagnostic data into database
+    await logTailorDiagnostic({
+      userId,
+      applicationId,
+      rawJobDescription: jobDescription,
+      profileSnapshot: formattedProfile,
+      matchStrategy,
+      systemPrompt: activeSystemPrompt,
+      rawResponse: generatedText,
+    });
+
+    // Save immediately as a DRAFT application (Phase 4): the paid result survives a
+    // closed tab; it stays out of the tracker until the user clicks "Track".
+    try {
+      tailoredResult.applicationId = await saveDraftApplication(userId, {
+        company: companyName, role: roleName, rawJobDescription: jobDescription, targetLanguage: cvLanguage,
+        matchScore: tailoredResult.matchScore, gapAnalysis: tailoredResult.gapAnalysis, jobMetadata: tailoredResult.jobMetadata,
+        salaryExpectation, noticePeriod, signingLocation, customNotes,
+        tailoredCv: tailoredResult.tailoredCv, tailoredCoverLetter: tailoredResult.tailoredCoverLetter,
+      });
+    } catch (draftErr) {
+      console.error('Failed to save draft application:', draftErr);
+      tailoredResult.applicationId = null;
+    }
+    void cleanupOldDrafts(userId);
 
     aiResponseCache.set(cacheKey, tailoredResult);
     return NextResponse.json(tailoredResult);
