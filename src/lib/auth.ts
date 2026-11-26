@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies, headers } from 'next/headers';
 import { NextResponse } from 'next/server';
+import { DEV_AUTH_COOKIE, resolveDevAuthUserId } from './devAuth';
 
 /**
  * Get the authenticated user's ID from the Supabase session or extension auth headers.
@@ -10,19 +11,17 @@ export async function getAuthUserId(): Promise<{ userId: string } | { error: Nex
   const cookieStore = await cookies();
   const headersList = await headers();
 
-  // 1. Check dev auth cookie or extension dev-auth header
-  const devCookie = cookieStore.get('jobmaster_dev_auth')?.value || headersList.get('x-dev-auth');
-  if (devCookie) {
-    return { userId: devCookie };
-  }
-
-  // 2. Check x-session-cookie header forwarded by Chrome Extension
   const xSessionCookie = headersList.get('x-session-cookie');
-  if (xSessionCookie && xSessionCookie.includes('jobmaster_dev_auth=')) {
-    const match = xSessionCookie.match(/jobmaster_dev_auth=([^;]+)/);
-    if (match && match[1]) {
-      return { userId: match[1] };
-    }
+
+  // 1-2. Dev auth (cookie, x-dev-auth header, or forwarded extension cookie).
+  // Only honoured outside production — see src/lib/devAuth.ts.
+  const devUserId = resolveDevAuthUserId({
+    cookieValue: cookieStore.get(DEV_AUTH_COOKIE)?.value,
+    devHeader: headersList.get('x-dev-auth'),
+    forwardedCookieHeader: xSessionCookie,
+  });
+  if (devUserId) {
+    return { userId: devUserId };
   }
 
   // 3. Check Bearer token from header

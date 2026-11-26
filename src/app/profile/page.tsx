@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   User, Briefcase, GraduationCap, Code2, Globe2, Plus, Trash2, Save, Sparkles, CheckCircle2, RefreshCw, FileText, FolderGit, Pencil,
   Layers, AlignLeft, List, Tag, ChevronUp, ChevronDown, Check, X
@@ -10,6 +10,8 @@ import { classifySkillCategory, SKILL_CATEGORIES } from '@/lib/skills';
 import { CustomSection, CustomSectionType, CustomSectionItem, CustomSectionSubgroup, createDefaultCustomSection } from '@/lib/customSections';
 import { useTokens } from '@/context/TokenContext';
 import { useAlertModal } from '@/context/AlertModalContext';
+import { MAX_IMAGE_BYTES } from '@/lib/uploads';
+import { hasVaultContent, mergeImportedProfile, replaceWithImported } from '@/lib/profileMerge';
 
 interface WorkExperience {
   company: string;
@@ -119,6 +121,8 @@ export default function ProfileVault() {
 
   const [activeTab, setActiveTab] = useState<'personal' | 'experience' | 'education' | 'skills' | 'projects' | 'custom'>('personal');
   const [loading, setLoading] = useState(true);
+  // Last saved state of the vault (JSON); null until the profile has loaded
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [newCustomSecTitle, setNewCustomSecTitle] = useState('');
   const [newCustomSecType, setNewCustomSecType] = useState<CustomSectionType>('bullet-list');
@@ -132,6 +136,8 @@ export default function ProfileVault() {
   const [githubUsername, setGithubUsername] = useState('');
   const [linkedinText, setLinkedinText] = useState('');
   const [importing, setImporting] = useState(false);
+  // Imported data waiting for the user's merge/replace choice (vault already has content)
+  const [pendingImport, setPendingImport] = useState<any>(null);
 
   // Signature Background Removal Modal States
   const [showSigProcessor, setShowSigProcessor] = useState(false);
@@ -207,6 +213,68 @@ export default function ProfileVault() {
     }
   }, [sigProcessorOriginal, sigProcessorThreshold]);
 
+  // Applies an import and saves it right away, so a paid import is never lost
+  const finishImport = async (imported: any, mode: 'merge' | 'replace') => {
+    const next = mode === 'merge' ? mergeImportedProfile(profile, imported) : replaceWithImported(profile, imported);
+    setProfile(next);
+    setPendingImport(null);
+    const saved = await saveProfile(next);
+    if (!saved) return; // saveProfile already showed the error; changes stay on screen (unsaved)
+    confetti({
+      particleCount: 80,
+      spread: 60,
+      origin: { y: 0.3 }
+    });
+    showAlert({
+      title: 'Import Saved',
+      message: mode === 'merge'
+        ? 'New entries from the import were added to your vault and saved; your existing details were kept. Review them in the tabs below.'
+        : 'Your vault was replaced with the imported details and saved (photo, signature and custom sections were kept). Review them in the tabs below.',
+      type: 'success'
+    });
+  };
+
+  // === Unsaved changes (v2 Phase 4) ===
+  useEffect(() => {
+    if (!loading && savedSnapshot === null) setSavedSnapshot(JSON.stringify(profile));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+  const isDirty = useMemo(
+    () => savedSnapshot !== null && JSON.stringify(profile) !== savedSnapshot,
+    [profile, savedSnapshot]
+  );
+  useEffect(() => {
+    if (!isDirty) return;
+    // Closing / reloading the tab
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    // In-app navigation (header links etc.): ask before leaving
+    const onClickCapture = (e: MouseEvent) => {
+      const a = (e.target as HTMLElement | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (!a || a.target === '_blank' || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      const url = new URL(a.href, window.location.href);
+      if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
+      if (!window.confirm('You have unsaved changes in your Master Vault. Leave without saving?')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    document.addEventListener('click', onClickCapture, true);
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      document.removeEventListener('click', onClickCapture, true);
+    };
+  }, [isDirty]);
+
+  // Ask before touching a vault that already has content; otherwise fill it directly
+  const applyImport = (imported: any) => {
+    if (hasVaultContent(profile)) {
+      setPendingImport(imported);
+    } else {
+      finishImport(imported, 'replace');
+    }
+  };
+
   const handleImport = async () => {
     if (!githubUsername.trim() && !linkedinText.trim()) {
       showAlert({
@@ -238,23 +306,12 @@ export default function ProfileVault() {
       }
 
       const parsedProfile = await res.json();
-      setProfile(parsedProfile);
-      
+
       // Update tokens count
       fetchTokens();
-      
-      confetti({
-        particleCount: 80,
-        spread: 60,
-        origin: { y: 0.3 }
-      });
 
-      showAlert({
-        title: 'Import Completed',
-        message: 'AI Import Completed! The parsed details have been pre-populated in the tabs below. Review them and click "Save Vault" to commit changes.',
-        type: 'success'
-      });
       setImportOpen(false);
+      applyImport(parsedProfile);
       setGithubUsername('');
       setLinkedinText('');
     } catch (err: any) {
@@ -312,27 +369,8 @@ export default function ProfileVault() {
       // Update tokens count
       fetchTokens();
       
-      setProfile(prev => ({
-        ...prev,
-        ...parsedProfile,
-        workExperience: parsedProfile.workExperience || [],
-        education: parsedProfile.education || [],
-        skills: parsedProfile.skills || [],
-        languages: parsedProfile.languages || []
-      }));
-
-      confetti({
-        particleCount: 80,
-        spread: 60,
-        origin: { y: 0.3 }
-      });
-
-      showAlert({
-        title: 'Import Completed',
-        message: 'AI PDF Import Completed! The parsed details have been pre-populated in the tabs below. Review them and click "Save Vault" to commit changes.',
-        type: 'success'
-      });
       setImportOpen(false);
+      applyImport(parsedProfile);
     } catch (err: any) {
       console.error(err);
       showAlert({
@@ -586,7 +624,8 @@ export default function ProfileVault() {
     });
   };
 
-  const saveProfile = async () => {
+  const saveProfile = async (profileToSave: UserProfile = profile): Promise<boolean> => {
+    const profile = profileToSave;
     setSaving(true);
     setSaveSuccess(false);
     try {
@@ -616,14 +655,26 @@ export default function ProfileVault() {
       });
       if (res.status === 401) {
         window.location.href = '/';
-        return;
+        return false;
       }
       if (res.ok) {
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
+        setSavedSnapshot(JSON.stringify(profileToSave));
+        return true;
+      } else {
+        let message = 'Your vault could not be saved. Please try again.';
+        try {
+          const errJson = await res.json();
+          if (errJson?.error) message = errJson.error;
+        } catch {}
+        showAlert({ title: 'Save Failed', message, type: 'error' });
+        return false;
       }
     } catch (err) {
       console.error('Failed to save profile:', err);
+      showAlert({ title: 'Save Failed', message: 'Your vault could not be saved. Please check your connection and try again.', type: 'error' });
+      return false;
     } finally {
       setSaving(false);
     }
@@ -645,6 +696,14 @@ export default function ProfileVault() {
       });
       return;
     }
+    if (file.size > MAX_IMAGE_BYTES) {
+      showAlert({
+        title: 'Image Too Large',
+        message: 'Please choose a photo under 2 MB.',
+        type: 'warning'
+      });
+      return;
+    }
     const reader = new FileReader();
     reader.onloadend = () => {
       setProfile(prev => ({ ...prev, photo: reader.result as string }));
@@ -659,6 +718,14 @@ export default function ProfileVault() {
       showAlert({
         title: 'Invalid File',
         message: 'Please select an image file.',
+        type: 'warning'
+      });
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      showAlert({
+        title: 'Image Too Large',
+        message: 'Please choose a signature image under 2 MB.',
         type: 'warning'
       });
       return;
@@ -896,8 +963,13 @@ export default function ProfileVault() {
           </p>
         </div>
         
+        {isDirty && !saving && (
+          <span className="text-xs font-semibold text-amber-300 flex items-center gap-1.5" title="Your edits are not saved yet">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" /> Unsaved changes
+          </span>
+        )}
         <button
-          onClick={saveProfile}
+          onClick={() => saveProfile()}
           disabled={saving}
           className="w-full md:w-auto px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 disabled:opacity-50"
         >
@@ -2921,7 +2993,7 @@ export default function ProfileVault() {
         className="lg:hidden fixed bottom-[70px] right-4 z-40"
       >
         <button
-          onClick={saveProfile}
+          onClick={() => saveProfile()}
           disabled={saving}
           className={`px-4 py-2.5 rounded-2xl font-bold text-xs shadow-2xl flex items-center gap-2 cursor-pointer transition-all ${
             saveSuccess
@@ -2948,6 +3020,43 @@ export default function ProfileVault() {
         </button>
       </aside>
 
+      {pendingImport && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 p-6 shadow-2xl space-y-4">
+            <div>
+              <h3 className="text-lg font-bold text-white">Your vault already has content</h3>
+              <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                How should the imported details be applied? Your vault is saved right after you choose.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => finishImport(pendingImport, 'merge')}
+                className="w-full text-left p-3 rounded-xl border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 cursor-pointer"
+              >
+                <span className="block text-sm font-bold text-white">Merge (recommended)</span>
+                <span className="block text-[11px] text-zinc-400">Keep everything you have and add new jobs, education, skills, languages and projects from the import.</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => finishImport(pendingImport, 'replace')}
+                className="w-full text-left p-3 rounded-xl border border-white/10 hover:bg-white/5 cursor-pointer"
+              >
+                <span className="block text-sm font-bold text-white">Replace</span>
+                <span className="block text-[11px] text-zinc-400">Use the imported details instead. Photo, signature and custom sections are kept.</span>
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPendingImport(null)}
+              className="w-full py-2 text-xs text-zinc-400 hover:text-white cursor-pointer"
+            >
+              Cancel (discard the import)
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

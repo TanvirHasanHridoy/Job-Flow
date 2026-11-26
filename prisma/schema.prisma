@@ -108,9 +108,22 @@ model TailorDiagnosticLog {
 model UserToken {
   id        String   @id @default(uuid())
   userId    String   @unique
-  tokens    Int      @default(200)
+  tokens    Int      @default(100)
   updatedAt DateTime @updatedAt
+  // Last monthly free-plan refill (src/lib/tokens.ts)
+  lastRefillAt DateTime?
 
   @@index([userId])
 }
 
+
+// Per-user fixed-window rate limit counters (see src/lib/rateLimit.ts).
+// Accessed via raw SQL so the app also runs before this migration is applied.
+model RateLimitBucket {
+  key         String
+  windowStart DateTime
+  count       Int      @default(0)
+
+  @@id([key, windowStart])
+  @@index([windowStart])
+}

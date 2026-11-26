@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
+import { AI_UNAVAILABLE_MESSAGE } from '@/lib/apiErrors';
+import { enforceRateLimit } from '@/lib/rateLimit';
 import { getUserTokens, deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
-import { getAiConfig } from '@/lib/ai';
+import { getAiConfig, aiFetch } from '@/lib/ai';
 
 function safeParseArray(val: any): any[] {
   if (!val) return [];
@@ -83,6 +85,9 @@ export async function POST(req: Request) {
     const auth = await getAuthUserId();
     if ('error' in auth) return auth.error;
     userId = auth.userId;
+
+    const rateLimited = await enforceRateLimit(userId, 'OUTREACH');
+    if (rateLimited) return rateLimited;
 
     const {
       jobDescription,
@@ -167,7 +172,8 @@ GENERATE 3 DISTINCT MESSAGE TYPES:
    - Include a short tip.
 
 STRICT CONSTRAINTS:
-1. Ground all achievements strictly in the candidate's provided CV facts.
+1. Ground all achievements strictly in the candidate's provided CV facts. Do NOT add technologies, versions or metrics that are not in the CV facts.
+1b. Only state facts about the company that appear in the job description (no customers, funding, products or news from outside knowledge).
 2. Custom instruction from candidate: "${(customInstruction || 'Tailor specifically for high conversion and genuine interest.').replace(/"/g, "'")}"
 3. Output strictly valid JSON matching this schema:
 {
@@ -230,15 +236,7 @@ ${JSON.stringify({
           await new Promise(resolve => setTimeout(resolve, delay));
         }
 
-        apiRes = await fetch(aiConfig.apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${aiConfig.apiKey}`
-          },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(60000)
-        });
+        apiRes = await aiFetch(payload, { signal: AbortSignal.timeout(60000) });
 
         if (apiRes.ok) {
           lastError = null;
@@ -273,7 +271,8 @@ ${JSON.stringify({
         } catch { }
       }
 
-      return NextResponse.json({ error: errMsg }, { status: errStatus });
+      console.error('AI provider error:', errStatus, errMsg);
+      return NextResponse.json({ error: AI_UNAVAILABLE_MESSAGE }, { status: 502 });
     }
 
     const resJson = await apiRes.json();
@@ -329,6 +328,6 @@ ${JSON.stringify({
         await topUpTokens(userId, TOKEN_PRICING.OUTREACH);
       } catch { }
     }
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }

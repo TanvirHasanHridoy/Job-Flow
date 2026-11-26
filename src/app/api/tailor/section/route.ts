@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getAuthUserId } from '@/lib/auth';
+import { AI_UNAVAILABLE_MESSAGE } from '@/lib/apiErrors';
+import { enforceRateLimit } from '@/lib/rateLimit';
 import { getUserTokens, deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
-import { getAiConfig } from '@/lib/ai';
+import { getAiConfig, aiFetch } from '@/lib/ai';
 import { formatCityCountry } from '@/lib/customSections';
 
 // === DeepSeek API Configuration (Preserved / Commented as requested) ===
@@ -28,6 +30,9 @@ export async function POST(req: Request) {
     const auth = await getAuthUserId();
     if ('error' in auth) return auth.error;
     userId = auth.userId;
+
+    const rateLimited = await enforceRateLimit(userId, 'SECTION');
+    if (rateLimited) return rateLimited;
 
     const {
       sectionKey,
@@ -314,15 +319,7 @@ ${JSON.stringify(profile || {}, null, 2)}`
           await new Promise(resolve => setTimeout(resolve, delay));
         }
 
-        apiRes = await fetch(aiConfig.apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${aiConfig.apiKey}`
-          },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(90000)
-        });
+        apiRes = await aiFetch(payload, { signal: AbortSignal.timeout(90000) });
 
         if (apiRes.ok) {
           lastError = null;
@@ -343,7 +340,7 @@ ${JSON.stringify(profile || {}, null, 2)}`
       if (!apiRes) {
         const message = lastError?.message || 'Failed to communicate with AI model';
         console.error(`${aiConfig.provider} Section API request failed:`, message);
-        return NextResponse.json({ error: message }, { status: 502 });
+        return NextResponse.json({ error: AI_UNAVAILABLE_MESSAGE }, { status: 502 });
       }
 
       const errText = await apiRes.text().catch(() => '');
@@ -353,7 +350,8 @@ ${JSON.stringify(profile || {}, null, 2)}`
         const errJson = JSON.parse(errText);
         errMsg = errJson.error?.message || errJson.message || errMsg;
       } catch { }
-      return NextResponse.json({ error: errMsg }, { status: apiRes.status });
+      console.error(`${aiConfig.provider} Section API error message:`, errMsg);
+      return NextResponse.json({ error: AI_UNAVAILABLE_MESSAGE }, { status: 502 });
     }
 
     let contentStr = '';
@@ -424,6 +422,6 @@ ${JSON.stringify(profile || {}, null, 2)}`
   } catch (error: any) {
     await refundTokens();
     console.error('Error in /api/tailor/section:', error);
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
