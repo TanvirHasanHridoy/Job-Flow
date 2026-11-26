@@ -486,7 +486,8 @@ export async function POST(req: Request) {
         if (Array.isArray(exp.bullets)) {
           bulletsList = exp.bullets;
         } else if (exp.bullets && typeof exp.bullets === 'object') {
-          bulletsList = exp.bullets.standard || exp.bullets.punchy || exp.bullets.star || [];
+          const firstNonEmpty = [exp.bullets.star, exp.bullets.standard, exp.bullets.punchy].find((b: unknown) => Array.isArray(b) && b.length > 0);
+          bulletsList = (firstNonEmpty as string[]) || [];
         }
 
         bulletsList.forEach((bullet: string) => {

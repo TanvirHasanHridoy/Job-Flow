@@ -21,6 +21,9 @@ interface BulletMatrixPromptOptions {
   currentDateStr: string;
   /** Gap-bridging rules from src/lib/bridgingPrompt.ts (strategy, requirement analysis, hard lines). */
   bridgingDirective?: string;
+  /** Only these variants are generated (one bullet style, one letter length). */
+  bulletKey?: 'star' | 'punchy' | 'standard';
+  clKey?: 'short' | 'detailed';
 }
 
 export function buildBulletMatrixSystemPrompt(opts: BulletMatrixPromptOptions): string {
@@ -37,7 +40,9 @@ export function buildBulletMatrixSystemPrompt(opts: BulletMatrixPromptOptions): 
     customNotes,
     themeDirective = '',
     currentDateStr,
-    bridgingDirective = ''
+    bridgingDirective = '',
+    bulletKey = 'star',
+    clKey = 'short'
   } = opts;
 
   // The match strategy (Tactical Pivot / Aggressive Bridging) and hard lines are
@@ -126,9 +131,7 @@ Respond strictly with a valid raw JSON object matching this exact schema:
         "company": "<exact original company name from profile>",
         "role": "<the job title copied exactly from the profile>",
         "bullets": {
-          "star": [<array of STAR achievement strings in ${cvLanguage === 'DE' ? 'German' : 'English'}>],
-          "punchy": [<array of short highlight strings in ${cvLanguage === 'DE' ? 'German' : 'English'}>],
-          "standard": [<array of standard responsibility strings in ${cvLanguage === 'DE' ? 'German' : 'English'}>]
+          "${bulletKey}": [<array of ${bulletKey === 'star' ? 'STAR achievement' : bulletKey === 'punchy' ? 'short highlight' : 'standard responsibility'} strings in ${cvLanguage === 'DE' ? 'German' : 'English'}>]
         }
       }
     ],
@@ -162,8 +165,7 @@ Respond strictly with a valid raw JSON object matching this exact schema:
     "subjectLine": "<string>",
     "salutation": "<string>",
     "paragraphs": {
-      "short": [<array of 2 paragraphs>],
-      "detailed": [<array of 3-4 paragraphs>]
+      "${clKey}": [<${clKey === 'short' ? 'array of 2 paragraphs' : 'array of 3-4 paragraphs'}>]
     },
     "closing": "<string>",
     "signatureName": "<string>"

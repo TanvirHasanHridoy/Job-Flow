@@ -1,4 +1,4 @@
-import { getAiConfig } from './ai';
+import { getAiConfig, aiFetch } from './ai';
 
 type AiConfig = ReturnType<typeof getAiConfig>;
 type Message = { role: 'system' | 'user' | 'assistant'; content: string };
@@ -35,12 +35,8 @@ export async function callAiJson<T = any>(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     if (attempt > 0) await new Promise(r => setTimeout(r, attempt === 1 ? 1200 : 2500));
     try {
-      response = await fetch(aiConfig.apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${aiConfig.apiKey}` },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(timeoutMs),
-      });
+      // Provider fallback (Gemini / DeepSeek / Groq / OpenRouter) lives in aiFetch
+      response = await aiFetch(payload, { signal: AbortSignal.timeout(timeoutMs) });
       if (response.ok) break;
       if (!RETRYABLE.has(response.status)) break;
     } catch (err) {
