@@ -14,9 +14,38 @@ Versions follow [Semantic Versioning](https://semver.org/): MAJOR.MINOR.PATCH.
 
 When v2 is complete, `develop/v2` merges into `master` and is tagged `v2.0.0`.
 
-## [Unreleased] — v2 (in development on `develop/v2`)
+## [2.0.0] — 2026-11-26
 
-The scope is pending owner approval. See `docs/QA_REPORT_2026-11-25.md` for the findings behind it.
+Major release based on the v1.0.0 QA report (`docs/QA_REPORT_2026-11-25.md`), built in 8 reviewed phases (PRs #14–#21).
+
+### Security
+- Dev login (`x-dev-auth` header / `jobmaster_dev_auth` cookie / `/api/auth/dev-login`) only works outside production; previously anyone could sign in as any user.
+- PDF export renders untrusted HTML without JavaScript or network access (SSRF fix); the URL scraper blocks private and internal addresses.
+- Per-user rate limits on AI and export routes; upload size and type limits.
+- Error responses no longer reveal database hosts, AI provider responses or parser internals.
+
+### AI tailoring (controlled gap bridging)
+- Requirement analysis first (match / related / missing); refuses with a gap report when under 50% of must-haves are covered.
+- Tactical Pivot stays factual; Aggressive Bridging may bridge related skills only. Employers, job titles, dates, degrees and certifications are never invented (enforced in code).
+- Bridged claims are highlighted for review (keep / remove); export warns about unreviewed claims. Outreach and Interview Prep use only kept claims, with "Prepare to back these up" coaching.
+- Free job-description check before charging; clearly labelled Profile fit and Keywords in CV scores.
+
+### Product
+- Every generation is saved as a draft; edits autosave; drafts list; untracked drafts deleted after 30 days.
+- Job import from Greenhouse, Lever, Ashby, Personio, SmartRecruiters and sites with job data: free and instant; closed postings detected without charge.
+- No placeholder photo or fake signature; English CVs hide the photo by default; enclosures default to the CV only; onboarding for new users.
+- Master Vault: unsaved-changes warning; imports saved immediately with merge or replace.
+
+### Business & privacy
+- Free plan: 100 tokens per month (monthly refill); `npm run tokens:add` for admin grants.
+- Only the displayed bullet style and letter length are generated; translation only for clearly German ads; DOCX export matches the preview.
+- AI logs kept 30 days, without full prompts or profile copies; "Download my data" and "Delete my account".
+- AI provider switch with automatic fallback: Gemini, DeepSeek, Groq, OpenRouter (`AI_PROVIDERS`, `*_API_KEY`).
+
+### Upgrade notes
+- Database: apply `20261125_add_rate_limit_bucket` and `20261126_token_monthly_refill` (both additive).
+- Environment: `GEMINI_API_KEY` and/or `DEEPSEEK_API_KEY` (optional `AI_PROVIDERS`, `GROQ_API_KEY`, `OPENROUTER_API_KEY` + `OPENROUTER_MODEL`).
+- Once deployed, AI logs older than 30 days are deleted.
 
 ## [1.0.1] — 2026-11-26
 
