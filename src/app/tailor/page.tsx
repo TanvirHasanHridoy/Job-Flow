@@ -21,6 +21,7 @@ import CanvasFloatingHud from './components/CanvasFloatingHud';
 import MobileToolBottomSheet from './components/MobileToolBottomSheet';
 import RefusalReport from './components/RefusalReport';
 import { renderInline } from './components/MarkdownLite';
+import { hasVaultContent } from '@/lib/profileMerge';
 import DraftsList from './components/DraftsList';
 import { checkJobDescription } from '@/lib/jobDescriptionCheck';
 import { computeKeywordCoverage } from '@/lib/keywordCoverage';
@@ -1348,6 +1349,9 @@ export default function TailorWorkspace() {
   // editable on the letter and omitted from exports when emptied.
   const defaultEnclosure = clLanguage === 'DE' ? '- Lebenslauf' : '- Curriculum Vitae';
   const enclosureLabel = clLanguage === 'DE' ? 'Anlagen:' : 'Enclosure:';
+
+  // Tailoring needs real experience to work from
+  const vaultIsEmpty = !!profile && !hasVaultContent(profile);
 
   const toggleCvPhoto = () => setResult(prev => prev ? {
     ...prev,
@@ -4341,6 +4345,14 @@ export default function TailorWorkspace() {
       });
       return;
     }
+    if (vaultIsEmpty) {
+      showAlert({
+        title: 'Your Master Vault is empty',
+        message: 'Add your experience first (import your CV, LinkedIn or GitHub in the Master Vault). The AI can only tailor what is in your vault.',
+        type: 'warning'
+      });
+      return;
+    }
     // Instant, free check — avoids spending tokens on text that isn't a job ad
     const jdCheck = checkJobDescription(jobDescription);
     if (!jdCheck.ok) {
@@ -5762,6 +5774,17 @@ export default function TailorWorkspace() {
           {/* TAB 1: GENERATION & STRATEGY */}
           {sidePanelTab === 'generation' && (
             <div className="space-y-4 animate-in fade-in duration-200">
+              {vaultIsEmpty && (
+                <div className="p-4 rounded-2xl border border-indigo-500/30 bg-indigo-500/10 text-xs space-y-2">
+                  <p className="font-bold text-white">Start with your Master Vault</p>
+                  <p className="text-zinc-300 leading-relaxed">
+                    Your vault has no experience yet. Import your CV (PDF), LinkedIn or GitHub — or add it by hand — so the AI has real facts to tailor.
+                  </p>
+                  <Link href="/profile" className="inline-flex px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[11px]">
+                    Open Master Vault →
+                  </Link>
+                </div>
+              )}
               <DraftsList currentAppId={editingAppId} refreshKey={editingAppId} limit={4} />
               {/* Source Career Persona Selection */}
               {profile?.personas && profile.personas.length > 1 && (

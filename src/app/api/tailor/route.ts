@@ -11,6 +11,7 @@ import { formatCityCountry } from '@/lib/customSections';
 import { buildBulletMatrixSystemPrompt } from '@/lib/bulletMatrixPrompts';
 import { callAiJson } from '@/lib/aiCall';
 import { checkJobDescription } from '@/lib/jobDescriptionCheck';
+import { hasVaultContent } from '@/lib/profileMerge';
 import { saveDraftApplication, isLiveDraft, cleanupOldDrafts } from '@/lib/drafts';
 import { buildBridgingDirective, cityFromAddress } from '@/lib/bridgingPrompt';
 import { enforceHardLines, sameName } from '@/lib/bridging';
@@ -75,6 +76,14 @@ export async function POST(req: Request) {
 
     if (!jobDescription || !profile) {
       return NextResponse.json({ error: 'Missing required inputs: jobDescription or profile' }, { status: 400 });
+    }
+
+    // An empty vault can't be tailored (nothing to base the CV on): no charge
+    if (!hasVaultContent(profile)) {
+      return NextResponse.json(
+        { error: 'Your Master Vault is empty. Add your experience (or import your CV) first.', reason: 'empty-vault' },
+        { status: 422 }
+      );
     }
 
     // Free sanity check before any tokens are charged or AI is called

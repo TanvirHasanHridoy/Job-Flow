@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import DraftsList from '../tailor/components/DraftsList';
+import OnboardingCard from '../components/OnboardingCard';
+import { hasVaultContent } from '@/lib/profileMerge';
 import {
   Plus, Calendar, MapPin, DollarSign, Clock, FileText, Trash2, Eye, ChevronRight, ChevronLeft, Award, Sparkles, LayoutGrid, CheckCircle2, TrendingUp, Building, User, Mail, Globe, Loader2,
   HelpCircle, BookOpen, Layers, Target, Palette, Send, X
@@ -155,6 +157,14 @@ export function generateFollowUpDraft(app: JobApplication, templateType: 'status
 export default function Dashboard() {
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [loading, setLoading] = useState(true);
+  // null until known; drives the getting-started card for new users
+  const [vaultReady, setVaultReady] = useState<boolean | null>(null);
+  useEffect(() => {
+    fetch('/api/profile')
+      .then(r => (r.ok ? r.json() : null))
+      .then(p => setVaultReady(p ? hasVaultContent(p) : null))
+      .catch(() => setVaultReady(null));
+  }, []);
   const [selectedApp, setSelectedApp] = useState<JobApplication | null>(null);
   const [currentView, setCurrentView] = useState<'kanban' | 'spreadsheet' | 'calendar'>('kanban');
   const [calendarDate, setCalendarDate] = useState(new Date());
@@ -585,6 +595,10 @@ export default function Dashboard() {
       </div>
 
       {/* Drafts: generated but not tracked yet (hidden when empty) */}
+      {vaultReady !== null && (
+        <OnboardingCard vaultReady={vaultReady} hasApplications={applications.length > 0} />
+      )}
+
       <DraftsList className="mb-6 no-print" limit={6} />
 
       {/* View Switcher Tabs */}
