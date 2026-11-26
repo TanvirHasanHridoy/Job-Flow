@@ -1343,6 +1343,11 @@ export default function TailorWorkspace() {
   // don't (UK/US norm). The user can override with the toolbar toggle.
   const showPhotoOnCv = !!result?.tailoredCv?.personalDetails?.photo &&
     (result?.tailoredCv?.showPhoto ?? cvLanguage === 'DE');
+  // Cover-letter enclosures: default to the CV only (owner decision); the list is
+  // editable on the letter and omitted from exports when emptied.
+  const defaultEnclosure = clLanguage === 'DE' ? '- Lebenslauf' : '- Curriculum Vitae';
+  const enclosureLabel = clLanguage === 'DE' ? 'Anlagen:' : 'Enclosure:';
+
   const toggleCvPhoto = () => setResult(prev => prev ? {
     ...prev,
     tailoredCv: { ...prev.tailoredCv, showPhoto: !showPhotoOnCv },
@@ -4570,7 +4575,11 @@ export default function TailorWorkspace() {
       // 3c. Enclosures
       const enclosureEl = clone.querySelector('[data-cl-field="enclosure"]');
       if (enclosureEl) {
-        const encLines = extractCleanLines(enclosureEl, result?.tailoredCoverLetter?.enclosure || "- Curriculum Vitae\n- Bachelor Degree Diploma\n- Reference letter from previous employers");
+        const encSource = result?.tailoredCoverLetter?.enclosure !== undefined ? result.tailoredCoverLetter.enclosure : defaultEnclosure;
+        const encLines = String(encSource).trim() ? extractCleanLines(enclosureEl, encSource) : [];
+        if (encLines.length === 0) {
+          clone.querySelector('[data-cl-block="enclosure"]')?.remove();
+        }
         const div = clone.ownerDocument.createElement('div');
         div.setAttribute('style', `
           margin-left: 16px !important;
@@ -4595,7 +4604,7 @@ export default function TailorWorkspace() {
           div.appendChild(p);
         });
 
-        enclosureEl.parentNode?.replaceChild(div, enclosureEl);
+        if (encLines.length > 0) enclosureEl.parentNode?.replaceChild(div, enclosureEl);
       }
     }
 
@@ -5142,9 +5151,9 @@ export default function TailorWorkspace() {
 
       const enclosureContent = cl.enclosure !== undefined
         ? cl.enclosure
-        : "- Curriculum Vitae\n- Bachelor Degree Diploma\n- Reference letter from previous employers";
-      if (enclosureContent) {
-        textContent += `\nEnclosure:\n${enclosureContent}\n`;
+        : defaultEnclosure;
+      if (String(enclosureContent).trim()) {
+        textContent += `\n${enclosureLabel}\n${enclosureContent}\n`;
       }
     }
 
@@ -7700,15 +7709,15 @@ export default function TailorWorkspace() {
                           />
 
                           {/* Enclosures */}
-                          <div className="mt-8 text-[11.5px] text-left font-sans">
-                            <p>Enclosure:</p>
+                          <div className="mt-8 text-[11.5px] text-left font-sans" data-cl-block="enclosure">
+                            <p>{enclosureLabel}</p>
                             <ContentEditable
                               tagName="div"
                               data-cl-field="enclosure"
                               value={
                                 result.tailoredCoverLetter.enclosure !== undefined
                                   ? result.tailoredCoverLetter.enclosure
-                                  : "- Curriculum Vitae\n- Bachelor Degree Diploma\n- Reference letter from previous employers"
+                                  : defaultEnclosure
                               }
                               onChange={(val) => handleClChange('enclosure', val, true)}
                               onBlur={(e: any) => handleClChange('enclosure', e.target.innerText, false)}
