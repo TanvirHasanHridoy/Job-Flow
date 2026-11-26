@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getAuthUserId } from '@/lib/auth';
 import { AI_UNAVAILABLE_MESSAGE } from '@/lib/apiErrors';
 import { enforceRateLimit } from '@/lib/rateLimit';
@@ -12,6 +11,7 @@ import { buildBulletMatrixSystemPrompt } from '@/lib/bulletMatrixPrompts';
 import { callAiJson } from '@/lib/aiCall';
 import { checkJobDescription } from '@/lib/jobDescriptionCheck';
 import { looksGerman } from '@/lib/language';
+import { logTailorDiagnostic } from '@/lib/diagnostics';
 import { hasVaultContent } from '@/lib/profileMerge';
 import { saveDraftApplication, isLiveDraft, cleanupOldDrafts } from '@/lib/drafts';
 import { buildBridgingDirective, cityFromAddress } from '@/lib/bridgingPrompt';
@@ -297,21 +297,15 @@ export async function POST(req: Request) {
         matchScore: analysis.matchScore,
         gapAnalysis: { ...analysisGap, matchingKeywords: [...analysisGap.exactMatches, ...analysisGap.adjacentMatches] },
       };
-      try {
-        await prisma.tailorDiagnosticLog.create({
-          data: {
-            userId,
-            applicationId,
-            rawJobDescription: jobDescription,
-            userProfileSnapshot: JSON.stringify(formattedProfile),
-            matchStrategyUsed: matchStrategy,
-            systemPromptSent: analysisPrompt,
-            rawLlmResponse: analysisRaw
-          }
-        });
-      } catch (logError) {
-        console.error('Failed to create diagnostic log entry:', logError);
-      }
+      await logTailorDiagnostic({
+        userId,
+        applicationId,
+        rawJobDescription: jobDescription,
+        profileSnapshot: formattedProfile,
+        matchStrategy,
+        systemPrompt: analysisPrompt,
+        rawResponse: analysisRaw,
+      });
       aiResponseCache.set(cacheKey, refusal);
       return NextResponse.json(refusal);
     }
@@ -802,21 +796,15 @@ Signing city for date lines: ${signingCity || '(none — use the date only, with
     }
 
     // Log query diagnostic data into database
-    try {
-      await prisma.tailorDiagnosticLog.create({
-        data: {
-          userId,
-          applicationId: applicationId,
-          rawJobDescription: jobDescription,
-          userProfileSnapshot: JSON.stringify(formattedProfile),
-          matchStrategyUsed: matchStrategy,
-          systemPromptSent: activeSystemPrompt,
-          rawLlmResponse: generatedText
-        }
-      });
-    } catch (logError) {
-      console.error('Failed to create diagnostic log entry:', logError);
-    }
+    await logTailorDiagnostic({
+      userId,
+      applicationId,
+      rawJobDescription: jobDescription,
+      profileSnapshot: formattedProfile,
+      matchStrategy,
+      systemPrompt: activeSystemPrompt,
+      rawResponse: generatedText,
+    });
 
     // Save immediately as a DRAFT application (Phase 4): the paid result survives a
     // closed tab; it stays out of the tracker until the user clicks "Track".
