@@ -20,6 +20,8 @@ import CanvasViewport from './components/CanvasViewport';
 import CanvasFloatingHud from './components/CanvasFloatingHud';
 import MobileToolBottomSheet from './components/MobileToolBottomSheet';
 import RefusalReport from './components/RefusalReport';
+import { renderInline } from './components/MarkdownLite';
+import { hasVaultContent } from '@/lib/profileMerge';
 import DraftsList from './components/DraftsList';
 import { checkJobDescription } from '@/lib/jobDescriptionCheck';
 import { computeKeywordCoverage } from '@/lib/keywordCoverage';
@@ -84,6 +86,8 @@ interface TailoredCv {
   signingLine?: string;
   // Keys of bridged claims the user chose to keep (see src/lib/bridging.ts)
   acceptedClaimKeys?: string[];
+  // Photo on the CV; undefined = language default (DE on, EN off)
+  showPhoto?: boolean;
 }
 
 interface TailoredCoverLetter {
@@ -140,7 +144,7 @@ export interface ColorTheme {
   previewColor: string;
 }
 
-export const COLOR_THEMES: Record<ColorThemeId, ColorTheme> = {
+const COLOR_THEMES: Record<ColorThemeId, ColorTheme> = {
   'classic-oxford': {
     id: 'classic-oxford',
     name: 'Classic Oxford',
@@ -203,7 +207,7 @@ export interface CvLayoutTemplate {
   headerStyle: 'classic-underlined' | 'swiss-solid-bar' | 'tech-mono-bracket' | 'minimal-pill';
 }
 
-export const LAYOUT_TEMPLATES: Record<CvLayoutTemplateId, CvLayoutTemplate> = {
+const LAYOUT_TEMPLATES: Record<CvLayoutTemplateId, CvLayoutTemplate> = {
   'standard': {
     id: 'standard',
     name: 'Modern Standard',
@@ -256,13 +260,24 @@ const getRenderedBullets = (exp: any, bulletStyle: string, lengthTarget: string,
   return bulletsArray;
 };
 
+// Only the selected letter length is generated (v2 Phase 7.3). If the user later
+// switches length, show (and edit) the version that exists until they regenerate.
+const getDisplayedClKey = (cl: any, clLength: string): 'short' | 'detailed' => {
+  const selected = clLength.includes('Short') ? 'short' : 'detailed';
+  const other = selected === 'short' ? 'detailed' : 'short';
+  const paras = cl?.paragraphs;
+  if (!paras || Array.isArray(paras)) return selected;
+  if (Array.isArray(paras[selected]) && paras[selected].length > 0) return selected;
+  if (Array.isArray(paras[other]) && paras[other].length > 0) return other;
+  return selected;
+};
+
 const getRenderedParagraphs = (cl: any, clLength: string) => {
   if (!cl || !cl.paragraphs) return [];
   if (Array.isArray(cl.paragraphs)) {
     return cl.paragraphs;
   }
-  const key = clLength.includes('Short') ? 'short' : 'detailed';
-  return cl.paragraphs[key] || cl.paragraphs.short || cl.paragraphs.detailed || [];
+  return cl.paragraphs[getDisplayedClKey(cl, clLength)] || [];
 };
 
 const getGroupedSkills = (skills: any[]) => {
@@ -326,7 +341,7 @@ const renderRecommendation = (text: string) => {
 
         // Match headers
         if (trimmed.startsWith('###') || trimmed.startsWith('##') || trimmed.startsWith('#')) {
-          const headerText = trimmed.replace(/^#+\s*/, '');
+          const headerText = trimmed.replace(/^#+\s*/, '').replace(/\*\*/g, '');
           if (headerText.toLowerCase().includes('positive')) {
             currentSection = 'positives';
             return (
@@ -355,8 +370,8 @@ const renderRecommendation = (text: string) => {
         }
 
         // Match bullet points
-        if (trimmed.startsWith('-') || trimmed.startsWith('*')) {
-          const bulletText = trimmed.substring(1).trim();
+        if (/^[-*•]s+/.test(trimmed)) {
+          const bulletText = trimmed.replace(/^[-*•]s+/, '');
           let bulletColorClass = 'text-zinc-300';
           let bulletIcon = <span className="w-1.5 h-1.5 rounded-full bg-zinc-500 mt-1.5 shrink-0" />;
 
@@ -374,7 +389,7 @@ const renderRecommendation = (text: string) => {
           return (
             <div key={idx} className="flex items-start gap-2 pl-1.5">
               {bulletIcon}
-              <span className={`${bulletColorClass} leading-relaxed`}>{bulletText}</span>
+              <span className={`${bulletColorClass} leading-relaxed`}>{renderInline(bulletText)}</span>
             </div>
           );
         }
@@ -382,7 +397,7 @@ const renderRecommendation = (text: string) => {
         // Regular paragraph text
         return (
           <p key={idx} className="text-zinc-300 leading-relaxed pl-0.5">
-            {trimmed}
+            {renderInline(trimmed)}
           </p>
         );
       })}
@@ -1319,7 +1334,7 @@ export default function TailorWorkspace() {
     }
   }, [result, profile]);
   const activeBulletVariant = bulletStyle === 'STAR Method' ? 'star' : bulletStyle === 'Short & Punchy' ? 'punchy' : 'standard';
-  const activeParagraphSet = clLength.includes('Short') ? 'short' : 'detailed';
+  const activeParagraphSet = result?.tailoredCoverLetter ? getDisplayedClKey(result.tailoredCoverLetter, clLength) : (clLength.includes('Short') ? 'short' : 'detailed');
   const bridgedClaims = allBridgedClaims.filter(c =>
     (c.section !== 'experience' || c.variant === activeBulletVariant) &&
     (c.section !== 'coverLetter' || c.paragraphSet === activeParagraphSet)
@@ -1337,6 +1352,23 @@ export default function TailorWorkspace() {
       },
     } : prev);
   };
+  // Photo: only when one is uploaded. German CVs show it by default; English CVs
+  // don't (UK/US norm). The user can override with the toolbar toggle.
+  const showPhotoOnCv = !!result?.tailoredCv?.personalDetails?.photo &&
+    (result?.tailoredCv?.showPhoto ?? cvLanguage === 'DE');
+  // Cover-letter enclosures: default to the CV only (owner decision); the list is
+  // editable on the letter and omitted from exports when emptied.
+  const defaultEnclosure = clLanguage === 'DE' ? '- Lebenslauf' : '- Curriculum Vitae';
+  const enclosureLabel = clLanguage === 'DE' ? 'Anlagen:' : 'Enclosure:';
+
+  // Tailoring needs real experience to work from
+  const vaultIsEmpty = !!profile && !hasVaultContent(profile);
+
+  const toggleCvPhoto = () => setResult(prev => prev ? {
+    ...prev,
+    tailoredCv: { ...prev.tailoredCv, showPhoto: !showPhotoOnCv },
+  } : prev);
+
   const handleAcceptClaim = (claim: BridgedClaim) => acceptClaimKeys([claim.key]);
   const handleAcceptAllClaims = () => acceptClaimKeys(pendingBridgedClaims.filter(c => !c.isViolation).map(c => c.key));
   const handleRemoveClaim = (claim: BridgedClaim) => setResult(prev => prev ? removeClaim(prev, claim) : prev);
@@ -2180,25 +2212,21 @@ export default function TailorWorkspace() {
             />
           </div>
 
-          <div
-            className="bg-gray-200 rounded-sm overflow-hidden flex-shrink-0 border border-gray-300 flex items-center justify-center relative font-sans"
-            style={{
-              width: `${photoHeight * 0.81}px`,
-              height: `${photoHeight}px`
-            }}
-          >
-            {result.tailoredCv.personalDetails.photo ? (
+          {showPhotoOnCv && (
+            <div
+              className="bg-gray-200 rounded-sm overflow-hidden flex-shrink-0 border border-gray-300 flex items-center justify-center relative font-sans"
+              style={{
+                width: `${photoHeight * 0.81}px`,
+                height: `${photoHeight}px`
+              }}
+            >
               <img
                 src={result.tailoredCv.personalDetails.photo}
                 alt="Profile Photo"
                 className="w-full h-full object-cover"
               />
-            ) : (
-              <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -3879,25 +3907,7 @@ export default function TailorWorkspace() {
                   aria-hidden="true"
                   className="max-h-full max-w-[120px] object-contain"
                 />
-              ) : (
-                <svg
-                  width="80"
-                  height="32"
-                  viewBox="0 0 80 32"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                  className="text-gray-800"
-                >
-                  <path
-                    d="M 8 20 C 8 8, 16 6, 20 18 C 24 10, 28 8, 30 18 C 32 18, 34 22, 36 20 C 38 18, 42 16, 46 22 C 48 24, 50 16, 52 18 C 54 20, 56 22, 58 20 C 60 18, 62 20, 66 22 C 68 24, 70 20, 74 18"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )
+              ) : null
             )}
           </div>
           <ContentEditable
@@ -4250,7 +4260,10 @@ export default function TailorWorkspace() {
       }
 
       const data = await res.json();
-      if (data.fallback) {
+      if (data.closed) {
+        // Posting is gone (404 / redirected to the jobs list): nothing was charged
+        setScrapeError(data.message);
+      } else if (data.fallback) {
         setScrapeWarning(data.message);
         // Switch to text mode so they know they need to paste it
         setIntakeMethod('text');
@@ -4258,8 +4271,10 @@ export default function TailorWorkspace() {
         if (data.roleName) setRoleName(data.roleName);
         if (data.companyName) setCompanyName(data.companyName);
         if (data.jobDescription) setJobDescription(data.jobDescription);
+        // Possibly expired posting: imported anyway, with a heads-up
+        if (data.warning) setScrapeWarning(data.warning);
 
-        fetchTokens();
+        if (data.cost) fetchTokens();
         confetti({
           particleCount: 50,
           spread: 45,
@@ -4337,6 +4352,14 @@ export default function TailorWorkspace() {
       showAlert({
         title: 'Missing Fields',
         message: 'Please fill out Company Name, Role Name, and Job Description.',
+        type: 'warning'
+      });
+      return;
+    }
+    if (vaultIsEmpty) {
+      showAlert({
+        title: 'Your Master Vault is empty',
+        message: 'Add your experience first (import your CV, LinkedIn or GitHub in the Master Vault). The AI can only tailor what is in your vault.',
         type: 'warning'
       });
       return;
@@ -4576,7 +4599,11 @@ export default function TailorWorkspace() {
       // 3c. Enclosures
       const enclosureEl = clone.querySelector('[data-cl-field="enclosure"]');
       if (enclosureEl) {
-        const encLines = extractCleanLines(enclosureEl, result?.tailoredCoverLetter?.enclosure || "- Curriculum Vitae\n- Bachelor Degree Diploma\n- Reference letter from previous employers");
+        const encSource = result?.tailoredCoverLetter?.enclosure !== undefined ? result.tailoredCoverLetter.enclosure : defaultEnclosure;
+        const encLines = String(encSource).trim() ? extractCleanLines(enclosureEl, encSource) : [];
+        if (encLines.length === 0) {
+          clone.querySelector('[data-cl-block="enclosure"]')?.remove();
+        }
         const div = clone.ownerDocument.createElement('div');
         div.setAttribute('style', `
           margin-left: 16px !important;
@@ -4601,7 +4628,7 @@ export default function TailorWorkspace() {
           div.appendChild(p);
         });
 
-        enclosureEl.parentNode?.replaceChild(div, enclosureEl);
+        if (encLines.length > 0) enclosureEl.parentNode?.replaceChild(div, enclosureEl);
       }
     }
 
@@ -5148,9 +5175,9 @@ export default function TailorWorkspace() {
 
       const enclosureContent = cl.enclosure !== undefined
         ? cl.enclosure
-        : "- Curriculum Vitae\n- Bachelor Degree Diploma\n- Reference letter from previous employers";
-      if (enclosureContent) {
-        textContent += `\nEnclosure:\n${enclosureContent}\n`;
+        : defaultEnclosure;
+      if (String(enclosureContent).trim()) {
+        textContent += `\n${enclosureLabel}\n${enclosureContent}\n`;
       }
     }
 
@@ -5594,7 +5621,7 @@ export default function TailorWorkspace() {
 
   const handleClParagraphChange = (index: number, val: string, isRealtime = false) => {
     if (!result) return;
-    const activeLengthKey = clLength.includes('Short') ? 'short' : 'detailed';
+    const activeLengthKey = getDisplayedClKey(result.tailoredCoverLetter, clLength);
     const newCl = { ...result.tailoredCoverLetter };
 
     let currentParasObj = newCl.paragraphs;
@@ -5758,6 +5785,17 @@ export default function TailorWorkspace() {
           {/* TAB 1: GENERATION & STRATEGY */}
           {sidePanelTab === 'generation' && (
             <div className="space-y-4 animate-in fade-in duration-200">
+              {vaultIsEmpty && (
+                <div className="p-4 rounded-2xl border border-indigo-500/30 bg-indigo-500/10 text-xs space-y-2">
+                  <p className="font-bold text-white">Start with your Master Vault</p>
+                  <p className="text-zinc-300 leading-relaxed">
+                    Your vault has no experience yet. Import your CV (PDF), LinkedIn or GitHub — or add it by hand — so the AI has real facts to tailor.
+                  </p>
+                  <Link href="/profile" className="inline-flex px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[11px]">
+                    Open Master Vault →
+                  </Link>
+                </div>
+              )}
               <DraftsList currentAppId={editingAppId} refreshKey={editingAppId} limit={4} />
               {/* Source Career Persona Selection */}
               {profile?.personas && profile.personas.length > 1 && (
@@ -5935,6 +5973,11 @@ export default function TailorWorkspace() {
                       <option value="Short & Punchy (under 300 words)">Short & Punchy</option>
                       <option value="Detailed & Elaborate">Detailed & Elaborate</option>
                     </select>
+                    {result?.tailoredCoverLetter && getDisplayedClKey(result.tailoredCoverLetter, clLength) !== (clLength.includes('Short') ? 'short' : 'detailed') && (
+                      <p className="text-[10px] text-amber-300 leading-snug">
+                        This letter was written in the other length. Use “Regenerate Cover Letter” on the letter (5 tokens) to get this version.
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex flex-col gap-1">
@@ -6063,13 +6106,16 @@ export default function TailorWorkspace() {
                       {scraping ? (
                         <>
                           <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          <span>Scraping...</span>
+                          <span>Importing...</span>
                         </>
                       ) : (
-                        <span>Scrape (5 tokens)</span>
+                        <span>Import job</span>
                       )}
                     </button>
                   </div>
+                  <p className="text-[10px] text-zinc-500 leading-relaxed">
+                    Free and instant for Greenhouse, Lever, Ashby, Personio, SmartRecruiters and sites that publish job data. Other pages are read by AI for 5 tokens (refunded if it fails).
+                  </p>
                   {scrapeWarning && (
                     <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
@@ -6220,11 +6266,11 @@ export default function TailorWorkspace() {
                   </div>
                   <p className="text-zinc-400 leading-relaxed">
                     {!profile.photo && !profile.signature ? (
-                      <>Your profile is missing a <strong>photo</strong> and a <strong>signature</strong> image. Default placeholders will be used on the documents. You can upload them in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
+                      <>No <strong>photo</strong> or <strong>signature</strong> uploaded. Your CV will have no photo (usual for UK/US; German CVs normally include one) and the letter leaves space to sign by hand. You can upload both in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
                     ) : !profile.photo ? (
-                      <>Your profile is missing a <strong>photo</strong>. A placeholder silhouette will be used. You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
+                      <>No <strong>photo</strong> uploaded, so your CV will have none (usual for UK/US; German CVs normally include one). You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
                     ) : (
-                      <>Your profile is missing a <strong>signature</strong>. A demo cursive signature will be used. You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
+                      <>No <strong>signature</strong> uploaded, so the letter leaves space to sign by hand. You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
                     )}
                   </p>
                 </div>
@@ -6731,6 +6777,19 @@ export default function TailorWorkspace() {
                     <GitCompare className="w-3 h-3 text-indigo-400" />
                     <span>⚖️ Compare</span>
                   </button>
+
+                  {result?.tailoredCv?.personalDetails?.photo && previewTab === 'cv' && (
+                    <button
+                      type="button"
+                      onClick={toggleCvPhoto}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${showPhotoOnCv
+                        ? 'bg-sky-500/15 text-sky-300 border-sky-500/40'
+                        : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'}`}
+                      title="German CVs usually include a photo; UK/US employers usually expect CVs without one."
+                    >
+                      <span>📷 Photo {showPhotoOnCv ? '(ON)' : '(OFF)'}</span>
+                    </button>
+                  )}
 
                   <button
                     type="button"
@@ -7675,25 +7734,7 @@ export default function TailorWorkspace() {
                                 aria-hidden="true"
                                 className="max-h-full max-w-[120px] object-contain"
                               />
-                            ) : (
-                              <svg
-                                width="80"
-                                height="32"
-                                viewBox="0 0 80 32"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg"
-                                aria-hidden="true"
-                                className="text-[#1a1a1a]"
-                              >
-                                <path
-                                  d="M 10 24 C 10 8, 22 2, 22 14 C 22 20, 16 26, 12 24 C 10 22, 14 18, 20 18 C 24 18, 26 22, 28 20 C 30 18, 30 20, 32 20 C 34 20, 34 22, 36 20 C 44 8, 48 2, 46 16 C 45 24, 40 28, 43 28 C 46 28, 52 14, 56 16 C 58 17, 58 20, 60 20 C 62 20, 62 18, 64 18 C 66 18, 67 22, 70 20"
-                                  stroke="currentColor"
-                                  strokeWidth="1.5"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
-                            )}
+                            ) : null}
                           </div>
 
                           {/* Printed Name */}
@@ -7708,15 +7749,15 @@ export default function TailorWorkspace() {
                           />
 
                           {/* Enclosures */}
-                          <div className="mt-8 text-[11.5px] text-left font-sans">
-                            <p>Enclosure:</p>
+                          <div className="mt-8 text-[11.5px] text-left font-sans" data-cl-block="enclosure">
+                            <p>{enclosureLabel}</p>
                             <ContentEditable
                               tagName="div"
                               data-cl-field="enclosure"
                               value={
                                 result.tailoredCoverLetter.enclosure !== undefined
                                   ? result.tailoredCoverLetter.enclosure
-                                  : "- Curriculum Vitae\n- Bachelor Degree Diploma\n- Reference letter from previous employers"
+                                  : defaultEnclosure
                               }
                               onChange={(val) => handleClChange('enclosure', val, true)}
                               onBlur={(e: any) => handleClChange('enclosure', e.target.innerText, false)}
