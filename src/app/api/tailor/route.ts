@@ -11,6 +11,7 @@ import { formatCityCountry } from '@/lib/customSections';
 import { buildBulletMatrixSystemPrompt } from '@/lib/bulletMatrixPrompts';
 import { callAiJson } from '@/lib/aiCall';
 import { checkJobDescription } from '@/lib/jobDescriptionCheck';
+import { looksGerman } from '@/lib/language';
 import { hasVaultContent } from '@/lib/profileMerge';
 import { saveDraftApplication, isLiveDraft, cleanupOldDrafts } from '@/lib/drafts';
 import { buildBridgingDirective, cityFromAddress } from '@/lib/bridgingPrompt';
@@ -207,8 +208,8 @@ export async function POST(req: Request) {
     // Translate German job description if target CV or CL is in English
     let processedJobDescription = jobDescription;
     if (cvLanguage === 'EN' || clLanguage === 'EN') {
-      const commonGermanWords = /\b(und|der|die|das|ist|für|mit|oder|von|auf|den|dem|des|ein|eine|einen|zum|zur|arbeit|erfahrung|kenntnisse|entwickler|gesucht)\b/i;
-      if (commonGermanWords.test(jobDescription)) {
+      // Translate only text that is clearly German (word-frequency check, src/lib/language.ts)
+      if (looksGerman(jobDescription)) {
         try {
           const translationPayload = {
             model: aiConfig.model,
