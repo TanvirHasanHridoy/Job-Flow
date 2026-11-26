@@ -84,6 +84,8 @@ interface TailoredCv {
   signingLine?: string;
   // Keys of bridged claims the user chose to keep (see src/lib/bridging.ts)
   acceptedClaimKeys?: string[];
+  // Photo on the CV; undefined = language default (DE on, EN off)
+  showPhoto?: boolean;
 }
 
 interface TailoredCoverLetter {
@@ -1337,6 +1339,15 @@ export default function TailorWorkspace() {
       },
     } : prev);
   };
+  // Photo: only when one is uploaded. German CVs show it by default; English CVs
+  // don't (UK/US norm). The user can override with the toolbar toggle.
+  const showPhotoOnCv = !!result?.tailoredCv?.personalDetails?.photo &&
+    (result?.tailoredCv?.showPhoto ?? cvLanguage === 'DE');
+  const toggleCvPhoto = () => setResult(prev => prev ? {
+    ...prev,
+    tailoredCv: { ...prev.tailoredCv, showPhoto: !showPhotoOnCv },
+  } : prev);
+
   const handleAcceptClaim = (claim: BridgedClaim) => acceptClaimKeys([claim.key]);
   const handleAcceptAllClaims = () => acceptClaimKeys(pendingBridgedClaims.filter(c => !c.isViolation).map(c => c.key));
   const handleRemoveClaim = (claim: BridgedClaim) => setResult(prev => prev ? removeClaim(prev, claim) : prev);
@@ -2180,25 +2191,21 @@ export default function TailorWorkspace() {
             />
           </div>
 
-          <div
-            className="bg-gray-200 rounded-sm overflow-hidden flex-shrink-0 border border-gray-300 flex items-center justify-center relative font-sans"
-            style={{
-              width: `${photoHeight * 0.81}px`,
-              height: `${photoHeight}px`
-            }}
-          >
-            {result.tailoredCv.personalDetails.photo ? (
+          {showPhotoOnCv && (
+            <div
+              className="bg-gray-200 rounded-sm overflow-hidden flex-shrink-0 border border-gray-300 flex items-center justify-center relative font-sans"
+              style={{
+                width: `${photoHeight * 0.81}px`,
+                height: `${photoHeight}px`
+              }}
+            >
               <img
                 src={result.tailoredCv.personalDetails.photo}
                 alt="Profile Photo"
                 className="w-full h-full object-cover"
               />
-            ) : (
-              <svg className="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       );
     }
@@ -3879,25 +3886,7 @@ export default function TailorWorkspace() {
                   aria-hidden="true"
                   className="max-h-full max-w-[120px] object-contain"
                 />
-              ) : (
-                <svg
-                  width="80"
-                  height="32"
-                  viewBox="0 0 80 32"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                  className="text-gray-800"
-                >
-                  <path
-                    d="M 8 20 C 8 8, 16 6, 20 18 C 24 10, 28 8, 30 18 C 32 18, 34 22, 36 20 C 38 18, 42 16, 46 22 C 48 24, 50 16, 52 18 C 54 20, 56 22, 58 20 C 60 18, 62 20, 66 22 C 68 24, 70 20, 74 18"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )
+              ) : null
             )}
           </div>
           <ContentEditable
@@ -6228,11 +6217,11 @@ export default function TailorWorkspace() {
                   </div>
                   <p className="text-zinc-400 leading-relaxed">
                     {!profile.photo && !profile.signature ? (
-                      <>Your profile is missing a <strong>photo</strong> and a <strong>signature</strong> image. Default placeholders will be used on the documents. You can upload them in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
+                      <>No <strong>photo</strong> or <strong>signature</strong> uploaded. Your CV will have no photo (usual for UK/US; German CVs normally include one) and the letter leaves space to sign by hand. You can upload both in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
                     ) : !profile.photo ? (
-                      <>Your profile is missing a <strong>photo</strong>. A placeholder silhouette will be used. You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
+                      <>No <strong>photo</strong> uploaded, so your CV will have none (usual for UK/US; German CVs normally include one). You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
                     ) : (
-                      <>Your profile is missing a <strong>signature</strong>. A demo cursive signature will be used. You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
+                      <>No <strong>signature</strong> uploaded, so the letter leaves space to sign by hand. You can upload one in your <Link href="/profile" className="text-indigo-400 underline hover:text-indigo-300 font-semibold">Master Profile</Link>.</>
                     )}
                   </p>
                 </div>
@@ -6739,6 +6728,19 @@ export default function TailorWorkspace() {
                     <GitCompare className="w-3 h-3 text-indigo-400" />
                     <span>⚖️ Compare</span>
                   </button>
+
+                  {result?.tailoredCv?.personalDetails?.photo && previewTab === 'cv' && (
+                    <button
+                      type="button"
+                      onClick={toggleCvPhoto}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${showPhotoOnCv
+                        ? 'bg-sky-500/15 text-sky-300 border-sky-500/40'
+                        : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'}`}
+                      title="German CVs usually include a photo; UK/US employers usually expect CVs without one."
+                    >
+                      <span>📷 Photo {showPhotoOnCv ? '(ON)' : '(OFF)'}</span>
+                    </button>
+                  )}
 
                   <button
                     type="button"
@@ -7683,25 +7685,7 @@ export default function TailorWorkspace() {
                                 aria-hidden="true"
                                 className="max-h-full max-w-[120px] object-contain"
                               />
-                            ) : (
-                              <svg
-                                width="80"
-                                height="32"
-                                viewBox="0 0 80 32"
-                                fill="none"
-                                xmlns="http://www.w3.org/2000/svg"
-                                aria-hidden="true"
-                                className="text-[#1a1a1a]"
-                              >
-                                <path
-                                  d="M 10 24 C 10 8, 22 2, 22 14 C 22 20, 16 26, 12 24 C 10 22, 14 18, 20 18 C 24 18, 26 22, 28 20 C 30 18, 30 20, 32 20 C 34 20, 34 22, 36 20 C 44 8, 48 2, 46 16 C 45 24, 40 28, 43 28 C 46 28, 52 14, 56 16 C 58 17, 58 20, 60 20 C 62 20, 62 18, 64 18 C 66 18, 67 22, 70 20"
-                                  stroke="currentColor"
-                                  strokeWidth="1.5"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
-                            )}
+                            ) : null}
                           </div>
 
                           {/* Printed Name */}
