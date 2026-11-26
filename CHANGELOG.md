@@ -18,6 +18,11 @@ When v2 is complete, `develop/v2` merges into `master` and is tagged `v2.0.0`.
 
 The scope is pending owner approval. See `docs/QA_REPORT_2026-11-25.md` for the findings behind it.
 
+## [1.0.1] — 2026-11-26
+
+### Fixed
+- Production build (`next build`) failed type checking: the dashboard and tailor page files exported helper functions/constants, which Next.js 16 does not allow in page modules. They are now module-private. No behaviour change.
+
 ## [1.0.0] — 2026-11-25
 
 First tagged release. It is a snapshot of `master` as of PR #11.
