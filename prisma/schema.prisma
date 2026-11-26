@@ -108,8 +108,10 @@ model TailorDiagnosticLog {
 model UserToken {
   id        String   @id @default(uuid())
   userId    String   @unique
-  tokens    Int      @default(200)
+  tokens    Int      @default(100)
   updatedAt DateTime @updatedAt
+  // Last monthly free-plan refill (src/lib/tokens.ts)
+  lastRefillAt DateTime?
 
   @@index([userId])
 }
