@@ -129,7 +129,10 @@ export function TokenProvider({ children }: { children: React.ReactNode }) {
                   </span>
                 </div>
                 <p className="text-zinc-400 text-xs leading-relaxed">
-                  Tokens control your access to JobFlow's tailoring and import operations. Please contact support or your administrator to top up your token balance.
+                  The free plan includes 100 tokens per month. Your balance refills to 100 on{' '}
+                  <strong className="text-zinc-200">
+                    {new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 1)).toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}
+                  </strong>. Need more before then? Contact support.
                 </p>
               </div>
 

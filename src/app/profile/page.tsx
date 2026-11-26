@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   User, Briefcase, GraduationCap, Code2, Globe2, Plus, Trash2, Save, Sparkles, CheckCircle2, RefreshCw, FileText, FolderGit, Pencil,
   Layers, AlignLeft, List, Tag, ChevronUp, ChevronDown, Check, X
@@ -121,6 +121,8 @@ export default function ProfileVault() {
 
   const [activeTab, setActiveTab] = useState<'personal' | 'experience' | 'education' | 'skills' | 'projects' | 'custom'>('personal');
   const [loading, setLoading] = useState(true);
+  // Last saved state of the vault (JSON); null until the profile has loaded
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [newCustomSecTitle, setNewCustomSecTitle] = useState('');
   const [newCustomSecType, setNewCustomSecType] = useState<CustomSectionType>('bullet-list');
@@ -211,22 +213,58 @@ export default function ProfileVault() {
     }
   }, [sigProcessorOriginal, sigProcessorThreshold]);
 
-  const finishImport = (imported: any, mode: 'merge' | 'replace') => {
-    setProfile(prev => (mode === 'merge' ? mergeImportedProfile(prev, imported) : replaceWithImported(prev, imported)));
+  // Applies an import and saves it right away, so a paid import is never lost
+  const finishImport = async (imported: any, mode: 'merge' | 'replace') => {
+    const next = mode === 'merge' ? mergeImportedProfile(profile, imported) : replaceWithImported(profile, imported);
+    setProfile(next);
     setPendingImport(null);
+    const saved = await saveProfile(next);
+    if (!saved) return; // saveProfile already showed the error; changes stay on screen (unsaved)
     confetti({
       particleCount: 80,
       spread: 60,
       origin: { y: 0.3 }
     });
     showAlert({
-      title: 'Import Completed',
+      title: 'Import Saved',
       message: mode === 'merge'
-        ? 'New entries from the import were added to your vault; your existing details were kept. Review them in the tabs below and click "Save Vault" to commit.'
-        : 'Your vault was replaced with the imported details (photo, signature and custom sections were kept). Review them and click "Save Vault" to commit.',
+        ? 'New entries from the import were added to your vault and saved; your existing details were kept. Review them in the tabs below.'
+        : 'Your vault was replaced with the imported details and saved (photo, signature and custom sections were kept). Review them in the tabs below.',
       type: 'success'
     });
   };
+
+  // === Unsaved changes (v2 Phase 4) ===
+  useEffect(() => {
+    if (!loading && savedSnapshot === null) setSavedSnapshot(JSON.stringify(profile));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
+  const isDirty = useMemo(
+    () => savedSnapshot !== null && JSON.stringify(profile) !== savedSnapshot,
+    [profile, savedSnapshot]
+  );
+  useEffect(() => {
+    if (!isDirty) return;
+    // Closing / reloading the tab
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    // In-app navigation (header links etc.): ask before leaving
+    const onClickCapture = (e: MouseEvent) => {
+      const a = (e.target as HTMLElement | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+      if (!a || a.target === '_blank' || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      const url = new URL(a.href, window.location.href);
+      if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
+      if (!window.confirm('You have unsaved changes in your Master Vault. Leave without saving?')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    document.addEventListener('click', onClickCapture, true);
+    return () => {
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      document.removeEventListener('click', onClickCapture, true);
+    };
+  }, [isDirty]);
 
   // Ask before touching a vault that already has content; otherwise fill it directly
   const applyImport = (imported: any) => {
@@ -586,7 +624,8 @@ export default function ProfileVault() {
     });
   };
 
-  const saveProfile = async () => {
+  const saveProfile = async (profileToSave: UserProfile = profile): Promise<boolean> => {
+    const profile = profileToSave;
     setSaving(true);
     setSaveSuccess(false);
     try {
@@ -616,11 +655,13 @@ export default function ProfileVault() {
       });
       if (res.status === 401) {
         window.location.href = '/';
-        return;
+        return false;
       }
       if (res.ok) {
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
+        setSavedSnapshot(JSON.stringify(profileToSave));
+        return true;
       } else {
         let message = 'Your vault could not be saved. Please try again.';
         try {
@@ -628,10 +669,12 @@ export default function ProfileVault() {
           if (errJson?.error) message = errJson.error;
         } catch {}
         showAlert({ title: 'Save Failed', message, type: 'error' });
+        return false;
       }
     } catch (err) {
       console.error('Failed to save profile:', err);
       showAlert({ title: 'Save Failed', message: 'Your vault could not be saved. Please check your connection and try again.', type: 'error' });
+      return false;
     } finally {
       setSaving(false);
     }
@@ -920,8 +963,13 @@ export default function ProfileVault() {
           </p>
         </div>
         
+        {isDirty && !saving && (
+          <span className="text-xs font-semibold text-amber-300 flex items-center gap-1.5" title="Your edits are not saved yet">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" /> Unsaved changes
+          </span>
+        )}
         <button
-          onClick={saveProfile}
+          onClick={() => saveProfile()}
           disabled={saving}
           className="w-full md:w-auto px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 disabled:opacity-50"
         >
@@ -2945,7 +2993,7 @@ export default function ProfileVault() {
         className="lg:hidden fixed bottom-[70px] right-4 z-40"
       >
         <button
-          onClick={saveProfile}
+          onClick={() => saveProfile()}
           disabled={saving}
           className={`px-4 py-2.5 rounded-2xl font-bold text-xs shadow-2xl flex items-center gap-2 cursor-pointer transition-all ${
             saveSuccess
@@ -2978,7 +3026,7 @@ export default function ProfileVault() {
             <div>
               <h3 className="text-lg font-bold text-white">Your vault already has content</h3>
               <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
-                How should the imported details be applied? Nothing is saved until you click "Save Vault".
+                How should the imported details be applied? Your vault is saved right after you choose.
               </p>
             </div>
             <div className="space-y-2">

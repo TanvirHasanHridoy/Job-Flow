@@ -67,7 +67,7 @@ export default function RefusalReport({ matchScore, gapAnalysis, tokenCost }: Re
             either directly or through closely related experience, so your CV stays believable in interviews.
           </p>
           <p className="text-[11px] text-zinc-500 mt-1">
-            Match score: {matchScore}% · {tokenCost} tokens were used for this analysis.
+            Profile fit: {matchScore}% · {tokenCost} tokens were used for this analysis.
           </p>
         </div>
       </div>
