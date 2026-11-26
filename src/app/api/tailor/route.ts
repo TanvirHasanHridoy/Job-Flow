@@ -5,7 +5,7 @@ import { enforceRateLimit } from '@/lib/rateLimit';
 import { classifySkillCategory } from '@/lib/skills';
 import { getUserTokens, deductTokens, topUpTokens, TOKEN_PRICING } from '@/lib/tokens';
 import { aiResponseCache, generateCacheKey } from '@/lib/cache';
-import { getAiConfig } from '@/lib/ai';
+import { getAiConfig, aiFetch } from '@/lib/ai';
 import { formatCityCountry } from '@/lib/customSections';
 import { buildBulletMatrixSystemPrompt } from '@/lib/bulletMatrixPrompts';
 import { callAiJson } from '@/lib/aiCall';
@@ -230,14 +230,7 @@ export async function POST(req: Request) {
           //   body: JSON.stringify({ model: process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro', ...translationPayload })
           // });
 
-          const translationRes = await fetch(aiConfig.apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${aiConfig.apiKey}`
-            },
-            body: JSON.stringify(translationPayload)
-          });
+          const translationRes = await aiFetch(translationPayload);
 
           if (translationRes.ok) {
             const transJson = await translationRes.json();
@@ -530,15 +523,7 @@ Signing city for date lines: ${signingCity || '(none — use the date only, with
           await new Promise(resolve => setTimeout(resolve, delay));
         }
 
-        response = await fetch(aiConfig.apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${aiConfig.apiKey}`
-          },
-          body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(120000)
-        });
+        response = await aiFetch(payload, { signal: AbortSignal.timeout(120000) });
 
         if (response.ok) {
           lastError = null;
