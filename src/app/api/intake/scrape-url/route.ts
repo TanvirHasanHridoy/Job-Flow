@@ -7,6 +7,7 @@ import { getAiConfig } from '@/lib/ai';
 import * as cheerio from 'cheerio';
 import { assertPublicHttpUrl, safeFetch, UnsafeUrlError } from '@/lib/safeFetch';
 import { extractStructuredJob } from '@/lib/jobIntake';
+import { checkJobDescription } from '@/lib/jobDescriptionCheck';
 
 // === DeepSeek API Configuration (Preserved / Commented as requested) ===
 // const DEEPSEEK_API_URL = 'https://api.deepseek.com/chat/completions';
@@ -224,6 +225,16 @@ export async function POST(req: Request) {
       });
     }
 
+    // Free check before calling the AI: skip pages that clearly aren't job ads
+    const pageCheck = checkJobDescription(rawText);
+    if (!pageCheck.ok && pageCheck.reason !== 'looks-like-cv') {
+      await refundTokens();
+      return NextResponse.json({
+        fallback: true,
+        message: "This page doesn't look like a job posting. Nothing was charged. Check the link, or paste the job description into the workspace."
+      });
+    }
+
     // --- DeepSeek Clean & Structuring Prompt ---
     const systemPrompt = `You are a professional recruiting intake analyzer. Your task is to process raw scraped text from a job posting web page and extract:
 1. Job Title / Role Name (e.g. "Senior React Developer")
@@ -325,6 +336,17 @@ Please parse and return the JSON object.`;
       await refundTokens();
       console.error('Failed to parse scrape AI output:', parseErr);
       return NextResponse.json({ error: 'AI produced invalid JSON output. Please retry.' }, { status: 502 });
+    }
+
+    // The AI may "succeed" on a page without a real posting (e.g. 'Not specified'): refund
+    const outputCheck = checkJobDescription(parsedData?.jobDescription);
+    const noRole = !parsedData?.roleName || /^not specified$/i.test(String(parsedData.roleName).trim());
+    if (!outputCheck.ok || noRole) {
+      await refundTokens();
+      return NextResponse.json({
+        fallback: true,
+        message: "We couldn't find a job posting on this page. Nothing was charged. Please paste the job description into the workspace."
+      });
     }
 
     return NextResponse.json({
