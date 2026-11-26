@@ -144,7 +144,7 @@ export interface ColorTheme {
   previewColor: string;
 }
 
-export const COLOR_THEMES: Record<ColorThemeId, ColorTheme> = {
+const COLOR_THEMES: Record<ColorThemeId, ColorTheme> = {
   'classic-oxford': {
     id: 'classic-oxford',
     name: 'Classic Oxford',
@@ -207,7 +207,7 @@ export interface CvLayoutTemplate {
   headerStyle: 'classic-underlined' | 'swiss-solid-bar' | 'tech-mono-bracket' | 'minimal-pill';
 }
 
-export const LAYOUT_TEMPLATES: Record<CvLayoutTemplateId, CvLayoutTemplate> = {
+const LAYOUT_TEMPLATES: Record<CvLayoutTemplateId, CvLayoutTemplate> = {
   'standard': {
     id: 'standard',
     name: 'Modern Standard',
