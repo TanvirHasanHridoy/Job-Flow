@@ -42,13 +42,13 @@ export default function RefusalReport({ matchScore, gapAnalysis, tokenCost }: Re
         <div className="min-w-0">
           <p className="text-zinc-200 text-xs">{r.requirement}</p>
           {r.status === 'ADJACENT' && r.bridgeFrom && (
-            <p className="text-[10px] text-indigo-300/80">Related experience: {r.bridgeFrom}</p>
+            <p className="text-xs text-indigo-300/80">Related experience: {r.bridgeFrom}</p>
           )}
           {r.status === 'MATCH' && r.evidence && (
-            <p className="text-[10px] text-zinc-500 truncate">{r.evidence}</p>
+            <p className="text-xs text-zinc-500 truncate">{r.evidence}</p>
           )}
         </div>
-        <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border ${s.className}`}>
+        <span className={`shrink-0 inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${s.className}`}>
           <s.Icon className="w-3 h-3" />{s.label}
         </span>
       </li>
@@ -66,7 +66,7 @@ export default function RefusalReport({ matchScore, gapAnalysis, tokenCost }: Re
             requirements ({coveragePct}%). JobFlow only generates documents when at least {thresholdPct}% are covered,
             either directly or through closely related experience, so your CV stays believable in interviews.
           </p>
-          <p className="text-[11px] text-zinc-500 mt-1">
+          <p className="text-xs text-zinc-500 mt-1">
             Profile fit: {matchScore}% · {tokenCost} tokens were used for this analysis.
           </p>
         </div>
@@ -74,12 +74,12 @@ export default function RefusalReport({ matchScore, gapAnalysis, tokenCost }: Re
 
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Must-have requirements</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">Must-have requirements</p>
           <ul>{musts.map(renderRow)}</ul>
         </div>
         {nices.length > 0 && (
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-1">Nice to have</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">Nice to have</p>
             <ul>{nices.map(renderRow)}</ul>
           </div>
         )}
@@ -91,7 +91,7 @@ export default function RefusalReport({ matchScore, gapAnalysis, tokenCost }: Re
         </div>
       )}
 
-      <p className="mt-4 text-[11px] text-zinc-500">
+      <p className="mt-4 text-xs text-zinc-500">
         If you do have experience with the missing items, add it to your Master Vault and tailor again.
       </p>
     </div>

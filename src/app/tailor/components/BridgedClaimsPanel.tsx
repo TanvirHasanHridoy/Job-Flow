@@ -58,7 +58,7 @@ export default function BridgedClaimsPanel({
     return (
       <div className="flex items-start gap-2.5 p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
         <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-        <p className="text-[11px] text-zinc-300 leading-relaxed">
+        <p className="text-xs text-zinc-300 leading-relaxed">
           Everything in these documents is backed by your Master Vault. No bridged claims to review.
         </p>
       </div>
@@ -81,10 +81,10 @@ export default function BridgedClaimsPanel({
             <GitMerge className="w-4 h-4 text-amber-400" />
             Bridged claims
             {pending.length > 0 && (
-              <span className="ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500 text-black">{pending.length} to review</span>
+              <span className="ml-1 text-xs font-bold px-1.5 py-0.5 rounded-full bg-amber-500 text-black">{pending.length} to review</span>
             )}
           </h3>
-          <p className="text-[11px] text-zinc-400 leading-relaxed mt-1">
+          <p className="text-xs text-zinc-400 leading-relaxed mt-1">
             These statements go beyond what your Master Vault shows. Keep only what you can confidently back up in an interview.
           </p>
         </div>
@@ -112,8 +112,8 @@ export default function BridgedClaimsPanel({
         <ul className="space-y-2">
           {pending.map(c => (
             <li key={c.key} className={`p-2.5 rounded-xl border ${c.isViolation ? 'border-rose-500/30 bg-rose-500/5' : 'border-white/10 bg-zinc-900/60'}`}>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 mb-1">{where(c)}</p>
-              <p className="text-[11px] text-zinc-200 leading-relaxed line-clamp-4">{highlightTerms(c.text, c.terms.map(t => t.term))}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1">{where(c)}</p>
+              <p className="text-xs text-zinc-200 leading-relaxed line-clamp-4">{highlightTerms(c.text, c.terms.map(t => t.term))}</p>
               <div className="flex flex-wrap gap-1 mt-1.5">
                 {c.terms.map((t, i) => (
                   <span key={i} className={`text-[9.5px] px-1.5 py-0.5 rounded-md border ${t.kind === 'gap-skill' || t.kind === 'credential' ? 'border-rose-500/30 text-rose-300' : 'border-amber-500/30 text-amber-200'}`}>

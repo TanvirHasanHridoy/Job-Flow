@@ -141,7 +141,7 @@ export default function CanvasFloatingHud({
             >
               <span>{numPages} {numPages === 1 ? 'Page' : 'Pages'}</span>
               {numPages > 1 && isStrictOnePage && (
-                <span className="hidden sm:inline text-[9px] font-normal text-amber-300">
+                <span className="hidden sm:inline text-xs font-normal text-amber-300">
                   (Spillover)
                 </span>
               )}

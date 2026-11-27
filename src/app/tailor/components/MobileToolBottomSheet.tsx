@@ -73,7 +73,7 @@ export default function MobileToolBottomSheet({
                   onTabChange('generation');
                   if (!isOpen) onToggleOpen();
                 }}
-                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 shrink-0 ${
+                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 shrink-0 ${
                   activeTab === 'generation'
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-zinc-400 hover:text-white light:text-slate-600 bg-white/5'
@@ -89,7 +89,7 @@ export default function MobileToolBottomSheet({
                   onTabChange('ats');
                   if (!isOpen) onToggleOpen();
                 }}
-                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 shrink-0 ${
+                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 shrink-0 ${
                   activeTab === 'ats'
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-zinc-400 hover:text-white light:text-slate-600 bg-white/5'
@@ -98,7 +98,7 @@ export default function MobileToolBottomSheet({
                 <Award className="w-3 h-3 text-amber-300" />
                 <span>ATS</span>
                 {matchScore !== undefined && (
-                  <span title="Profile fit" className="text-[9px] px-1 rounded bg-emerald-500/20 text-emerald-300 font-extrabold">
+                  <span title="Profile fit" className="text-xs px-1 rounded bg-emerald-500/20 text-emerald-300 font-extrabold">
                     {matchScore}%
                   </span>
                 )}
@@ -110,7 +110,7 @@ export default function MobileToolBottomSheet({
                   onTabChange('customization');
                   if (!isOpen) onToggleOpen();
                 }}
-                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 shrink-0 ${
+                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 shrink-0 ${
                   activeTab === 'customization'
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-zinc-400 hover:text-white light:text-slate-600 bg-white/5'
@@ -126,7 +126,7 @@ export default function MobileToolBottomSheet({
                   onTabChange('spacing');
                   if (!isOpen) onToggleOpen();
                 }}
-                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold transition-all flex items-center gap-1 shrink-0 ${
+                className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1 shrink-0 ${
                   activeTab === 'spacing'
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-zinc-400 hover:text-white light:text-slate-600 bg-white/5'

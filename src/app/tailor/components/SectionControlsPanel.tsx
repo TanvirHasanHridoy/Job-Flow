@@ -839,10 +839,10 @@ export default function SectionControlsPanel({
             </div>
             <div>
               <span className="font-bold text-white text-xs block">Visual Page Spacing</span>
-              <span className="text-[10px] text-zinc-400">Fine-tune global gaps & typography live</span>
+              <span className="text-xs text-zinc-400">Fine-tune global gaps & typography live</span>
             </div>
           </div>
-          <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 text-zinc-300 font-semibold">Live Preview</span>
+          <span className="text-xs px-2 py-0.5 rounded-md bg-white/5 text-zinc-300 font-semibold">Live Preview</span>
         </div>
 
         {/* Spacing Presets */}
@@ -850,31 +850,31 @@ export default function SectionControlsPanel({
           <button
             type="button"
             onClick={() => applyPreset('default')}
-            className="py-1.5 text-[11px] font-bold rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
+            className="py-1.5 text-xs font-bold rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
           >
             Default
           </button>
           <button
             type="button"
             onClick={() => applyPreset('compact')}
-            className="py-1.5 text-[11px] font-bold rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
+            className="py-1.5 text-xs font-bold rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
           >
             Compact
           </button>
           <button
             type="button"
             onClick={() => applyPreset('tight')}
-            className="py-1.5 text-[11px] font-bold rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
+            className="py-1.5 text-xs font-bold rounded-lg text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer bg-zinc-900/50"
           >
             Ultra-Tight
           </button>
         </div>
 
         {/* Sliders Grid */}
-        <div className="grid grid-cols-2 gap-3 pt-1 text-[11px]">
+        <div className="grid grid-cols-2 gap-3 pt-1 text-xs">
           {/* Base Font Size */}
           <div className="flex flex-col gap-1 p-2 rounded-xl bg-white/[0.02] border border-white/5">
-            <div className="flex justify-between text-zinc-400 text-[10px]">
+            <div className="flex justify-between text-zinc-400 text-xs">
               <span>Base Font</span>
               <span className="font-bold text-indigo-300">{fontSize}px</span>
             </div>
@@ -891,7 +891,7 @@ export default function SectionControlsPanel({
 
           {/* Section Gaps */}
           <div className="flex flex-col gap-1 p-2 rounded-xl bg-white/[0.02] border border-white/5">
-            <div className="flex justify-between text-zinc-400 text-[10px]">
+            <div className="flex justify-between text-zinc-400 text-xs">
               <span>Section Gaps</span>
               <span className="font-bold text-indigo-300">{sectionSpacing}px</span>
             </div>
@@ -908,7 +908,7 @@ export default function SectionControlsPanel({
 
           {/* Header Gap */}
           <div className="flex flex-col gap-1 p-2 rounded-xl bg-white/[0.02] border border-white/5">
-            <div className="flex justify-between text-zinc-400 text-[10px]">
+            <div className="flex justify-between text-zinc-400 text-xs">
               <span>Header Gap</span>
               <span className="font-bold text-indigo-300">{headerSpacing}px</span>
             </div>
@@ -925,7 +925,7 @@ export default function SectionControlsPanel({
 
           {/* Bullet Spacing */}
           <div className="flex flex-col gap-1 p-2 rounded-xl bg-white/[0.02] border border-white/5">
-            <div className="flex justify-between text-zinc-400 text-[10px]">
+            <div className="flex justify-between text-zinc-400 text-xs">
               <span>Bullet Gaps</span>
               <span className="font-bold text-indigo-300">{bulletSpacing}px</span>
             </div>
@@ -942,7 +942,7 @@ export default function SectionControlsPanel({
 
           {/* Page Padding Top */}
           <div className="flex flex-col gap-1 p-2 rounded-xl bg-white/[0.02] border border-white/5">
-            <div className="flex justify-between text-zinc-400 text-[10px]">
+            <div className="flex justify-between text-zinc-400 text-xs">
               <span>Top Margins</span>
               <span className="font-bold text-indigo-300">{pagePaddingTop}mm</span>
             </div>
@@ -959,7 +959,7 @@ export default function SectionControlsPanel({
 
           {/* Page Padding Side */}
           <div className="flex flex-col gap-1 p-2 rounded-xl bg-white/[0.02] border border-white/5">
-            <div className="flex justify-between text-zinc-400 text-[10px]">
+            <div className="flex justify-between text-zinc-400 text-xs">
               <span>Side Margins</span>
               <span className="font-bold text-indigo-300">{pagePaddingSide}mm</span>
             </div>
@@ -985,14 +985,14 @@ export default function SectionControlsPanel({
         <button
           type="button"
           onClick={() => setIsAddCustomModalOpen(true)}
-          className="px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-[11px] font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+          className="px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>Add Custom Section</span>
         </button>
       </div>
 
-      <p className="text-[11px] text-zinc-400 leading-tight">
+      <p className="text-xs text-zinc-400 leading-tight">
         Drag sections or use arrows to reorder. Expand any section to edit, reorder, or toggle individual items.
       </p>
 
@@ -1078,7 +1078,7 @@ export default function SectionControlsPanel({
                     className="flex-1 text-left font-bold text-white text-xs truncate hover:text-indigo-300 transition-colors cursor-pointer"
                   >
                     {label}
-                    {isHidden && <span className="ml-2 text-[10px] text-amber-400 font-normal">(Hidden)</span>}
+                    {isHidden && <span className="ml-2 text-xs text-amber-400 font-normal">(Hidden)</span>}
                   </button>
                 </div>
 
@@ -1161,11 +1161,11 @@ export default function SectionControlsPanel({
                   {secKey === 'work' && (
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-[11px] font-semibold text-zinc-400">Experience Items:</span>
+                        <span className="text-xs font-semibold text-zinc-400">Experience Items:</span>
                         <button
                           type="button"
                           onClick={() => setIsAddWorkModalOpen(true)}
-                          className="px-2 py-0.5 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                          className="px-2 py-0.5 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
                         >
                           <Plus className="w-3 h-3" />
                           Add Role
@@ -1177,7 +1177,7 @@ export default function SectionControlsPanel({
                           <div className="flex justify-between items-center">
                             <div className="truncate">
                               <span className="font-bold text-white text-xs">{w.role}</span>
-                              <span className="text-zinc-400 text-[11px] block">{w.company} • {w.period}</span>
+                              <span className="text-zinc-400 text-xs block">{w.company} • {w.period}</span>
                             </div>
                             <div className="flex items-center gap-1">
                               <button
@@ -1210,7 +1210,7 @@ export default function SectionControlsPanel({
                           <div className="space-y-1.5 pl-2 border-l border-white/5">
                             {getBulletsArray(w.bullets).map((b: string, bIdx: number) => (
                               <div key={bIdx} className="flex items-start gap-1.5 group">
-                                <span className="text-zinc-500 text-[10px] mt-0.5">•</span>
+                                <span className="text-zinc-500 text-xs mt-0.5">•</span>
                                 <input
                                   type="text"
                                   value={b}
@@ -1220,7 +1220,7 @@ export default function SectionControlsPanel({
                                     updatedBullets[bIdx] = e.target.value;
                                     updateWorkBullets(wIdx, updatedBullets);
                                   }}
-                                  className="glass-input px-2 py-1 text-[11px] flex-1"
+                                  className="glass-input px-2 py-1 text-xs flex-1"
                                 />
                                 <button
                                   type="button"
@@ -1243,7 +1243,7 @@ export default function SectionControlsPanel({
                                 const updatedBullets = [...currentBullets, 'Delivered impactful technical solution and optimizations.'];
                                 updateWorkBullets(wIdx, updatedBullets);
                               }}
-                              className="text-[10px] text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 pt-1 cursor-pointer"
+                              className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 pt-1 cursor-pointer"
                             >
                               <Plus className="w-2.5 h-2.5" />
                               Add Bullet
@@ -1258,11 +1258,11 @@ export default function SectionControlsPanel({
                   {secKey === 'education' && (
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-[11px] font-semibold text-zinc-400">Degrees & Qualifications:</span>
+                        <span className="text-xs font-semibold text-zinc-400">Degrees & Qualifications:</span>
                         <button
                           type="button"
                           onClick={() => setIsAddEduModalOpen(true)}
-                          className="px-2 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                          className="px-2 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-bold flex items-center gap-1 cursor-pointer"
                         >
                           <Plus className="w-3 h-3" />
                           Add Education
@@ -1273,7 +1273,7 @@ export default function SectionControlsPanel({
                         <div key={eduIdx} className="p-2.5 rounded-xl bg-white/[0.02] border border-white/5 flex justify-between items-center">
                           <div className="truncate">
                             <span className="font-bold text-white text-xs">{edu.degree}</span>
-                            <span className="text-zinc-400 text-[11px] block">{edu.institution} • {edu.period}</span>
+                            <span className="text-zinc-400 text-xs block">{edu.institution} • {edu.period}</span>
                           </div>
                           <div className="flex items-center gap-1">
                             <button
@@ -1309,11 +1309,11 @@ export default function SectionControlsPanel({
                   {secKey === 'projects' && (
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-[11px] font-semibold text-zinc-400">Tailored Projects:</span>
+                        <span className="text-xs font-semibold text-zinc-400">Tailored Projects:</span>
                         <button
                           type="button"
                           onClick={() => setIsAddProjModalOpen(true)}
-                          className="px-2 py-0.5 rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                          className="px-2 py-0.5 rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-300 text-xs font-bold flex items-center gap-1 cursor-pointer"
                         >
                           <Plus className="w-3 h-3" />
                           Add Project
@@ -1371,7 +1371,7 @@ export default function SectionControlsPanel({
                                 setResult({ ...result, tailoredCv: { ...result.tailoredCv, projects: updated } });
                               }}
                               placeholder="Project description..."
-                              className="glass-input px-2.5 py-1.5 text-[11px] w-full"
+                              className="glass-input px-2.5 py-1.5 text-xs w-full"
                             />
                           </div>
                         );
@@ -1384,12 +1384,12 @@ export default function SectionControlsPanel({
                     <div className="space-y-4">
                       {/* Skills Layout Toggle */}
                       <div className="flex items-center justify-between pb-2 border-b border-white/5">
-                        <span className="text-[11px] font-semibold text-zinc-400">Skills Display Mode:</span>
+                        <span className="text-xs font-semibold text-zinc-400">Skills Display Mode:</span>
                         <div className="flex gap-1 bg-zinc-900 border border-white/10 rounded-lg p-0.5">
                           <button
                             type="button"
                             onClick={() => setSkillsLayout('category')}
-                            className={`px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer transition-all ${skillsLayout === 'category' ? 'bg-indigo-600 text-white' : 'text-zinc-400 hover:text-white'
+                            className={`px-2.5 py-1 rounded text-xs font-bold cursor-pointer transition-all ${skillsLayout === 'category' ? 'bg-indigo-600 text-white' : 'text-zinc-400 hover:text-white'
                               }`}
                           >
                             By Category
@@ -1397,7 +1397,7 @@ export default function SectionControlsPanel({
                           <button
                             type="button"
                             onClick={() => setSkillsLayout('level')}
-                            className={`px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer transition-all ${skillsLayout === 'level' ? 'bg-indigo-600 text-white' : 'text-zinc-400 hover:text-white'
+                            className={`px-2.5 py-1 rounded text-xs font-bold cursor-pointer transition-all ${skillsLayout === 'level' ? 'bg-indigo-600 text-white' : 'text-zinc-400 hover:text-white'
                               }`}
                           >
                             By Level
@@ -1409,11 +1409,11 @@ export default function SectionControlsPanel({
                       {skillsLayout === 'category' ? (
                         <div className="space-y-3">
                           <div className="flex justify-between items-center">
-                            <span className="text-[11px] text-zinc-400">Reorder categories & skills:</span>
+                            <span className="text-xs text-zinc-400">Reorder categories & skills:</span>
                             <button
                               type="button"
                               onClick={() => setIsAddingNewCategory(true)}
-                              className="px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                              className="px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 text-xs font-bold flex items-center gap-1 cursor-pointer"
                             >
                               <Plus className="w-3 h-3" />
                               Add Category
@@ -1507,7 +1507,7 @@ export default function SectionControlsPanel({
                                       <GripVertical className="w-3.5 h-3.5" />
                                     </div>
                                     <span className="font-bold text-amber-300 text-xs">{catName}</span>
-                                    <span className="text-[10px] text-zinc-500">({skillsInCat.length})</span>
+                                    <span className="text-xs text-zinc-500">({skillsInCat.length})</span>
                                   </div>
 
                                   <div className="flex items-center gap-1">
@@ -1543,7 +1543,7 @@ export default function SectionControlsPanel({
                                 {/* Skills Chips (Draggable & Reorderable) */}
                                 <div className="flex flex-wrap gap-1.5 items-center pt-1 min-h-[28px]">
                                   {skillsInCat.length === 0 && (
-                                    <span className="text-[10px] text-zinc-500 italic py-0.5">
+                                    <span className="text-xs text-zinc-500 italic py-0.5">
                                       Empty category. Drag skills here or click + Add.
                                     </span>
                                   )}
@@ -1586,7 +1586,7 @@ export default function SectionControlsPanel({
                                             setDraggedSkill(null);
                                           }
                                         }}
-                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-800 border text-zinc-200 text-[11px] group/chip cursor-grab active:cursor-grabbing transition-all ${isItemDragging ? 'opacity-30 border-dashed border-indigo-400 scale-95' :
+                                        className={`flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-800 border text-zinc-200 text-xs group/chip cursor-grab active:cursor-grabbing transition-all ${isItemDragging ? 'opacity-30 border-dashed border-indigo-400 scale-95' :
                                             isItemOver ? 'border-indigo-400 bg-indigo-500/20 scale-105 shadow-md' :
                                               'border-zinc-700/80 hover:border-zinc-500'
                                           }`}
@@ -1639,7 +1639,7 @@ export default function SectionControlsPanel({
                                         autoFocus
                                         onBlur={() => handleAddSkillToCategory(catName)}
                                         onKeyDown={e => e.key === 'Enter' && handleAddSkillToCategory(catName)}
-                                        className="text-[10px] px-2 py-0.5 rounded bg-zinc-800 border border-indigo-500 text-white w-24 focus:outline-none"
+                                        className="text-xs px-2 py-0.5 rounded bg-zinc-800 border border-indigo-500 text-white w-24 focus:outline-none"
                                       />
                                     </div>
                                   ) : (
@@ -1649,7 +1649,7 @@ export default function SectionControlsPanel({
                                         setAddingSkillToCategory(catName);
                                         setNewSkillInCategoryInput('');
                                       }}
-                                      className="text-[10px] px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/5 flex items-center gap-1 cursor-pointer"
+                                      className="text-xs px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-white border border-white/5 flex items-center gap-1 cursor-pointer"
                                     >
                                       <Plus className="w-2.5 h-2.5" />
                                       Add
@@ -1664,12 +1664,12 @@ export default function SectionControlsPanel({
                         /* LEVEL MODE LIST */
                         <div className="space-y-3">
                           <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-2">
-                            <span className="text-[11px] font-bold text-emerald-300">Expert / Advanced Skills</span>
+                            <span className="text-xs font-bold text-emerald-300">Expert / Advanced Skills</span>
                             <div className="flex flex-wrap gap-1.5">
                               {(result?.tailoredCv?.skills || []).map((s: any, idx: number) => {
                                 const name = typeof s === 'string' ? s : s.name;
                                 return (
-                                  <span key={idx} className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-[11px] text-zinc-200">
+                                  <span key={idx} className="px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-xs text-zinc-200">
                                     {name}
                                   </span>
                                 );
@@ -1685,11 +1685,11 @@ export default function SectionControlsPanel({
                   {secKey === 'languages' && (
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-[11px] font-semibold text-zinc-400">Languages & Proficiencies:</span>
+                        <span className="text-xs font-semibold text-zinc-400">Languages & Proficiencies:</span>
                         <button
                           type="button"
                           onClick={() => setIsAddLanguageModalOpen(true)}
-                          className="px-2 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                          className="px-2 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-xs font-bold flex items-center gap-1 cursor-pointer"
                         >
                           <Plus className="w-3 h-3" />
                           Add Language
@@ -1697,7 +1697,7 @@ export default function SectionControlsPanel({
                       </div>
 
                       {(!result?.tailoredCv?.languages || result.tailoredCv.languages.length === 0) && (
-                        <div className="p-3 rounded-xl bg-white/[0.02] border border-dashed border-white/10 text-center text-zinc-500 text-[11px]">
+                        <div className="p-3 rounded-xl bg-white/[0.02] border border-dashed border-white/10 text-center text-zinc-500 text-xs">
                           No languages added yet. Click &quot;Add Language&quot; above to include your language proficiencies.
                         </div>
                       )}
@@ -1743,13 +1743,13 @@ export default function SectionControlsPanel({
                           </div>
 
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-zinc-400 uppercase font-semibold">Proficiency:</span>
+                            <span className="text-xs text-zinc-400 uppercase font-semibold">Proficiency:</span>
                             <input
                               type="text"
                               value={lang.level || ''}
                               onChange={(e) => handleUpdateLanguage(lIdx, 'level', e.target.value)}
                               placeholder="e.g. C1 / Native / Fluent"
-                              className="glass-input px-2.5 py-1 text-[11px] flex-1 text-zinc-300"
+                              className="glass-input px-2.5 py-1 text-xs flex-1 text-zinc-300"
                             />
                           </div>
                         </div>
@@ -1762,13 +1762,13 @@ export default function SectionControlsPanel({
                   {isCustom && customSec && (
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-[10px] text-zinc-500 uppercase tracking-wider font-semibold">
+                        <span className="text-xs text-zinc-500 uppercase tracking-wider font-semibold">
                           Format: {customSec.type === 'subgroup-items' ? 'Categorized Credentials / Items' : customSec.type}
                         </span>
                         <button
                           type="button"
                           onClick={() => handleDeleteCustomSection(customSec.id)}
-                          className="text-[10px] text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1 cursor-pointer"
+                          className="text-xs text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1 cursor-pointer"
                         >
                           <Trash2 className="w-3 h-3" />
                           Delete Section
@@ -1779,11 +1779,11 @@ export default function SectionControlsPanel({
                       {customSec.type === 'subgroup-items' && (
                         <div className="space-y-3">
                           <div className="flex justify-between items-center">
-                            <span className="text-[11px] text-zinc-400">Categories & Credentials:</span>
+                            <span className="text-xs text-zinc-400">Categories & Credentials:</span>
                             <button
                               type="button"
                               onClick={() => handleAddSubgroupToCustomSec(customSec.id, 'New Category')}
-                              className="px-2 py-0.5 rounded bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                              className="px-2 py-0.5 rounded bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-xs font-bold flex items-center gap-1 cursor-pointer"
                             >
                               <Plus className="w-3 h-3" />
                               Add Category
@@ -1818,7 +1818,7 @@ export default function SectionControlsPanel({
                               <div className="space-y-1.5 pl-2">
                                 {(sub.items || []).map((itemStr, itmIdx) => (
                                   <div key={itmIdx} className="flex items-center gap-1.5">
-                                    <span className="text-zinc-500 text-[10px]">•</span>
+                                    <span className="text-zinc-500 text-xs">•</span>
                                     <input
                                       type="text"
                                       value={itemStr}
@@ -1828,7 +1828,7 @@ export default function SectionControlsPanel({
                                         const updatedSubgroups = customSec.subgroups?.map(s => s.id === sub.id ? { ...s, items: updatedItems } : s);
                                         setCustomSections(prev => prev.map(c => c.id === customSec.id ? { ...c, subgroups: updatedSubgroups } : c));
                                       }}
-                                      className="glass-input px-2 py-1 text-[11px] flex-1"
+                                      className="glass-input px-2 py-1 text-xs flex-1"
                                     />
                                     <button
                                       type="button"
@@ -1843,7 +1843,7 @@ export default function SectionControlsPanel({
                                 <button
                                   type="button"
                                   onClick={() => handleAddItemToSubgroup(customSec.id, sub.id, 'New Credential / Item')}
-                                  className="text-[10px] text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 pt-1 cursor-pointer"
+                                  className="text-xs text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 pt-1 cursor-pointer"
                                 >
                                   <Plus className="w-2.5 h-2.5" />
                                   Add Item
@@ -1859,7 +1859,7 @@ export default function SectionControlsPanel({
                         <div className="space-y-1.5">
                           {(customSec.bullets || []).map((b, bIdx) => (
                             <div key={bIdx} className="flex items-start gap-1.5">
-                              <span className="text-zinc-500 text-[10px] mt-1">•</span>
+                              <span className="text-zinc-500 text-xs mt-1">•</span>
                               <input
                                 type="text"
                                 value={b}
@@ -1868,7 +1868,7 @@ export default function SectionControlsPanel({
                                   updated[bIdx] = e.target.value;
                                   setCustomSections(prev => prev.map(c => c.id === customSec.id ? { ...c, bullets: updated } : c));
                                 }}
-                                className="glass-input px-2 py-1 text-[11px] flex-1"
+                                className="glass-input px-2 py-1 text-xs flex-1"
                               />
                               <button
                                 type="button"
@@ -1888,7 +1888,7 @@ export default function SectionControlsPanel({
                               const updated = [...(customSec.bullets || []), 'New bullet description.'];
                               setCustomSections(prev => prev.map(c => c.id === customSec.id ? { ...c, bullets: updated } : c));
                             }}
-                            className="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 pt-1 cursor-pointer"
+                            className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1 pt-1 cursor-pointer"
                           >
                             <Plus className="w-2.5 h-2.5" />
                             Add Bullet
@@ -1926,7 +1926,7 @@ export default function SectionControlsPanel({
                       {showSignatureSection && (
                         <div className="space-y-3 pt-2 border-t border-white/5 animate-in fade-in">
                           <div className="flex flex-col gap-1">
-                            <label className="text-[10px] text-zinc-400 font-semibold uppercase">Signing Location</label>
+                            <label className="text-xs text-zinc-400 font-semibold uppercase">Signing Location</label>
                             <input
                               type="text"
                               value={signingLocation}
@@ -1970,7 +1970,7 @@ export default function SectionControlsPanel({
 
             <div className="space-y-3 text-xs">
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Section Title</label>
+                <label className="text-xs text-zinc-400 font-semibold uppercase">Section Title</label>
                 <input
                   type="text"
                   value={newCustomTitle}
@@ -1981,7 +1981,7 @@ export default function SectionControlsPanel({
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Section Layout Template</label>
+                <label className="text-xs text-zinc-400 font-semibold uppercase">Section Layout Template</label>
                 <select
                   value={newCustomType}
                   onChange={e => setNewCustomType(e.target.value as CustomSectionType)}
@@ -2040,7 +2040,7 @@ export default function SectionControlsPanel({
             <div className="space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Job Title / Role</label>
+                  <label className="text-xs text-zinc-400 font-semibold uppercase">Job Title / Role</label>
                   <input
                     type="text"
                     value={newWorkRole}
@@ -2050,7 +2050,7 @@ export default function SectionControlsPanel({
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Company</label>
+                  <label className="text-xs text-zinc-400 font-semibold uppercase">Company</label>
                   <input
                     type="text"
                     value={newWorkCompany}
@@ -2063,7 +2063,7 @@ export default function SectionControlsPanel({
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Location</label>
+                  <label className="text-xs text-zinc-400 font-semibold uppercase">Location</label>
                   <input
                     type="text"
                     value={newWorkLocation}
@@ -2073,7 +2073,7 @@ export default function SectionControlsPanel({
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Period</label>
+                  <label className="text-xs text-zinc-400 font-semibold uppercase">Period</label>
                   <input
                     type="text"
                     value={newWorkPeriod}
@@ -2085,7 +2085,7 @@ export default function SectionControlsPanel({
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Key Bullets (One per line)</label>
+                <label className="text-xs text-zinc-400 font-semibold uppercase">Key Bullets (One per line)</label>
                 <textarea
                   value={newWorkBullets}
                   onChange={e => setNewWorkBullets(e.target.value)}
@@ -2140,7 +2140,7 @@ export default function SectionControlsPanel({
 
             <div className="space-y-3 text-xs">
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Degree / Qualification</label>
+                <label className="text-xs text-zinc-400 font-semibold uppercase">Degree / Qualification</label>
                 <input
                   type="text"
                   value={newEduDegree}
@@ -2151,7 +2151,7 @@ export default function SectionControlsPanel({
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Institution / University</label>
+                <label className="text-xs text-zinc-400 font-semibold uppercase">Institution / University</label>
                 <input
                   type="text"
                   value={newEduInstitution}
@@ -2163,7 +2163,7 @@ export default function SectionControlsPanel({
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Location</label>
+                  <label className="text-xs text-zinc-400 font-semibold uppercase">Location</label>
                   <input
                     type="text"
                     value={newEduLocation}
@@ -2173,7 +2173,7 @@ export default function SectionControlsPanel({
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Period</label>
+                  <label className="text-xs text-zinc-400 font-semibold uppercase">Period</label>
                   <input
                     type="text"
                     value={newEduPeriod}
@@ -2229,7 +2229,7 @@ export default function SectionControlsPanel({
 
             <div className="space-y-3 text-xs">
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Project Name</label>
+                <label className="text-xs text-zinc-400 font-semibold uppercase">Project Name</label>
                 <input
                   type="text"
                   value={newProjName}
@@ -2240,7 +2240,7 @@ export default function SectionControlsPanel({
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Technologies (comma separated)</label>
+                <label className="text-xs text-zinc-400 font-semibold uppercase">Technologies (comma separated)</label>
                 <input
                   type="text"
                   value={newProjTech}
@@ -2251,7 +2251,7 @@ export default function SectionControlsPanel({
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Project URL (Optional)</label>
+                <label className="text-xs text-zinc-400 font-semibold uppercase">Project URL (Optional)</label>
                 <input
                   type="url"
                   value={newProjUrl}
@@ -2262,7 +2262,7 @@ export default function SectionControlsPanel({
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Description / Scope</label>
+                <label className="text-xs text-zinc-400 font-semibold uppercase">Description / Scope</label>
                 <textarea
                   value={newProjDesc}
                   onChange={e => setNewProjDesc(e.target.value)}
@@ -2317,7 +2317,7 @@ export default function SectionControlsPanel({
 
             <div className="space-y-3 text-xs">
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Language</label>
+                <label className="text-xs text-zinc-400 font-semibold uppercase">Language</label>
                 <input
                   type="text"
                   value={newLanguageName}
@@ -2329,7 +2329,7 @@ export default function SectionControlsPanel({
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Proficiency Level</label>
+                <label className="text-xs text-zinc-400 font-semibold uppercase">Proficiency Level</label>
                 <select
                   value={newLanguageLevel}
                   onChange={e => setNewLanguageLevel(e.target.value)}
@@ -2346,7 +2346,7 @@ export default function SectionControlsPanel({
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Custom Proficiency Description (Optional)</label>
+                <label className="text-xs text-zinc-400 font-semibold uppercase">Custom Proficiency Description (Optional)</label>
                 <input
                   type="text"
                   value={newLanguageLevel}

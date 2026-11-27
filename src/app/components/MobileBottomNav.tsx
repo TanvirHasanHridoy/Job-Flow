@@ -24,14 +24,14 @@ export default function MobileBottomNav() {
       isActive: pathname === '/dashboard'
     },
     {
-      label: 'Tailor AI',
+      label: 'Tailor',
       href: '/tailor',
       icon: Sparkles,
       isActive: pathname === '/tailor',
       isHero: true
     },
     {
-      label: 'Profile Vault',
+      label: 'Profile',
       href: '/profile',
       icon: User,
       isActive: pathname === '/profile'

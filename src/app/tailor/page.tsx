@@ -5810,7 +5810,7 @@ export default function TailorWorkspace() {
               <Award className="w-3.5 h-3.5" />
               <span>Insights</span>
               {result?.matchScore !== undefined && (
-                <span title="Profile fit" className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                <span title="Profile fit" className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
                   {result.matchScore}%
                 </span>
               )}
@@ -5841,7 +5841,7 @@ export default function TailorWorkspace() {
                   <p className="text-zinc-300 leading-relaxed">
                     Your vault has no experience yet. Import your CV (PDF), LinkedIn or GitHub — or add it by hand — so the AI has real facts to tailor.
                   </p>
-                  <Link href="/profile" className="inline-flex px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[11px]">
+                  <Link href="/profile" className="inline-flex px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs">
                     Open Master Vault →
                   </Link>
                 </div>
@@ -5888,7 +5888,7 @@ export default function TailorWorkspace() {
 
               {intakeMethod === 'url' && (
                 <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] space-y-3 text-left">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Target Job Posting URL</label>
+                  <label className="text-xs text-zinc-400 font-semibold uppercase">Target Job Posting URL</label>
                   <div className="flex gap-2">
                     <input
                       type="url"
@@ -5913,17 +5913,17 @@ export default function TailorWorkspace() {
                       )}
                     </button>
                   </div>
-                  <p className="text-[10px] text-zinc-500 leading-relaxed">
+                  <p className="text-xs text-zinc-500 leading-relaxed">
                     Free and instant for Greenhouse, Lever, Ashby, Personio, SmartRecruiters and sites that publish job data. Other pages are read by AI for 5 tokens (refunded if it fails).
                   </p>
                   {scrapeWarning && (
-                    <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
+                    <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg text-xs leading-relaxed flex items-start gap-1.5 font-sans">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                       <span>{scrapeWarning}</span>
                     </div>
                   )}
                   {scrapeError && (
-                    <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
+                    <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-xs leading-relaxed flex items-start gap-1.5 font-sans">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                       <span>{scrapeError}</span>
                     </div>
@@ -5933,7 +5933,7 @@ export default function TailorWorkspace() {
 
               {intakeMethod === 'pdf' && (
                 <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] space-y-3 text-left">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Upload Job Advertisement PDF</label>
+                  <label className="text-xs text-zinc-400 font-semibold uppercase">Upload Job Advertisement PDF</label>
                   <div className="relative group">
                     <input
                       type="file"
@@ -5960,18 +5960,18 @@ export default function TailorWorkspace() {
                       {scraping ? (
                         <div className="flex items-center gap-1.5 font-sans">
                           <div className="w-3.5 h-3.5 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin"></div>
-                          <span className="text-[11px] text-zinc-400">Parsing PDF job description...</span>
+                          <span className="text-xs text-zinc-400">Parsing PDF job description...</span>
                         </div>
                       ) : (
                         <>
                           <span className="text-xs text-white font-medium">Select JD PDF (5 tokens)</span>
-                          <span className="text-[10px] text-zinc-500 mt-1">Drag and drop here</span>
+                          <span className="text-xs text-zinc-500 mt-1">Drag and drop here</span>
                         </>
                       )}
                     </label>
                   </div>
                   {scrapeError && (
-                    <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
+                    <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-xs leading-relaxed flex items-start gap-1.5 font-sans">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                       <span>{scrapeError}</span>
                     </div>
@@ -6031,11 +6031,11 @@ export default function TailorWorkspace() {
               {profile?.personas && profile.personas.length > 1 && (
                 <div className="p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-xl space-y-1.5 text-left font-sans shadow-sm">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <label className="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                       Source Career Persona
                     </label>
-                    <span className="text-[9px] text-zinc-400">Baseline for AI tailoring</span>
+                    <span className="text-xs text-zinc-400">Baseline for AI tailoring</span>
                   </div>
                   <select
                     value={selectedPersonaId}
@@ -6058,7 +6058,7 @@ export default function TailorWorkspace() {
                     <button
                       type="button"
                       onClick={() => setCvLanguage('EN')}
-                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'EN'
+                      className={`py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'EN'
                         ? 'bg-indigo-600 text-white shadow'
                         : 'text-zinc-400 hover:text-white'
                         }`}
@@ -6068,7 +6068,7 @@ export default function TailorWorkspace() {
                     <button
                       type="button"
                       onClick={() => setCvLanguage('DE')}
-                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'DE'
+                      className={`py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'DE'
                         ? 'bg-indigo-600 text-white shadow'
                         : 'text-zinc-400 hover:text-white'
                         }`}
@@ -6084,7 +6084,7 @@ export default function TailorWorkspace() {
                     <button
                       type="button"
                       onClick={() => setClLanguage('EN')}
-                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'EN'
+                      className={`py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'EN'
                         ? 'bg-indigo-600 text-white shadow'
                         : 'text-zinc-400 hover:text-white'
                         }`}
@@ -6094,7 +6094,7 @@ export default function TailorWorkspace() {
                     <button
                       type="button"
                       onClick={() => setClLanguage('DE')}
-                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'DE'
+                      className={`py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'DE'
                         ? 'bg-indigo-600 text-white shadow'
                         : 'text-zinc-400 hover:text-white'
                         }`}
@@ -6144,26 +6144,26 @@ export default function TailorWorkspace() {
 
                 {/* CV Style & Format 3-Way Selector */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV format</label>
+                  <label className="text-xs text-zinc-400 font-semibold uppercase">CV format</label>
                   <div className="grid grid-cols-3 gap-1 p-1 bg-zinc-900 border border-white/10 rounded-lg text-xs font-sans">
                     <button
                       type="button"
                       onClick={() => handleSetCvFormatMode('visual')}
-                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'visual' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
+                      className={`px-2 py-1.5 rounded-md font-medium text-xs transition-all cursor-pointer ${cvFormatMode === 'visual' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
                     >
                       Visual Layout
                     </button>
                     <button
                       type="button"
                       onClick={() => handleSetCvFormatMode('ats')}
-                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'ats' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
+                      className={`px-2 py-1.5 rounded-md font-medium text-xs transition-all cursor-pointer ${cvFormatMode === 'ats' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
                     >
                       Strict ATS
                     </button>
                     <button
                       type="button"
                       onClick={() => handleSetCvFormatMode('bullet-matrix')}
-                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'bullet-matrix' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
+                      className={`px-2 py-1.5 rounded-md font-medium text-xs transition-all cursor-pointer ${cvFormatMode === 'bullet-matrix' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
                     >
                       Bullet Matrix
                     </button>
@@ -6172,7 +6172,7 @@ export default function TailorWorkspace() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Tone</label>
+                    <label className="text-xs text-zinc-400 font-semibold uppercase">CV Tone</label>
                     <select
                       value={tone}
                       onChange={e => setTone(e.target.value)}
@@ -6186,7 +6186,7 @@ export default function TailorWorkspace() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Length Target</label>
+                    <label className="text-xs text-zinc-400 font-semibold uppercase">CV Length Target</label>
                     <select
                       value={lengthTarget}
                       onChange={e => setLengthTarget(e.target.value)}
@@ -6200,7 +6200,7 @@ export default function TailorWorkspace() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">CL Length</label>
+                    <label className="text-xs text-zinc-400 font-semibold uppercase">CL Length</label>
                     <select
                       value={clLength}
                       onChange={e => setClLength(e.target.value)}
@@ -6210,14 +6210,14 @@ export default function TailorWorkspace() {
                       <option value="Detailed & Elaborate">Detailed & Elaborate</option>
                     </select>
                     {result?.tailoredCoverLetter && getDisplayedClKey(result.tailoredCoverLetter, clLength) !== (clLength.includes('Short') ? 'short' : 'detailed') && (
-                      <p className="text-[10px] text-amber-300 leading-snug">
+                      <p className="text-xs text-amber-300 leading-snug">
                         This letter was written in the other length. Use “Regenerate Cover Letter” on the letter (5 tokens) to get this version.
                       </p>
                     )}
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Skills Highlight Mode</label>
+                    <label className="text-xs text-zinc-400 font-semibold uppercase">Skills Highlight Mode</label>
                     <select
                       value={skillsFocus}
                       onChange={e => setSkillsFocus(e.target.value)}
@@ -6235,7 +6235,7 @@ export default function TailorWorkspace() {
                     <span className="text-xs font-bold text-white flex items-center gap-1.5">
                       Adapt my descriptions to the job
                     </span>
-                    <span className="text-[10px] text-zinc-400 leading-tight">
+                    <span className="text-xs text-zinc-400 leading-tight">
                       Rewords your project and work descriptions toward the job, using only your facts
                     </span>
                   </div>
@@ -6272,7 +6272,7 @@ export default function TailorWorkspace() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Salary Expectation</label>
+                    <label className="text-xs text-zinc-400 font-semibold uppercase">Salary Expectation</label>
                     <input
                       type="text"
                       value={salaryExpectation}
@@ -6283,7 +6283,7 @@ export default function TailorWorkspace() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Notice Period / Availability</label>
+                    <label className="text-xs text-zinc-400 font-semibold uppercase">Notice Period / Availability</label>
                     <input
                       type="text"
                       value={noticePeriod}
@@ -6296,7 +6296,7 @@ export default function TailorWorkspace() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Signing Location</label>
+                    <label className="text-xs text-zinc-400 font-semibold uppercase">Signing Location</label>
                     <input
                       type="text"
                       value={signingLocation}
@@ -6307,7 +6307,7 @@ export default function TailorWorkspace() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Custom Focus Notes</label>
+                    <label className="text-xs text-zinc-400 font-semibold uppercase">Custom Focus Notes</label>
                     <input
                       type="text"
                       value={customNotes}
@@ -6319,7 +6319,7 @@ export default function TailorWorkspace() {
                 </div>
 
                 <div className="flex flex-col gap-1 mt-3">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase text-left">Overarching Theme / Directive (Optional)</label>
+                  <label className="text-xs text-zinc-400 font-semibold uppercase text-left">Overarching Theme / Directive (Optional)</label>
                   <textarea
                     value={themeDirective}
                     onChange={e => setThemeDirective(e.target.value)}
@@ -6437,7 +6437,7 @@ export default function TailorWorkspace() {
                           <span className="font-extrabold text-white text-sm shrink-0 w-16 text-center">{kc.matched}/{kc.total}</span>
                           <div>
                             <h4 className="font-bold text-white text-xs">Keywords in your CV</h4>
-                            <p className="text-[11px] text-zinc-400">Job keywords that appear in this CV's text — what ATS filters scan for.{kc.missing.length > 0 ? ` Not in the CV: ${kc.missing.join(', ')}.` : ''}</p>
+                            <p className="text-xs text-zinc-400">Job keywords that appear in this CV's text — what ATS filters scan for.{kc.missing.length > 0 ? ` Not in the CV: ${kc.missing.join(', ')}.` : ''}</p>
                           </div>
                         </div>
                       );
@@ -6454,16 +6454,16 @@ export default function TailorWorkspace() {
                         handleAddSkillInteractive(skill, true);
                       }}
                     >
-                      <h4 className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <h4 className="text-xs text-emerald-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
                         <Check className="w-3 h-3" /> Matching Keywords
                       </h4>
                       <div className="flex flex-wrap gap-1 min-h-[40px] border border-dashed border-emerald-500/10 rounded p-1 items-center">
                         {result.gapAnalysis.matchingKeywords.map((k, i) => (
-                          <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 flex items-center gap-1.5">
+                          <span key={i} className="text-xs px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 flex items-center gap-1.5">
                             {k}
                             <button
                               onClick={() => handleRemoveSkillInteractive(k)}
-                              className="hover:text-rose-400 hover:bg-white/10 rounded-full w-3.5 h-3.5 flex items-center justify-center transition-colors cursor-pointer text-[9px] font-bold"
+                              className="hover:text-rose-400 hover:bg-white/10 rounded-full w-3.5 h-3.5 flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
                               title={`Remove ${k} from CV`}
                             >
                               ×
@@ -6509,12 +6509,12 @@ export default function TailorWorkspace() {
                             }}
                             autoFocus
                             placeholder="Type skill..."
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-white w-20 focus:outline-none focus:border-indigo-500"
+                            className="text-xs px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-white w-20 focus:outline-none focus:border-indigo-500"
                           />
                         ) : (
                           <button
                             onClick={() => setIsAddingCustomSkill(true)}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/5 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 flex items-center gap-0.5 transition-colors cursor-pointer"
+                            className="text-xs px-1.5 py-0.5 rounded bg-emerald-500/5 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 flex items-center gap-0.5 transition-colors cursor-pointer"
                             title="Add custom skill"
                           >
                             <Plus className="w-2.5 h-2.5" />
@@ -6525,7 +6525,7 @@ export default function TailorWorkspace() {
                     </div>
 
                     <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
-                      <h4 className="text-[10px] text-amber-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <h4 className="text-xs text-amber-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3" /> Missing / Skill Gaps
                       </h4>
                       <div className="flex flex-wrap gap-1 min-h-[40px]">
@@ -6536,14 +6536,14 @@ export default function TailorWorkspace() {
                               draggable={true}
                               onDragStart={(e) => e.dataTransfer.setData('text/plain', s)}
                               onClick={() => handleAddSkillInteractive(s, false)}
-                              className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 cursor-pointer hover:bg-amber-500/20 active:scale-95 transition-all select-none"
+                              className="text-xs px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 cursor-pointer hover:bg-amber-500/20 active:scale-95 transition-all select-none"
                               title="Click or drag to add this skill to your profile"
                             >
                               {s}
                             </span>
                           ))
                         ) : (
-                          <span className="text-[10px] text-zinc-500">Perfect keyword alignment!</span>
+                          <span className="text-xs text-zinc-500">Perfect keyword alignment!</span>
                         )}
                       </div>
                       {result.gapAnalysis.missingSkills.length > 0 && (
@@ -6553,7 +6553,7 @@ export default function TailorWorkspace() {
                             const missing = [...result.gapAnalysis.missingSkills];
                             missing.forEach(s => handleAddSkillInteractive(s, true));
                           }}
-                          className="mt-2 w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-amber-500/30 hover:border-amber-500/50"
+                          className="mt-2 w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-amber-500/30 hover:border-amber-500/50"
                         >
                           <Plus className="w-3.5 h-3.5" />
                           Add All Missing Keywords ({result.gapAnalysis.missingSkills.length})
@@ -6563,7 +6563,7 @@ export default function TailorWorkspace() {
                   </div>
 
                   <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-xl text-xs space-y-3">
-                    <h4 className="font-bold text-indigo-300 border-b border-indigo-500/10 pb-1.5 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <h4 className="font-bold text-indigo-300 border-b border-indigo-500/10 pb-1.5 uppercase tracking-wider text-xs flex items-center gap-1.5">
                       <Award className="w-4 h-4 text-indigo-400" />
                       AI Placement Recommendation
                     </h4>
@@ -6740,7 +6740,7 @@ export default function TailorWorkspace() {
                 <div className="flex items-center gap-2 min-w-0 overflow-x-auto no-scrollbar [&>*]:whitespace-nowrap [&>*]:shrink-0">
                   {editingAppId && result && (
                     <span
-                      className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${autosaveState === 'error' ? 'border-rose-500/40 text-rose-300' : 'border-white/10 text-zinc-400'}`}
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold border ${autosaveState === 'error' ? 'border-rose-500/40 text-rose-300' : 'border-white/10 text-zinc-400'}`}
                       title={editingAppStatus === 'DRAFT' ? 'Saved as a draft. Click Track to add it to your application tracker. Drafts are deleted after 30 days.' : 'Changes are saved automatically to this application.'}
                     >
                       {autosaveState === 'pending' || autosaveState === 'saving'
@@ -6755,7 +6755,7 @@ export default function TailorWorkspace() {
                     <button
                       type="button"
                       onClick={() => { setSidePanelTab('ats'); setIsBridgeHighlightEnabled(true); }}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 transition-all cursor-pointer shadow-sm"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 transition-all cursor-pointer shadow-sm"
                       title="Statements that go beyond your Master Vault — review them before sending"
                     >
                       <GitMerge className="w-3 h-3 text-amber-400" />
@@ -6772,7 +6772,7 @@ export default function TailorWorkspace() {
                         ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
                         : 'bg-rose-500/10 border-rose-500/30 text-rose-300';
                     return (
-                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold ${colorClass}`} title={`Keyword coverage: ${stats.matched} of ${stats.total} job keywords appear in this CV's text — what ATS keyword filters scan for.${stats.missing.length ? ` Missing: ${stats.missing.join(', ')}` : ''}`}>
+                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs font-bold ${colorClass}`} title={`Keyword coverage: ${stats.matched} of ${stats.total} job keywords appear in this CV's text — what ATS keyword filters scan for.${stats.missing.length ? ` Missing: ${stats.missing.join(', ')}` : ''}`}>
                         <span>Keywords in CV: {stats.matched}/{stats.total} ({stats.percentage}%)</span>
                       </div>
                     );
@@ -6838,7 +6838,7 @@ export default function TailorWorkspace() {
                     <button
                       type="button"
                       onClick={() => handleSetCvFormatMode('visual')}
-                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'visual'
+                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'visual'
                         ? 'bg-zinc-800 text-white shadow-sm'
                         : 'text-zinc-400 hover:text-zinc-200'
                         }`}
@@ -6848,7 +6848,7 @@ export default function TailorWorkspace() {
                     <button
                       type="button"
                       onClick={() => handleSetCvFormatMode('ats')}
-                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'ats'
+                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'ats'
                         ? 'bg-zinc-800 text-white shadow-sm'
                         : 'text-zinc-400 hover:text-zinc-200'
                         }`}
@@ -6858,7 +6858,7 @@ export default function TailorWorkspace() {
                     <button
                       type="button"
                       onClick={() => handleSetCvFormatMode('bullet-matrix')}
-                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'bullet-matrix'
+                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'bullet-matrix'
                         ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm'
                         : 'text-zinc-400 hover:text-zinc-200'
                         }`}
@@ -6873,26 +6873,26 @@ export default function TailorWorkspace() {
                     <h4 className="text-xs font-semibold text-zinc-400">Spacing</h4>
                   <div className="flex items-center gap-1.5">
                     <Sliders className="w-3.5 h-3.5 text-indigo-400" />
-                    <span className="font-semibold text-zinc-300 text-[11px]">Spacing:</span>
+                    <span className="font-semibold text-zinc-300 text-xs">Spacing:</span>
                     <div className="flex gap-1">
                       <button
                         type="button"
                         onClick={() => applyPreset('default')}
-                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs font-medium transition-colors cursor-pointer"
                       >
                         Default
                       </button>
                       <button
                         type="button"
                         onClick={() => applyPreset('compact')}
-                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs font-medium transition-colors cursor-pointer"
                       >
                         Compact
                       </button>
                       <button
                         type="button"
                         onClick={() => applyPreset('tight')}
-                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs font-medium transition-colors cursor-pointer"
                       >
                         Ultra-Tight
                       </button>
@@ -6903,7 +6903,7 @@ export default function TailorWorkspace() {
                   <section className="space-y-2">
                     <h4 className="text-xs font-semibold text-zinc-400">Section order</h4>
                   <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-zinc-400 text-[10px]">Layout:</span>
+                    <span className="font-semibold text-zinc-400 text-xs">Layout:</span>
                     <select
                       value={
                         sectionOrder[1] === 'work' ? 'work' : sectionOrder[1] === 'skills' ? 'skills' : 'education'
@@ -6914,7 +6914,7 @@ export default function TailorWorkspace() {
                         else if (val === 'skills') setSectionOrder(['summary', 'skills', 'projects', 'work', 'education', 'languages']);
                         else if (val === 'education') setSectionOrder(['summary', 'education', 'work', 'projects', 'skills', 'languages']);
                       }}
-                      className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                      className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
                     >
                       <option value="work">Work-First</option>
                       <option value="skills">Tech-First</option>
@@ -6926,11 +6926,11 @@ export default function TailorWorkspace() {
                   <section className="space-y-2">
                     <h4 className="text-xs font-semibold text-zinc-400">Template</h4>
                   <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-zinc-400 text-[10px]">Template:</span>
+                    <span className="font-semibold text-zinc-400 text-xs">Template:</span>
                     <select
                       value={cvLayoutTemplateId}
                       onChange={(e) => setCvLayoutTemplateId(e.target.value as CvLayoutTemplateId)}
-                      className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                      className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
                     >
                       {Object.values(LAYOUT_TEMPLATES).map((tmpl) => (
                         <option key={tmpl.id} value={tmpl.id}>
@@ -6944,7 +6944,7 @@ export default function TailorWorkspace() {
                   <section className="space-y-2">
                     <h4 className="text-xs font-semibold text-zinc-400">Colour</h4>
                   <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-zinc-400 text-[10px]">Theme:</span>
+                    <span className="font-semibold text-zinc-400 text-xs">Theme:</span>
                     <div className="flex items-center gap-1">
                       {Object.values(COLOR_THEMES).map((theme) => (
                         <button
@@ -6997,7 +6997,7 @@ export default function TailorWorkspace() {
 
                   <section className="space-y-2">
                     <h4 className="text-xs font-semibold text-zinc-400">Fine-tune</h4>
-                      <div className="space-y-2.5 text-[11px]">
+                      <div className="space-y-2.5 text-xs">
                         <div className="flex items-center justify-between">
                           <span className="text-zinc-400">Section Spacing:</span>
                           <div className="flex items-center gap-2">
@@ -7112,7 +7112,7 @@ export default function TailorWorkspace() {
                         <Sparkles className="w-5 h-5 text-indigo-400" />
                         <h3 className="text-base font-bold text-white">AI Recruiter Outreach &amp; InMail Engine</h3>
                         {outreachData && editingAppId && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
                             <Check className="w-3 h-3" /> Saved
                           </span>
                         )}
@@ -7143,7 +7143,7 @@ export default function TailorWorkspace() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/5">
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-semibold text-zinc-400 uppercase">Recruiter / Contact Person Name (Optional)</label>
+                      <label className="text-xs font-semibold text-zinc-400 uppercase">Recruiter / Contact Person Name (Optional)</label>
                       <input
                         type="text"
                         value={outreachRecruiterName}
@@ -7153,7 +7153,7 @@ export default function TailorWorkspace() {
                       />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-semibold text-zinc-400 uppercase">Custom Angle or Directives (Optional)</label>
+                      <label className="text-xs font-semibold text-zinc-400 uppercase">Custom Angle or Directives (Optional)</label>
                       <input
                         type="text"
                         value={outreachCustomPrompt}
@@ -7191,7 +7191,7 @@ export default function TailorWorkspace() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Subject / Header</label>
+                        <label className="text-xs font-semibold text-zinc-400 uppercase">Subject / Header</label>
                         <input
                           type="text"
                           value={outreachData.linkedInInMail.subject}
@@ -7204,7 +7204,7 @@ export default function TailorWorkspace() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Message Body (Editable)</label>
+                        <label className="text-xs font-semibold text-zinc-400 uppercase">Message Body (Editable)</label>
                         <textarea
                           value={outreachData.linkedInInMail.message}
                           onChange={e => setOutreachData({
@@ -7217,7 +7217,7 @@ export default function TailorWorkspace() {
                       </div>
 
                       {outreachData.linkedInInMail.tips && (
-                        <div className="p-3 bg-blue-500/5 border border-blue-500/15 rounded-xl text-[11px] text-blue-300 flex items-start gap-2">
+                        <div className="p-3 bg-blue-500/5 border border-blue-500/15 rounded-xl text-xs text-blue-300 flex items-start gap-2">
                           <span className="font-bold">💡 Headhunter Tip:</span>
                           <span>{outreachData.linkedInInMail.tips}</span>
                         </div>
@@ -7247,7 +7247,7 @@ export default function TailorWorkspace() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Email Subject Line</label>
+                        <label className="text-xs font-semibold text-zinc-400 uppercase">Email Subject Line</label>
                         <input
                           type="text"
                           value={outreachData.hiringManagerEmail.subject}
@@ -7260,7 +7260,7 @@ export default function TailorWorkspace() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Email Body (Editable)</label>
+                        <label className="text-xs font-semibold text-zinc-400 uppercase">Email Body (Editable)</label>
                         <textarea
                           value={outreachData.hiringManagerEmail.message}
                           onChange={e => setOutreachData({
@@ -7273,7 +7273,7 @@ export default function TailorWorkspace() {
                       </div>
 
                       {outreachData.hiringManagerEmail.tips && (
-                        <div className="p-3 bg-indigo-500/5 border border-indigo-500/15 rounded-xl text-[11px] text-indigo-300 flex items-start gap-2">
+                        <div className="p-3 bg-indigo-500/5 border border-indigo-500/15 rounded-xl text-xs text-indigo-300 flex items-start gap-2">
                           <span className="font-bold">💡 Open-Rate Strategy:</span>
                           <span>{outreachData.hiringManagerEmail.tips}</span>
                         </div>
@@ -7303,7 +7303,7 @@ export default function TailorWorkspace() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Subject / Header</label>
+                        <label className="text-xs font-semibold text-zinc-400 uppercase">Subject / Header</label>
                         <input
                           type="text"
                           value={outreachData.warmReferralCoffeeChat.subject}
@@ -7316,7 +7316,7 @@ export default function TailorWorkspace() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Message Body (Editable)</label>
+                        <label className="text-xs font-semibold text-zinc-400 uppercase">Message Body (Editable)</label>
                         <textarea
                           value={outreachData.warmReferralCoffeeChat.message}
                           onChange={e => setOutreachData({
@@ -7329,7 +7329,7 @@ export default function TailorWorkspace() {
                       </div>
 
                       {outreachData.warmReferralCoffeeChat.tips && (
-                        <div className="p-3 bg-purple-500/5 border border-purple-500/15 rounded-xl text-[11px] text-purple-300 flex items-start gap-2">
+                        <div className="p-3 bg-purple-500/5 border border-purple-500/15 rounded-xl text-xs text-purple-300 flex items-start gap-2">
                           <span className="font-bold">💡 Networking Tip:</span>
                           <span>{outreachData.warmReferralCoffeeChat.tips}</span>
                         </div>
@@ -7356,7 +7356,7 @@ export default function TailorWorkspace() {
                         <Target className="w-5 h-5 text-indigo-400" />
                         <h3 className="text-base font-bold text-white">AI Interview Prep Cheat-Sheet Copilot</h3>
                         {interviewPrepData && editingAppId && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
                             <Check className="w-3 h-3" /> Saved
                           </span>
                         )}
@@ -7386,7 +7386,7 @@ export default function TailorWorkspace() {
                   </div>
 
                   <div className="flex flex-col gap-1 pt-2 border-t border-white/5">
-                    <label className="text-[10px] font-semibold text-zinc-400 uppercase">Focus Area or Interview Stage (Optional)</label>
+                    <label className="text-xs font-semibold text-zinc-400 uppercase">Focus Area or Interview Stage (Optional)</label>
                     <input
                       type="text"
                       value={interviewPrepCustomPrompt}
@@ -7435,7 +7435,7 @@ export default function TailorWorkspace() {
                             <Award className="w-4 h-4 text-indigo-400" />
                             Top 5 Predicted Interview Questions &amp; STAR Talking Points
                           </h4>
-                          <span className="text-[10px] text-zinc-400 font-semibold">Click to expand talking points</span>
+                          <span className="text-xs text-zinc-400 font-semibold">Click to expand talking points</span>
                         </div>
 
                         <div className="space-y-3">
@@ -7456,13 +7456,13 @@ export default function TailorWorkspace() {
                                     </span>
                                     <div>
                                       <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 font-bold uppercase tracking-wider">
+                                        <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 font-bold uppercase tracking-wider">
                                           {q.category || 'Technical'}
                                         </span>
                                       </div>
                                       <h5 className="font-bold text-white text-xs leading-snug">{q.question}</h5>
                                       {q.intent && (
-                                        <p className="text-[11px] text-zinc-400 mt-1 italic">
+                                        <p className="text-xs text-zinc-400 mt-1 italic">
                                           <strong>Testing Intent:</strong> {q.intent}
                                         </p>
                                       )}
@@ -7474,12 +7474,12 @@ export default function TailorWorkspace() {
                                 {isExpanded && (
                                   <div className="px-4 pb-4 pt-2 border-t border-white/5 space-y-3 bg-black/20 text-xs">
                                     <div className="space-y-1.5">
-                                      <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider block">
+                                      <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider block">
                                         Suggested STAR Talking Points (From Your Real Experience):
                                       </span>
                                       <ul className="space-y-1.5 pl-1">
                                         {q.suggestedAnswerTalkingPoints.map((point, pIdx) => (
-                                          <li key={pIdx} className="flex items-start gap-2 text-zinc-200 text-[11px] leading-relaxed">
+                                          <li key={pIdx} className="flex items-start gap-2 text-zinc-200 text-xs leading-relaxed">
                                             <span className="text-indigo-400 font-bold mt-0.5">•</span>
                                             <span>{point}</span>
                                           </li>
@@ -7494,7 +7494,7 @@ export default function TailorWorkspace() {
                                           navigator.clipboard.writeText(`Question: ${q.question}\n\nTalking Points:\n${q.suggestedAnswerTalkingPoints.map(p => `- ${p}`).join('\n')}`);
                                           showAlert({ title: 'Copied!', message: 'Question & talking points copied to clipboard.', type: 'success' });
                                         }}
-                                        className="px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition-all"
+                                        className="px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all"
                                       >
                                         <CheckSquare className="w-3 h-3 text-emerald-400" />
                                         <span>Copy Question &amp; Answer Guide</span>
@@ -7535,7 +7535,7 @@ export default function TailorWorkspace() {
                                   <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
                                 </button>
                               </div>
-                              {rq.context && <p className="text-[10px] text-zinc-400 italic">{rq.context}</p>}
+                              {rq.context && <p className="text-xs text-zinc-400 italic">{rq.context}</p>}
                             </div>
                           ))}
                         </div>
@@ -7557,7 +7557,7 @@ export default function TailorWorkspace() {
                               <p className="font-bold text-rose-300 flex items-center gap-1.5">
                                 <span>Trap:</span> {trap.trap}
                               </p>
-                              <p className="text-zinc-300 text-[11px] leading-relaxed">
+                              <p className="text-zinc-300 text-xs leading-relaxed">
                                 <strong>Navigation:</strong> {trap.recommendation}
                               </p>
                             </div>
@@ -7575,24 +7575,24 @@ export default function TailorWorkspace() {
                           </span>
                           <h4 className="font-bold text-white text-sm">Prepare to Back These Up</h4>
                         </div>
-                        <p className="text-[11px] text-zinc-400">
+                        <p className="text-xs text-zinc-400">
                           Your CV includes these bridged statements. Expect questions on them, and prepare so you can answer honestly and confidently.
                         </p>
                         <div className="space-y-2.5 pt-1">
                           {interviewPrepData.backItUp.map((item, bIdx) => (
                             <div key={bIdx} className="p-3 bg-amber-500/5 rounded-xl border border-amber-500/15 space-y-1.5 text-xs">
                               <p className="font-bold text-amber-200">{item.skill}</p>
-                              <p className="text-zinc-400 text-[11px] italic">"{item.claim}"</p>
+                              <p className="text-zinc-400 text-xs italic">"{item.claim}"</p>
                               {item.likelyProbe && (
-                                <p className="text-zinc-300 text-[11px]"><strong>Likely question:</strong> {item.likelyProbe}</p>
+                                <p className="text-zinc-300 text-xs"><strong>Likely question:</strong> {item.likelyProbe}</p>
                               )}
                               {Array.isArray(item.studyPlan) && item.studyPlan.length > 0 && (
-                                <ul className="list-disc pl-4 text-zinc-300 text-[11px] space-y-0.5">
+                                <ul className="list-disc pl-4 text-zinc-300 text-xs space-y-0.5">
                                   {item.studyPlan.map((step, sIdx) => <li key={sIdx}>{step}</li>)}
                                 </ul>
                               )}
                               {item.honestFraming && (
-                                <p className="text-zinc-300 text-[11px] leading-relaxed"><strong>How to frame it:</strong> {item.honestFraming}</p>
+                                <p className="text-zinc-300 text-xs leading-relaxed"><strong>How to frame it:</strong> {item.honestFraming}</p>
                               )}
                             </div>
                           ))}
@@ -7632,7 +7632,7 @@ export default function TailorWorkspace() {
                             key={secKey}
                             type="button"
                             onClick={() => handleToggleHideSection(secKey)}
-                            className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                            className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
                           >
                             <Eye className="w-3 h-3" />
                             <span>Unhide {label}</span>
@@ -7642,7 +7642,7 @@ export default function TailorWorkspace() {
                       <button
                         type="button"
                         onClick={() => setHiddenSections([])}
-                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-bold cursor-pointer transition-colors"
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold cursor-pointer transition-colors"
                       >
                         Unhide All
                       </button>
@@ -7825,7 +7825,7 @@ export default function TailorWorkspace() {
                                   <button
                                     type="button"
                                     onClick={() => handleFetchClParagraphVariations(i, p)}
-                                    className="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 cursor-pointer px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-all border border-indigo-200 shadow-sm"
+                                    className="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 cursor-pointer px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1 transition-all border border-indigo-200 shadow-sm"
                                     title="Polish paragraph with AI (2 Tokens)"
                                   >
                                     <Wand2 className="w-3 h-3 text-indigo-500" />
@@ -7901,10 +7901,10 @@ export default function TailorWorkspace() {
                               padding: '4px 8px'
                             }}
                           >
-                            <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded shadow-md font-bold">
+                            <span className="bg-rose-500 text-white text-xs px-2 py-0.5 rounded shadow-md font-bold">
                               Page {i + 1} Cutoff (A4 Height)
                             </span>
-                            <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded shadow-md font-medium opacity-80">
+                            <span className="bg-rose-500 text-white text-xs px-2 py-0.5 rounded shadow-md font-medium opacity-80">
                               Content below overflows to Page {i + 2}
                             </span>
                           </div>
@@ -7951,7 +7951,7 @@ export default function TailorWorkspace() {
             <div className="space-y-3 font-sans text-xs">
               <div className="p-3.5 rounded-xl bg-zinc-900 border border-white/10 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-white uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <span className="font-bold text-white uppercase tracking-wider text-xs flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                     Target Job Summary
                   </span>
@@ -7961,7 +7961,7 @@ export default function TailorWorkspace() {
                       setIsMobileSheetOpen(false);
                       setActiveMobileTab('edit');
                     }}
-                    className="text-[10px] text-indigo-400 font-bold hover:underline cursor-pointer"
+                    className="text-xs text-indigo-400 font-bold hover:underline cursor-pointer"
                   >
                     Edit Details →
                   </button>
@@ -7969,7 +7969,7 @@ export default function TailorWorkspace() {
                 <p className="text-zinc-300 text-xs font-medium">
                   {roleName || 'Custom Role'} {companyName ? `@ ${companyName}` : ''}
                 </p>
-                <div className="flex gap-2 text-[10px] text-zinc-400">
+                <div className="flex gap-2 text-xs text-zinc-400">
                   <span>CV: <strong>{cvLanguage}</strong></span>
                   <span>•</span>
                   <span>Tone: <strong>{tone}</strong></span>
@@ -8021,7 +8021,7 @@ export default function TailorWorkspace() {
                       <span className="text-xl font-extrabold text-emerald-400">{result.matchScore}%</span>
                       <div>
                         <span className="font-bold text-white block text-xs">Profile fit</span>
-                        <span className="text-[10px] text-zinc-400">{(() => { const kc = getAtsMatchStats(); return kc ? `Keywords in CV: ${kc.matched}/${kc.total}` : `${result.gapAnalysis.matchingKeywords.length} matching / ${result.gapAnalysis.missingSkills.length} missing`; })()}</span>
+                        <span className="text-xs text-zinc-400">{(() => { const kc = getAtsMatchStats(); return kc ? `Keywords in CV: ${kc.matched}/${kc.total}` : `${result.gapAnalysis.matchingKeywords.length} matching / ${result.gapAnalysis.missingSkills.length} missing`; })()}</span>
                       </div>
                     </div>
                     {result.gapAnalysis.missingSkills.length > 0 && (
@@ -8031,7 +8031,7 @@ export default function TailorWorkspace() {
                           const missing = [...result.gapAnalysis.missingSkills];
                           missing.forEach(s => handleAddSkillInteractive(s, true));
                         }}
-                        className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold cursor-pointer"
                       >
                         + Add All Missing
                       </button>
@@ -8040,14 +8040,14 @@ export default function TailorWorkspace() {
 
                   {result.gapAnalysis.missingSkills.length > 0 && (
                     <div className="space-y-1.5">
-                      <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">Tap to add missing skill:</span>
+                      <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">Tap to add missing skill:</span>
                       <div className="flex flex-wrap gap-1.5">
                         {result.gapAnalysis.missingSkills.map((s, i) => (
                           <button
                             key={i}
                             type="button"
                             onClick={() => handleAddSkillInteractive(s, false)}
-                            className="text-[10px] px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 font-medium cursor-pointer"
+                            className="text-xs px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 font-medium cursor-pointer"
                           >
                             + {s}
                           </button>
@@ -8067,7 +8067,7 @@ export default function TailorWorkspace() {
           {sidePanelTab === 'customization' && (
             <div className="space-y-3 font-sans text-xs">
               <div className="p-3 bg-zinc-900 border border-white/10 rounded-xl space-y-2">
-                <span className="font-bold text-white uppercase tracking-wider text-[10px] block">CV Template Style</span>
+                <span className="font-bold text-white uppercase tracking-wider text-xs block">CV Template Style</span>
                 <select
                   value={cvLayoutTemplateId}
                   onChange={(e) => setCvLayoutTemplateId(e.target.value as CvLayoutTemplateId)}
@@ -8082,7 +8082,7 @@ export default function TailorWorkspace() {
               </div>
 
               <div className="p-3 bg-zinc-900 border border-white/10 rounded-xl space-y-2">
-                <span className="font-bold text-white uppercase tracking-wider text-[10px] block">Section Hierarchy</span>
+                <span className="font-bold text-white uppercase tracking-wider text-xs block">Section Hierarchy</span>
                 <select
                   value={sectionOrder[1] === 'work' ? 'work' : sectionOrder[1] === 'skills' ? 'skills' : 'education'}
                   onChange={(e) => {
@@ -8192,7 +8192,7 @@ export default function TailorWorkspace() {
 
             <div className="space-y-3.5 text-xs">
               <div className="flex flex-col gap-1.5">
-                <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Skill Name</label>
+                <label className="text-zinc-400 font-semibold uppercase text-xs tracking-wider">Skill Name</label>
                 <input
                   type="text"
                   value={skillModal.skillName}
@@ -8251,7 +8251,7 @@ export default function TailorWorkspace() {
                   <h3 className="text-sm font-bold text-white uppercase tracking-wide">
                     Regenerate {regenModal.sectionTitle}
                   </h3>
-                  <p className="text-[11px] text-zinc-400">
+                  <p className="text-xs text-zinc-400">
                     Customize prompt instruction for AI section generation (5 Tokens)
                   </p>
                 </div>
@@ -8310,7 +8310,7 @@ export default function TailorWorkspace() {
 
             {/* Footer Actions */}
             <div className="flex items-center justify-between pt-2 border-t border-white/10">
-              <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+              <div className="flex items-center gap-1.5 text-xs text-zinc-400">
                 <Coins className="w-3.5 h-3.5 text-amber-400" />
                 <span>Cost: <strong>5 Tokens</strong></span>
               </div>
@@ -8360,7 +8360,7 @@ export default function TailorWorkspace() {
                   <h3 className="text-sm font-bold text-white uppercase tracking-wide">
                     Polish Bullet Point with AI
                   </h3>
-                  <p className="text-[11px] text-zinc-400">
+                  <p className="text-xs text-zinc-400">
                     Generate 3 rewrites, then pick one to replace your bullet (2 tokens per run)
                   </p>
                 </div>
@@ -8390,13 +8390,13 @@ export default function TailorWorkspace() {
                 {/* STAR Variation */}
                 <div className="p-3 rounded-xl bg-zinc-950/80 border border-indigo-500/30 hover:border-indigo-500 transition-all space-y-2 group">
                   <div className="flex items-center justify-between">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
+                    <span className="px-2 py-0.5 rounded text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
                       STAR Formula (Metric Heavy)
                     </span>
                     <button
                       type="button"
                       onClick={() => handleApplyBulletVariation(bulletPolishModal.variations!.star)}
-                      className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                      className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors cursor-pointer"
                     >
                       Apply This
                     </button>
@@ -8407,13 +8407,13 @@ export default function TailorWorkspace() {
                 {/* Punchy Variation */}
                 <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                   <div className="flex items-center justify-between">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+                    <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
                       Concise & Punchy
                     </span>
                     <button
                       type="button"
                       onClick={() => handleApplyBulletVariation(bulletPolishModal.variations!.punchy)}
-                      className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                      className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium transition-colors cursor-pointer"
                     >
                       Apply This
                     </button>
@@ -8424,13 +8424,13 @@ export default function TailorWorkspace() {
                 {/* ATS Keyword Variation */}
                 <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                   <div className="flex items-center justify-between">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
+                    <span className="px-2 py-0.5 rounded text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
                       ATS Keyword-Dense
                     </span>
                     <button
                       type="button"
                       onClick={() => handleApplyBulletVariation(bulletPolishModal.variations!.ats)}
-                      className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                      className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium transition-colors cursor-pointer"
                     >
                       Apply This
                     </button>
@@ -8475,7 +8475,7 @@ export default function TailorWorkspace() {
                   <h3 className="text-sm font-bold text-white uppercase tracking-wide">
                     Polish Cover Letter Paragraph
                   </h3>
-                  <p className="text-[11px] text-zinc-400">
+                  <p className="text-xs text-zinc-400">
                     Add an optional instruction, then generate 3 rewrites (2 tokens per run)
                   </p>
                 </div>
@@ -8491,7 +8491,7 @@ export default function TailorWorkspace() {
 
             <div className="overflow-y-auto pr-1 space-y-4 flex-1">
               <div className="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800 space-y-1">
-                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Original Paragraph:</span>
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block">Original Paragraph:</span>
                 <p className="text-xs text-zinc-300 italic leading-relaxed">{clPolishModal.originalPara}</p>
               </div>
 
@@ -8528,13 +8528,13 @@ export default function TailorWorkspace() {
                   {/* Persuasive Variation */}
                   <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                     <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
+                      <span className="px-2 py-0.5 rounded text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
                         Persuasive & High Impact
                       </span>
                       <button
                         type="button"
                         onClick={() => handleApplyClParagraphVariation(clPolishModal.variations!.persuasive)}
-                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium transition-colors cursor-pointer"
                       >
                         Apply This
                       </button>
@@ -8545,13 +8545,13 @@ export default function TailorWorkspace() {
                   {/* Formal Corporate Variation */}
                   <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                     <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+                      <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
                         {clLanguage === 'DE' ? 'Formal (DIN 5008)' : 'Formal'}
                       </span>
                       <button
                         type="button"
                         onClick={() => handleApplyClParagraphVariation(clPolishModal.variations!.formal)}
-                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium transition-colors cursor-pointer"
                       >
                         Apply This
                       </button>
@@ -8562,13 +8562,13 @@ export default function TailorWorkspace() {
                   {/* Short & Concise Variation */}
                   <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                     <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
+                      <span className="px-2 py-0.5 rounded text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
                         Short & Concise (Direct)
                       </span>
                       <button
                         type="button"
                         onClick={() => handleApplyClParagraphVariation(clPolishModal.variations!.concise)}
-                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium transition-colors cursor-pointer"
                       >
                         Apply This
                       </button>
@@ -8605,7 +8605,7 @@ export default function TailorWorkspace() {
             <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
               {/* Original Description Display */}
               <div>
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">
                   Original Project Description:
                 </label>
                 <div className="p-3 rounded-xl bg-zinc-950/60 border border-white/5 text-xs text-zinc-300">
@@ -8615,7 +8615,7 @@ export default function TailorWorkspace() {
 
               {/* Custom Prompt Directives Box */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block">
                   Custom AI Directive (Optional):
                 </label>
                 <div className="flex gap-2">
@@ -8649,13 +8649,13 @@ export default function TailorWorkspace() {
                   {/* ATS Keyword Aligned Variation */}
                   <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                     <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
+                      <span className="px-2 py-0.5 rounded text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
                         🎯 ATS Keyword Aligned
                       </span>
                       <button
                         type="button"
                         onClick={() => handleApplyProjectVariation(projectPolishModal.variations!.ats)}
-                        className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors cursor-pointer"
                       >
                         Apply Variation
                       </button>
@@ -8666,13 +8666,13 @@ export default function TailorWorkspace() {
                   {/* Impact & Metrics Variation */}
                   <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                     <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+                      <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
                         🚀 Impact & Metrics Driven
                       </span>
                       <button
                         type="button"
                         onClick={() => handleApplyProjectVariation(projectPolishModal.variations!.impact)}
-                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium transition-colors cursor-pointer"
                       >
                         Apply Variation
                       </button>
@@ -8683,13 +8683,13 @@ export default function TailorWorkspace() {
                   {/* Short & Punchy Variation */}
                   <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                     <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
+                      <span className="px-2 py-0.5 rounded text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
                         ⚡ Short & Concise
                       </span>
                       <button
                         type="button"
                         onClick={() => handleApplyProjectVariation(projectPolishModal.variations!.concise)}
-                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium transition-colors cursor-pointer"
                       >
                         Apply Variation
                       </button>
@@ -8726,7 +8726,7 @@ export default function TailorWorkspace() {
             <div className="grid grid-cols-2 flex-1 overflow-y-auto divide-x divide-white/10 text-xs">
               {/* Left: Original Master Profile */}
               <div className="p-6 space-y-4 bg-zinc-900/30">
-                <div className="sticky top-0 bg-zinc-950/90 backdrop-blur-sm p-2 rounded-lg border border-zinc-800 font-bold text-zinc-400 uppercase tracking-wider text-[11px] mb-3">
+                <div className="sticky top-0 bg-zinc-950/90 backdrop-blur-sm p-2 rounded-lg border border-zinc-800 font-bold text-zinc-400 uppercase tracking-wider text-xs mb-3">
                   📋 Original Master Profile
                 </div>
                 <div>
@@ -8734,18 +8734,18 @@ export default function TailorWorkspace() {
                   <p className="text-zinc-400">Target Occupation: {profile?.targetOccupation || 'Not specified'}</p>
                 </div>
                 <div>
-                  <h4 className="font-bold text-zinc-300 mb-1 uppercase tracking-wider text-[10px]">Master Summary</h4>
+                  <h4 className="font-bold text-zinc-300 mb-1 uppercase tracking-wider text-xs">Master Summary</h4>
                   <p className="text-zinc-400 bg-zinc-900 p-3 rounded-lg border border-white/5 whitespace-pre-wrap">
                     {profile?.summary || 'No master summary provided.'}
                   </p>
                 </div>
                 <div>
-                  <h4 className="font-bold text-zinc-300 mb-1 uppercase tracking-wider text-[10px]">Master Experience</h4>
+                  <h4 className="font-bold text-zinc-300 mb-1 uppercase tracking-wider text-xs">Master Experience</h4>
                   <div className="space-y-2">
                     {profile?.workExperience?.map((w: any, idx: number) => (
                       <div key={idx} className="p-2.5 rounded-lg bg-zinc-900 border border-white/5 text-zinc-400">
                         <span className="font-semibold text-zinc-200 block">{w.role} at {w.company}</span>
-                        <span className="text-[10px] text-zinc-500 block mb-1">{w.period}</span>
+                        <span className="text-xs text-zinc-500 block mb-1">{w.period}</span>
                         <p className="line-clamp-3">{w.description}</p>
                       </div>
                     ))}
@@ -8755,28 +8755,28 @@ export default function TailorWorkspace() {
 
               {/* Right: AI Tailored Output */}
               <div className="p-6 space-y-4 bg-zinc-950">
-                <div className="sticky top-0 bg-indigo-950/90 backdrop-blur-sm p-2 rounded-lg border border-indigo-800/50 font-bold text-indigo-300 uppercase tracking-wider text-[11px] mb-3 flex items-center justify-between">
+                <div className="sticky top-0 bg-indigo-950/90 backdrop-blur-sm p-2 rounded-lg border border-indigo-800/50 font-bold text-indigo-300 uppercase tracking-wider text-xs mb-3 flex items-center justify-between">
                   <span>✨ AI Tailored Document Output</span>
-                  <span className="text-emerald-400 text-[10px]">Profile fit: {result.matchScore}%</span>
+                  <span className="text-emerald-400 text-xs">Profile fit: {result.matchScore}%</span>
                 </div>
                 <div>
                   <h4 className="font-bold text-white mb-1">Full Name: {result.tailoredCv.personalDetails.fullName}</h4>
                   <p className="text-indigo-300 font-semibold">{roleName || 'Tailored Position'}</p>
                 </div>
                 <div>
-                  <h4 className="font-bold text-indigo-300 mb-1 uppercase tracking-wider text-[10px]">Tailored Summary</h4>
+                  <h4 className="font-bold text-indigo-300 mb-1 uppercase tracking-wider text-xs">Tailored Summary</h4>
                   <p className="text-zinc-200 bg-indigo-500/5 p-3 rounded-lg border border-indigo-500/20 whitespace-pre-wrap">
                     {result.tailoredCv.summary}
                   </p>
                 </div>
                 <div>
-                  <h4 className="font-bold text-indigo-300 mb-1 uppercase tracking-wider text-[10px]">Tailored Work Experience</h4>
+                  <h4 className="font-bold text-indigo-300 mb-1 uppercase tracking-wider text-xs">Tailored Work Experience</h4>
                   <div className="space-y-2">
                     {result.tailoredCv.workExperience?.map((w: any, idx: number) => (
                       <div key={idx} className="p-2.5 rounded-lg bg-indigo-500/5 border border-indigo-500/20 text-zinc-300">
                         <span className="font-semibold text-white block">{w.role} at {w.company}</span>
-                        <span className="text-[10px] text-indigo-400 block mb-1">{w.period}</span>
-                        <ul className="list-disc pl-4 space-y-1 text-zinc-300 text-[11px]">
+                        <span className="text-xs text-indigo-400 block mb-1">{w.period}</span>
+                        <ul className="list-disc pl-4 space-y-1 text-zinc-300 text-xs">
                           {getRenderedBullets(w, bulletStyle, lengthTarget, idx === 0).map((b: string, bIdx: number) => (
                             <li key={bIdx}>{b}</li>
                           ))}

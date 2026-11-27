@@ -522,80 +522,84 @@ export default function Dashboard() {
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 min-w-0 flex-1 flex flex-col overflow-x-hidden">
       {/* Welcome Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 mb-6 sm:mb-8">
         <div>
           <div className="flex items-center gap-2 mb-1.5">
-            <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse" />
+            <Sparkles className="w-5 h-5 text-indigo-400" aria-hidden="true" />
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-zinc-100 to-indigo-200 bg-clip-text text-transparent">
-              JobFlow Command Center
+              Your applications
             </h1>
           </div>
-          <p className="text-zinc-400 text-xs sm:text-sm">
-            Track custom resume revisions, interviews, and offers in one centralized, multi-language hub.
+          <p className="text-zinc-400 text-sm">
+            Every job you tailored a CV for, from draft to offer.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* One primary action; the guide is a secondary icon button (audit D5). */}
+        <div className="flex items-center gap-2">
+          <Link
+            href="/tailor"
+            className="flex-1 md:flex-initial min-h-11 px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-sm font-bold shadow-md shadow-indigo-500/20 flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" aria-hidden="true" />
+            <span>Tailor a new CV</span>
+          </Link>
           <button
             type="button"
             onClick={() => setIsGuideModalOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 text-xs font-semibold flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+            aria-label="How it works"
+            title="How it works"
+            className="w-11 h-11 shrink-0 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white border border-white/10 flex items-center justify-center transition-all cursor-pointer"
           >
-            <BookOpen className="w-4 h-4 text-indigo-400" />
-            <span>Workflow Guide</span>
+            <BookOpen className="w-4 h-4 text-indigo-400" aria-hidden="true" />
           </button>
-          <Link
-            href="/tailor"
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 flex items-center gap-1.5 transition-all cursor-pointer hover:scale-105"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Application</span>
-          </Link>
         </div>
       </div>
 
-      {/* Analytics Summary Scorecards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-8 w-full">
-        <div className="glass-panel p-5 rounded-2xl flex items-center gap-4">
-          <div className="p-3.5 rounded-xl bg-indigo-500/10 text-indigo-400">
+      {/* Analytics Summary Scorecards: only once there is something to count (audit D1/D2) */}
+      {totalApps > 0 && (
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8 w-full">
+        <div className="glass-panel p-3 sm:p-5 rounded-2xl flex items-center gap-3 sm:gap-4">
+          <div className="hidden sm:block p-3.5 rounded-xl bg-indigo-500/10 text-indigo-400">
             <LayoutGrid className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider block">Total Pipeline</span>
+            <span className="text-xs text-zinc-400 font-semibold uppercase tracking-wider block">Applications</span>
             <span className="text-2xl font-bold text-white">{totalApps}</span>
           </div>
         </div>
 
-        <div className="glass-panel p-5 rounded-2xl flex items-center gap-4">
-          <div className="p-3.5 rounded-xl bg-purple-500/10 text-purple-400">
+        <div className="glass-panel p-3 sm:p-5 rounded-2xl flex items-center gap-3 sm:gap-4">
+          <div className="hidden sm:block p-3.5 rounded-xl bg-purple-500/10 text-purple-400">
             <Calendar className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider block">Active Interviews</span>
+            <span className="text-xs text-zinc-400 font-semibold uppercase tracking-wider block">Interviews</span>
             <span className="text-2xl font-bold text-white">{interviewApps}</span>
           </div>
         </div>
 
-        <div className="glass-panel p-5 rounded-2xl flex items-center gap-4">
-          <div className="p-3.5 rounded-xl bg-emerald-500/10 text-emerald-400">
+        <div className="glass-panel p-3 sm:p-5 rounded-2xl flex items-center gap-3 sm:gap-4">
+          <div className="hidden sm:block p-3.5 rounded-xl bg-emerald-500/10 text-emerald-400">
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider block">Offers Secured</span>
+            <span className="text-xs text-zinc-400 font-semibold uppercase tracking-wider block">Offers</span>
             <span className="text-2xl font-bold text-white">{offerApps}</span>
           </div>
         </div>
 
-        <div className="glass-panel p-5 rounded-2xl flex items-center gap-4">
-          <div className="p-3.5 rounded-xl bg-amber-500/10 text-amber-400">
+        <div className="glass-panel p-3 sm:p-5 rounded-2xl flex items-center gap-3 sm:gap-4">
+          <div className="hidden sm:block p-3.5 rounded-xl bg-amber-500/10 text-amber-400">
             <TrendingUp className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider block">Average Profile Fit</span>
+            <span className="text-xs text-zinc-400 font-semibold uppercase tracking-wider block">Avg. profile fit</span>
             <span className="text-2xl font-bold text-white">{avgMatchScore}%</span>
           </div>
         </div>
       </div>
+      )}
 
       {/* Drafts: generated but not tracked yet (hidden when empty) */}
       {vaultReady !== null && (
@@ -604,34 +608,41 @@ export default function Dashboard() {
 
       <DraftsList className="mb-6 no-print" limit={6} />
 
+      {totalApps > 0 && (<>
       {/* View Switcher Tabs */}
-      <div className="flex items-center gap-2 mb-6 border-b border-white/5 pb-4 no-print font-sans">
+      <div role="tablist" aria-label="View" className="flex items-center gap-2 mb-6 border-b border-white/5 pb-4 no-print font-sans overflow-x-auto no-scrollbar">
         <button
+          role="tab"
+          aria-selected={currentView === 'kanban'}
           onClick={() => setCurrentView('kanban')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentView === 'kanban'
               ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
               : 'bg-white/5 text-zinc-400 hover:text-white'
             }`}
         >
-          📋 Kanban Board
+          Board
         </button>
         <button
+          role="tab"
+          aria-selected={currentView === 'spreadsheet'}
           onClick={() => setCurrentView('spreadsheet')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentView === 'spreadsheet'
               ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
               : 'bg-white/5 text-zinc-400 hover:text-white'
             }`}
         >
-          📊 Spreadsheet View
+          Table
         </button>
         <button
+          role="tab"
+          aria-selected={currentView === 'calendar'}
           onClick={() => setCurrentView('calendar')}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${currentView === 'calendar'
               ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
               : 'bg-white/5 text-zinc-400 hover:text-white'
             }`}
         >
-          📅 Calendar View
+          Calendar
         </button>
       </div>
 
@@ -647,7 +658,7 @@ export default function Dashboard() {
                 : 'bg-white/5 text-zinc-400 hover:text-white'
             }`}
           >
-            All Pipeline ({applications.length})
+            All ({applications.length})
           </button>
           {COLUMNS.map(col => {
             const count = applications.filter(a => a.status === col.id).length;
@@ -663,7 +674,7 @@ export default function Dashboard() {
                 }`}
               >
                 <span>{col.name}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 font-mono">
+                <span className="text-xs px-1.5 py-0.5 rounded-full bg-white/10 font-mono">
                   {count}
                 </span>
               </button>
@@ -675,7 +686,7 @@ export default function Dashboard() {
       {/* Main Kanban Board Layout */}
       {currentView === 'kanban' && (
         <div className="flex-1 w-full max-w-full overflow-x-auto overflow-y-hidden pb-4 snap-x snap-mandatory scroll-smooth overscroll-x-contain touch-pan-x -mx-4 px-4 sm:mx-0 sm:px-0">
-          <div className="flex flex-row gap-4 w-max lg:w-full min-w-full min-h-[calc(100vh-340px)]">
+          <div className="flex flex-row gap-4 w-max lg:w-full min-w-full min-h-[40dvh]">
             {COLUMNS.filter(col => mobileStatusTab === 'ALL' || col.id === mobileStatusTab).map(col => {
               const columnApps = applications.filter(app => app.status === col.id);
               const isOver = dragOverColumnId === col.id;
@@ -709,7 +720,7 @@ export default function Dashboard() {
                 >
                   {/* Column Header */}
                   <div className="flex justify-between items-center mb-4 pb-2 border-b border-white/5">
-                    <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${col.color}`}>
+                    <span className={`px-2.5 py-0.5 rounded-md text-xs font-bold uppercase tracking-wider border ${col.color}`}>
                       {col.name}
                     </span>
                     <span className="text-xs text-zinc-500 font-bold bg-white/5 px-2 py-0.5 rounded">
@@ -749,7 +760,7 @@ export default function Dashboard() {
 
                             {/* Match & Lang tags */}
                             <div className="flex items-center justify-between">
-                              <span className="inline-flex items-center gap-1 text-[9px] font-bold text-zinc-500 font-sans">
+                              <span className="inline-flex items-center gap-1 text-xs font-bold text-zinc-500 font-sans">
                                 <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/5 text-zinc-300">
                                   {app.targetLanguage === 'DE' ? '🇩🇪 DE' : '🇬🇧 EN'}
                                 </span>
@@ -767,7 +778,7 @@ export default function Dashboard() {
                               <h3 className="font-bold text-white text-sm line-clamp-1 group-hover:text-indigo-400 transition-colors">
                                 {app.role}
                               </h3>
-                              <p className="text-[11px] text-zinc-400 truncate">{app.company}</p>
+                              <p className="text-xs text-zinc-400 truncate">{app.company}</p>
                             </div>
 
                             {/* Aging Status & Follow-Up Reminder Alert */}
@@ -780,7 +791,7 @@ export default function Dashboard() {
                                     e.stopPropagation();
                                     openFollowUpModal(app);
                                   }}
-                                  className={`p-2 rounded-lg border text-[10px] font-sans flex items-center justify-between gap-1.5 transition-all cursor-pointer shadow-sm ${
+                                  className={`p-2 rounded-lg border text-xs font-sans flex items-center justify-between gap-1.5 transition-all cursor-pointer shadow-sm ${
                                     aging.type === 'applied-stale'
                                       ? 'bg-amber-500/15 border-amber-500/30 text-amber-300 hover:bg-amber-500/25'
                                       : aging.type === 'interview-stale'
@@ -793,7 +804,7 @@ export default function Dashboard() {
                                     <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0 animate-ping"></span>
                                     <span className="truncate">{aging.label}</span>
                                   </div>
-                                  <span className="px-1.5 py-0.5 rounded bg-white/10 text-[9px] font-bold shrink-0 text-white flex items-center gap-1">
+                                  <span className="px-1.5 py-0.5 rounded bg-white/10 text-xs font-bold shrink-0 text-white flex items-center gap-1">
                                     <Mail className="w-2.5 h-2.5" />
                                     Draft
                                   </span>
@@ -802,7 +813,7 @@ export default function Dashboard() {
                             })()}
 
                             {/* Card metadata indicators */}
-                            <div className="flex justify-between items-center pt-2.5 border-t border-white/5 text-[10px] text-zinc-500">
+                            <div className="flex justify-between items-center pt-2.5 border-t border-white/5 text-xs text-zinc-500">
                               <span className="flex items-center gap-1 font-sans">
                                 <Calendar className="w-3 h-3" />
                                 {new Date(app.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
@@ -845,7 +856,7 @@ export default function Dashboard() {
                                 <ChevronLeft className="w-4 h-4" />
                               </button>
 
-                              <span className="text-[9px] uppercase tracking-wider text-zinc-600 font-semibold font-sans">Move Status</span>
+                              <span className="text-xs uppercase tracking-wider text-zinc-600 font-semibold font-sans">Move Status</span>
 
                               <button
                                 disabled={app.status === 'REJECTED' || isUpdating}
@@ -867,7 +878,7 @@ export default function Dashboard() {
                       <div className={`h-full min-h-[120px] border border-dashed rounded-xl flex items-center justify-center text-center text-xs p-4 transition-colors ${
                         isOver ? 'border-indigo-500/50 text-indigo-300 bg-indigo-500/5' : 'border-white/5 text-zinc-600'
                       }`}>
-                        {isOver ? 'Drop to move here' : 'No jobs in this stage.'}
+                        {isOver ? 'Drop to move here' : 'Nothing here yet. Drag a card here or change its status.'}
                       </div>
                     )}
                   </div>
@@ -884,7 +895,7 @@ export default function Dashboard() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b border-white/10 bg-white/[0.02] text-[10px] text-zinc-400 uppercase font-semibold tracking-wider">
+                <tr className="border-b border-white/10 bg-white/[0.02] text-xs text-zinc-400 uppercase font-semibold tracking-wider">
                   <th className="py-4 px-5">Role & Company</th>
                   <th className="py-4 px-5">Status Stage</th>
                   <th className="py-4 px-5">Tech Stack</th>
@@ -918,7 +929,7 @@ export default function Dashboard() {
                       <div className="flex flex-wrap gap-1">
                         {app.techStack ? (
                           app.techStack.split(',').slice(0, 3).map((t, i) => (
-                            <span key={i} className="px-2 py-0.5 rounded bg-zinc-800 text-[9px] text-zinc-400 border border-zinc-700/30">
+                            <span key={i} className="px-2 py-0.5 rounded bg-zinc-800 text-xs text-zinc-400 border border-zinc-700/30">
                               {t.trim()}
                             </span>
                           ))
@@ -926,7 +937,7 @@ export default function Dashboard() {
                           <span className="text-zinc-600 italic">Not extracted</span>
                         )}
                         {app.techStack && app.techStack.split(',').length > 3 && (
-                          <span className="text-[9px] text-zinc-500 pl-1 self-center">
+                          <span className="text-xs text-zinc-500 pl-1 self-center">
                             +{app.techStack.split(',').length - 3} more
                           </span>
                         )}
@@ -936,11 +947,11 @@ export default function Dashboard() {
                       <div className="text-zinc-300 font-medium font-sans">
                         {app.jobType && app.jobType !== 'Not specified' ? app.jobType : 'N/A'} • {app.remoteOrPhysical && app.remoteOrPhysical !== 'Not specified' ? app.remoteOrPhysical : 'N/A'}
                       </div>
-                      <div className="text-zinc-500 text-[10px]">{app.location && app.location !== 'Not specified' ? app.location : 'N/A'}</div>
+                      <div className="text-zinc-500 text-xs">{app.location && app.location !== 'Not specified' ? app.location : 'N/A'}</div>
                     </td>
                     <td className="py-4 px-5">
                       <div className="text-zinc-300 font-medium font-sans">{app.recruiterName && app.recruiterName !== 'Not specified' ? app.recruiterName : 'N/A'}</div>
-                      <div className="text-zinc-500 text-[10px]">{app.contactInfo && app.contactInfo !== 'Not specified' ? app.contactInfo : 'N/A'}</div>
+                      <div className="text-zinc-500 text-xs">{app.contactInfo && app.contactInfo !== 'Not specified' ? app.contactInfo : 'N/A'}</div>
                     </td>
                     <td className="py-4 px-5 text-center">
                       <span className={`inline-flex items-center gap-1 font-bold ${app.matchScore >= 80 ? 'text-emerald-400' : app.matchScore >= 60 ? 'text-amber-400' : 'text-zinc-500'
@@ -1092,7 +1103,7 @@ export default function Dashboard() {
 
                 <div className="grid grid-cols-7 gap-1 bg-white/5 rounded-xl overflow-hidden text-center text-xs">
                   {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-                    <div key={d} className="py-2.5 bg-white/[0.02] text-zinc-400 font-bold uppercase tracking-wider text-[10px] font-sans">
+                    <div key={d} className="py-2.5 bg-white/[0.02] text-zinc-400 font-bold uppercase tracking-wider text-xs font-sans">
                       {d}
                     </div>
                   ))}
@@ -1106,7 +1117,7 @@ export default function Dashboard() {
                         className={`min-h-[90px] p-2 bg-zinc-950/40 border border-white/5 text-left flex flex-col justify-between transition-all ${day.isCurrentMonth ? 'text-zinc-200' : 'text-zinc-600 opacity-40'
                           } ${isToday ? 'ring-1 ring-indigo-500 bg-indigo-500/[0.02]' : ''}`}
                       >
-                        <span className={`text-[10px] font-bold ${isToday ? 'text-indigo-400' : ''}`}>
+                        <span className={`text-xs font-bold ${isToday ? 'text-indigo-400' : ''}`}>
                           {day.dayNum}
                         </span>
                         <div className="flex-1 mt-1 overflow-y-auto space-y-1 max-h-[70px] pr-0.5">
@@ -1117,7 +1128,7 @@ export default function Dashboard() {
                                 e.stopPropagation();
                                 setSelectedApp(evt.app);
                               }}
-                              className={`p-1 rounded text-[9px] border leading-tight truncate font-sans hover:brightness-110 active:scale-95 transition-all cursor-pointer ${evt.color}`}
+                              className={`p-1 rounded text-xs border leading-tight truncate font-sans hover:brightness-110 active:scale-95 transition-all cursor-pointer ${evt.color}`}
                               title={`${evt.app.role} @ ${evt.app.company} (${evt.type})`}
                             >
                               <strong>{evt.app.company}</strong>: {evt.type}
@@ -1133,6 +1144,7 @@ export default function Dashboard() {
           })()}
         </div>
       )}
+      </>)}
 
       {/* Slideout Application Detail Modal Overlay */}
       {selectedApp && (
@@ -1146,10 +1158,10 @@ export default function Dashboard() {
               <div className="flex justify-between items-start mb-6">
                 <div>
                   <div className="flex items-center gap-2 mb-1.5">
-                    <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300 text-[10px] font-bold font-sans">
+                    <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300 text-xs font-bold font-sans">
                       {selectedApp.targetLanguage === 'DE' ? '🇩🇪 GERMAN APPLICATION' : '🇬🇧 ENGLISH APPLICATION'}
                     </span>
-                    <span className="px-2.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] font-bold uppercase tracking-wider">
+                    <span className="px-2.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs font-bold uppercase tracking-wider">
                       {selectedApp.status}
                     </span>
                   </div>
@@ -1167,7 +1179,7 @@ export default function Dashboard() {
 
               {/* Status Update Dropdown */}
               <div className="mb-6 bg-white/[0.02] border border-white/5 p-4 rounded-xl space-y-2">
-                <label className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">Update Status Stage</label>
+                <label className="text-xs uppercase font-bold text-zinc-400 tracking-wider">Update Status Stage</label>
                 <div className="flex flex-wrap gap-2">
                   {COLUMNS.map(col => (
                     <button
@@ -1187,28 +1199,28 @@ export default function Dashboard() {
               {/* Target overrides details */}
               <div className="grid grid-cols-2 gap-4 mb-6 text-xs bg-white/[0.01] border border-white/5 p-4 rounded-xl">
                 <div className="space-y-1">
-                  <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1">
+                  <span className="text-xs uppercase font-bold text-zinc-500 flex items-center gap-1">
                     <DollarSign className="w-3 h-3" /> Salary Expectation
                   </span>
                   <p className="text-zinc-200 font-medium">{selectedApp.salaryExpectation || 'Not specified'}</p>
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1">
+                  <span className="text-xs uppercase font-bold text-zinc-500 flex items-center gap-1">
                     <Clock className="w-3 h-3" /> Notice / Availability
                   </span>
                   <p className="text-zinc-200 font-medium">{selectedApp.noticePeriod || 'Not specified'}</p>
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1">
+                  <span className="text-xs uppercase font-bold text-zinc-500 flex items-center gap-1">
                     <MapPin className="w-3 h-3" /> Signing Location
                   </span>
                   <p className="text-zinc-200 font-medium">{selectedApp.signingLocation || 'Not specified'}</p>
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1">
+                  <span className="text-xs uppercase font-bold text-zinc-500 flex items-center gap-1">
                     <Award className="w-3.5 h-3.5" /> Profile Fit
                   </span>
                   <p className="text-emerald-400 font-bold">{selectedApp.matchScore}% Fit</p>
@@ -1220,31 +1232,31 @@ export default function Dashboard() {
                 <h4 className="text-xs font-bold text-white uppercase tracking-wider pb-2 border-b border-white/5">Job Details</h4>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1">
+                    <span className="text-xs uppercase font-bold text-zinc-500 flex items-center gap-1">
                       <User className="w-3 h-3 text-indigo-400" /> Recruiter
                     </span>
                     <p className="text-zinc-200 font-medium">{selectedApp.recruiterName || 'Not specified'}</p>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1">
+                    <span className="text-xs uppercase font-bold text-zinc-500 flex items-center gap-1">
                       <Mail className="w-3 h-3 text-indigo-400" /> Contact Info
                     </span>
                     <p className="text-zinc-200 font-medium">{selectedApp.contactInfo || 'Not specified'}</p>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1">
+                    <span className="text-xs uppercase font-bold text-zinc-500 flex items-center gap-1">
                       <Clock className="w-3 h-3 text-indigo-400" /> Job Type
                     </span>
                     <p className="text-zinc-200 font-medium">{selectedApp.jobType || 'Not specified'}</p>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1">
+                    <span className="text-xs uppercase font-bold text-zinc-500 flex items-center gap-1">
                       <Building className="w-3 h-3 text-indigo-400" /> Location
                     </span>
                     <p className="text-zinc-200 font-medium">{selectedApp.location || 'Not specified'}</p>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1">
+                    <span className="text-xs uppercase font-bold text-zinc-500 flex items-center gap-1">
                       <Globe className="w-3 h-3 text-indigo-400" /> Workplace Mode
                     </span>
                     <p className="text-zinc-200 font-medium">{selectedApp.remoteOrPhysical || 'Not specified'}</p>
@@ -1253,10 +1265,10 @@ export default function Dashboard() {
 
                 {selectedApp.techStack && (
                   <div className="space-y-1.5 pt-2 border-t border-white/5">
-                    <span className="text-[9px] uppercase font-bold text-zinc-500 block">Required Tech Stack</span>
+                    <span className="text-xs uppercase font-bold text-zinc-500 block">Required Tech Stack</span>
                     <div className="flex flex-wrap gap-1.5">
                       {selectedApp.techStack.split(',').map((t, idx) => (
-                        <span key={idx} className="px-2 py-0.5 rounded bg-zinc-850 text-[10px] text-zinc-300 border border-zinc-700/50">
+                        <span key={idx} className="px-2 py-0.5 rounded bg-zinc-850 text-xs text-zinc-300 border border-zinc-700/50">
                           {t.trim()}
                         </span>
                       ))}
@@ -1266,8 +1278,8 @@ export default function Dashboard() {
 
                 {selectedApp.mainRequirements && (
                   <div className="space-y-1 pt-2 border-t border-white/5">
-                    <span className="text-[9px] uppercase font-bold text-zinc-500 block">Core Requirements</span>
-                    <p className="text-zinc-300 leading-relaxed text-[11px] whitespace-pre-wrap">{selectedApp.mainRequirements}</p>
+                    <span className="text-xs uppercase font-bold text-zinc-500 block">Core Requirements</span>
+                    <p className="text-zinc-300 leading-relaxed text-xs whitespace-pre-wrap">{selectedApp.mainRequirements}</p>
                   </div>
                 )}
               </div>
@@ -1278,23 +1290,23 @@ export default function Dashboard() {
                   <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-2">Keyword/Skill Gap Analysis</h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-lg">
-                      <span className="text-[10px] text-emerald-400 font-bold block mb-1">Keywords Met</span>
+                      <span className="text-xs text-emerald-400 font-bold block mb-1">Keywords Met</span>
                       <div className="flex flex-wrap gap-1">
                         {cleanKeywordLists(selectedApp.gapAnalysis.matchingKeywords, selectedApp.gapAnalysis.missingSkills).matching.map((k, i) => (
-                          <span key={i} className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">{k}</span>
+                          <span key={i} className="text-xs px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">{k}</span>
                         ))}
                       </div>
                     </div>
 
                     <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-lg">
-                      <span className="text-[10px] text-amber-400 font-bold block mb-1">Target Skill Gaps</span>
+                      <span className="text-xs text-amber-400 font-bold block mb-1">Target Skill Gaps</span>
                       <div className="flex flex-wrap gap-1">
                         {selectedApp.gapAnalysis.missingSkills.length > 0 ? (
                           dedupeKeywords(selectedApp.gapAnalysis.missingSkills).map((s, i) => (
-                            <span key={i} className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">{s}</span>
+                            <span key={i} className="text-xs px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">{s}</span>
                           ))
                         ) : (
-                          <span className="text-[9px] text-zinc-500">Perfect matching!</span>
+                          <span className="text-xs text-zinc-500">Perfect matching!</span>
                         )}
                       </div>
                     </div>
@@ -1330,7 +1342,7 @@ export default function Dashboard() {
                     </span>
                     <div className="flex justify-between items-baseline pl-1">
                       <span className="font-bold text-zinc-100">Current Stage: {selectedApp.status}</span>
-                      <span className="text-[10px] text-zinc-500">Active</span>
+                      <span className="text-xs text-zinc-500">Active</span>
                     </div>
                   </div>
 
@@ -1343,7 +1355,7 @@ export default function Dashboard() {
                           <span className="text-zinc-300">
                             Moved from <span className="font-semibold text-zinc-400">{hist.fromStatus}</span> to <span className="font-semibold text-white">{hist.toStatus}</span>
                           </span>
-                          <span className="text-[10px] text-zinc-500">
+                          <span className="text-xs text-zinc-500">
                             {new Date(hist.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
@@ -1356,7 +1368,7 @@ export default function Dashboard() {
                     <span className="absolute -left-[24px] top-1.5 flex h-1.5 w-1.5 items-center justify-center rounded-full bg-indigo-500 ring-4 ring-[var(--layout-surface-panel-bg)]"></span>
                     <div className="flex justify-between items-baseline pl-1">
                       <span className="text-zinc-300 font-semibold">Application Tracked</span>
-                      <span className="text-[10px] text-zinc-500">
+                      <span className="text-xs text-zinc-500">
                         {new Date(selectedApp.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
@@ -1406,7 +1418,7 @@ export default function Dashboard() {
                   <h3 className="text-sm font-bold text-white">
                     Automated Follow-Up Assistant
                   </h3>
-                  <p className="text-[11px] text-zinc-400">
+                  <p className="text-xs text-zinc-400">
                     {followUpModalApp.role} @ {followUpModalApp.company}
                   </p>
                 </div>
@@ -1421,7 +1433,7 @@ export default function Dashboard() {
 
             {/* Template Type Selector */}
             <div className="space-y-1.5">
-              <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">
+              <label className="text-zinc-400 font-semibold uppercase text-xs tracking-wider">
                 Select Follow-Up Objective
               </label>
               <div className="grid grid-cols-3 gap-2">
@@ -1435,7 +1447,7 @@ export default function Dashboard() {
                   }`}
                 >
                   <span className="block text-xs font-bold">1. Status Check</span>
-                  <span className="text-[10px] text-zinc-500 font-normal">7+ days post-apply</span>
+                  <span className="text-xs text-zinc-500 font-normal">7+ days post-apply</span>
                 </button>
                 <button
                   type="button"
@@ -1447,7 +1459,7 @@ export default function Dashboard() {
                   }`}
                 >
                   <span className="block text-xs font-bold">2. Thank-You</span>
-                  <span className="text-[10px] text-zinc-500 font-normal">Post-interview note</span>
+                  <span className="text-xs text-zinc-500 font-normal">Post-interview note</span>
                 </button>
                 <button
                   type="button"
@@ -1459,7 +1471,7 @@ export default function Dashboard() {
                   }`}
                 >
                   <span className="block text-xs font-bold">3. Offer Clarify</span>
-                  <span className="text-[10px] text-zinc-500 font-normal">Questions on terms</span>
+                  <span className="text-xs text-zinc-500 font-normal">Questions on terms</span>
                 </button>
               </div>
             </div>
@@ -1467,7 +1479,7 @@ export default function Dashboard() {
             {/* Recruiter Email Target & Subject */}
             <div className="space-y-3 pt-1 text-xs">
               <div className="flex flex-col gap-1">
-                <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Subject Line</label>
+                <label className="text-zinc-400 font-semibold uppercase text-xs tracking-wider">Subject Line</label>
                 <input
                   type="text"
                   value={followUpSubject}
@@ -1477,7 +1489,7 @@ export default function Dashboard() {
               </div>
 
               <div className="flex flex-col gap-1">
-                <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Email Body (Editable Draft)</label>
+                <label className="text-zinc-400 font-semibold uppercase text-xs tracking-wider">Email Body (Editable Draft)</label>
                 <textarea
                   value={followUpBody}
                   onChange={(e) => setFollowUpBody(e.target.value)}
@@ -1540,7 +1552,7 @@ export default function Dashboard() {
 
             <div className="space-y-4 text-xs">
               <div className="flex flex-col gap-1.5">
-                <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Event Type</label>
+                <label className="text-zinc-400 font-semibold uppercase text-xs tracking-wider">Event Type</label>
                 <select
                   value={eventType}
                   onChange={(e) => handleEventTypeChange(e.target.value as any)}
@@ -1555,7 +1567,7 @@ export default function Dashboard() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Event Title</label>
+                <label className="text-zinc-400 font-semibold uppercase text-xs tracking-wider">Event Title</label>
                 <input
                   type="text"
                   value={eventTitle}
@@ -1566,7 +1578,7 @@ export default function Dashboard() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Date</label>
+                  <label className="text-zinc-400 font-semibold uppercase text-xs tracking-wider">Date</label>
                   <input
                     type="date"
                     value={eventDate}
@@ -1577,7 +1589,7 @@ export default function Dashboard() {
 
                 {eventType !== 'apply' && eventType !== 'offer' && (
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Start Time</label>
+                    <label className="text-zinc-400 font-semibold uppercase text-xs tracking-wider">Start Time</label>
                     <input
                       type="time"
                       value={eventTime}
@@ -1590,7 +1602,7 @@ export default function Dashboard() {
 
               {eventType !== 'apply' && eventType !== 'offer' && (
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Duration (Minutes)</label>
+                  <label className="text-zinc-400 font-semibold uppercase text-xs tracking-wider">Duration (Minutes)</label>
                   <select
                     value={eventDuration}
                     onChange={(e) => setEventDuration(e.target.value)}
@@ -1607,7 +1619,7 @@ export default function Dashboard() {
               )}
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Location / Venue</label>
+                <label className="text-zinc-400 font-semibold uppercase text-xs tracking-wider">Location / Venue</label>
                 <input
                   type="text"
                   value={eventLocation}
@@ -1617,7 +1629,7 @@ export default function Dashboard() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Event Description</label>
+                <label className="text-zinc-400 font-semibold uppercase text-xs tracking-wider">Event Description</label>
                 <textarea
                   value={eventDescription}
                   onChange={(e) => setEventDescription(e.target.value)}
@@ -1659,7 +1671,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white">Application Mastery Workflow Guide</h3>
-                  <p className="text-[11px] text-zinc-400">Step-by-step master walkthrough & power user strategies</p>
+                  <p className="text-xs text-zinc-400">Step-by-step master walkthrough & power user strategies</p>
                 </div>
               </div>
               <button
@@ -1677,15 +1689,15 @@ export default function Dashboard() {
               <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-indigo-400 flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center text-[10px] font-black">1</span>
+                    <span className="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center text-xs font-black">1</span>
                     Persona Vault Setup
                   </span>
-                  <span className="text-[9px] px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 font-semibold uppercase">Profile Hub</span>
+                  <span className="text-xs px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 font-semibold uppercase">Profile Hub</span>
                 </div>
-                <p className="text-zinc-300 text-[11px] leading-relaxed">
+                <p className="text-zinc-300 text-xs leading-relaxed">
                   Go to <strong className="text-white">Profile</strong> and configure your Master Vault or create specialized personas (e.g. <em>Frontend Specialist</em>, <em>Full-Stack Lead</em>).
                 </p>
-                <div className="p-2 rounded-lg bg-zinc-900/60 border border-white/5 text-[10px] text-zinc-400">
+                <div className="p-2 rounded-lg bg-zinc-900/60 border border-white/5 text-xs text-zinc-400">
                   💡 <strong className="text-zinc-200">Pro Tip:</strong> When tailoring, you can switch personas in 1 click to seed the AI with targeted work experience.
                 </div>
               </div>
@@ -1694,15 +1706,15 @@ export default function Dashboard() {
               <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center text-[10px] font-black">2</span>
+                    <span className="w-5 h-5 rounded-full bg-purple-500/20 flex items-center justify-center text-xs font-black">2</span>
                     Targeting & Strategy
                   </span>
-                  <span className="text-[9px] px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 font-semibold uppercase">Tailor Form</span>
+                  <span className="text-xs px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 font-semibold uppercase">Tailor Form</span>
                 </div>
-                <p className="text-zinc-300 text-[11px] leading-relaxed">
+                <p className="text-zinc-300 text-xs leading-relaxed">
                   Paste the target Job Description, URL, or upload a PDF. Choose strict 1-page limits, tone, STAR bullet styles, and DIN 5008 German or International layout.
                 </p>
-                <div className="p-2 rounded-lg bg-zinc-900/60 border border-white/5 text-[10px] text-zinc-400">
+                <div className="p-2 rounded-lg bg-zinc-900/60 border border-white/5 text-xs text-zinc-400">
                   🎯 <strong className="text-zinc-200">Gap Analysis:</strong> Check how well your profile fits the job (profile fit) and which job keywords your CV contains before applying.
                 </div>
               </div>
@@ -1711,15 +1723,15 @@ export default function Dashboard() {
               <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-cyan-400 flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[10px] font-black">3</span>
+                    <span className="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-xs font-black">3</span>
                     Live Polish & Layouts
                   </span>
-                  <span className="text-[9px] px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 font-semibold uppercase">Live Canvas</span>
+                  <span className="text-xs px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 font-semibold uppercase">Live Canvas</span>
                 </div>
-                <p className="text-zinc-300 text-[11px] leading-relaxed">
+                <p className="text-zinc-300 text-xs leading-relaxed">
                   Click any bullet point to get instant STAR/Punchy variations. Select curated color palettes (Oxford, Emerald, Slate) and modern typography (Swiss Minimalist, Monospace).
                 </p>
-                <div className="p-2 rounded-lg bg-zinc-900/60 border border-white/5 text-[10px] text-zinc-400">
+                <div className="p-2 rounded-lg bg-zinc-900/60 border border-white/5 text-xs text-zinc-400">
                   🎨 <strong className="text-zinc-200">Spacing Sliders:</strong> Use the Customization side panel to tweak global gaps so your CV fits neatly on 1 page.
                 </div>
               </div>
@@ -1728,15 +1740,15 @@ export default function Dashboard() {
               <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-[10px] font-black">4</span>
+                    <span className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center text-xs font-black">4</span>
                     Outreach, Prep & Track
                   </span>
-                  <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-semibold uppercase">Career Suite</span>
+                  <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 font-semibold uppercase">Career Suite</span>
                 </div>
-                <p className="text-zinc-300 text-[11px] leading-relaxed">
+                <p className="text-zinc-300 text-xs leading-relaxed">
                   Download crisp Vector PDF or Word (.docx). Use the <strong className="text-white">Outreach</strong> tab for LinkedIn InMails and <strong className="text-white">Interview Prep</strong> for STAR cheat-sheets.
                 </p>
-                <div className="p-2 rounded-lg bg-zinc-900/60 border border-white/5 text-[10px] text-zinc-400">
+                <div className="p-2 rounded-lg bg-zinc-900/60 border border-white/5 text-xs text-zinc-400">
                   ⏰ <strong className="text-zinc-200">Kanban Automation:</strong> Watch for aging pulse badges (7d applied / 2d interview) to send 1-click follow-up drafts.
                 </div>
               </div>
@@ -1744,10 +1756,10 @@ export default function Dashboard() {
 
             {/* Quick Reference Highlights */}
             <div className="p-4 rounded-xl bg-indigo-500/5 border border-indigo-500/20 space-y-2 text-xs">
-              <span className="font-bold text-indigo-300 text-[11px] uppercase tracking-wider block">
+              <span className="font-bold text-indigo-300 text-xs uppercase tracking-wider block">
                 ⚡ Power User Shortcuts & Capabilities
               </span>
-              <ul className="space-y-1.5 text-[11px] text-zinc-300">
+              <ul className="space-y-1.5 text-xs text-zinc-300">
                 <li className="flex items-start gap-2">
                   <span className="text-indigo-400">•</span>
                   <span><strong className="text-white">On-Demand AI Tokens:</strong> Tailoring generates CV + CL; outreach and interview prep are generated on-demand to save your token quota.</span>
@@ -1765,7 +1777,7 @@ export default function Dashboard() {
 
             {/* Modal Footer */}
             <div className="pt-3 border-t border-white/10 flex justify-between items-center">
-              <span className="text-[10px] text-zinc-500">JobFlow AI Precision Career Suite</span>
+              <span className="text-xs text-zinc-500">JobFlow AI Precision Career Suite</span>
               <button
                 type="button"
                 onClick={() => setIsGuideModalOpen(false)}
