@@ -20,6 +20,7 @@ import CanvasViewport from './components/CanvasViewport';
 import CanvasFloatingHud from './components/CanvasFloatingHud';
 import MobileToolBottomSheet from './components/MobileToolBottomSheet';
 import { loadTailorInputs, saveTailorInputs, clearTailorInputs } from '@/lib/tailorInputsAutosave';
+import { cleanKeywordLists, dedupeKeywords } from '@/lib/keywordLists';
 import OutreachTextarea, { findPlaceholders, LINKEDIN_NOTE_LIMIT } from './components/OutreachTextarea';
 import RefusalReport from './components/RefusalReport';
 import { renderInline } from './components/MarkdownLite';
@@ -1368,12 +1369,13 @@ export default function TailorWorkspace() {
         coverLetter: result.tailoredCoverLetter,
         profile,
         requirements,
+        userInputs: [salaryExpectation, noticePeriod, signingLocation, customNotes, themeDirective],
       });
     } catch (err) {
       console.warn('Bridged-claim detection failed:', err);
       return [];
     }
-  }, [result, profile]);
+  }, [result, profile, salaryExpectation, noticePeriod, signingLocation, customNotes, themeDirective]);
   const activeBulletVariant = bulletStyle === 'STAR Method' ? 'star' : bulletStyle === 'Short & Punchy' ? 'punchy' : 'standard';
   const activeParagraphSet = result?.tailoredCoverLetter ? getDisplayedClKey(result.tailoredCoverLetter, clLength) : (clLength.includes('Short') ? 'short' : 'detailed');
   const bridgedClaims = allBridgedClaims.filter(c =>
@@ -1430,7 +1432,7 @@ export default function TailorWorkspace() {
     const n = pendingBridgedClaims.length;
     showAlert({
       title: 'Unreviewed bridged claims',
-      message: `${n} statement${n === 1 ? '' : 's'} in your documents go${n === 1 ? 'es' : ''} beyond your profile and ${n === 1 ? "hasn't" : "haven't"} been reviewed yet. Review them under ATS & Insights → Bridged claims, or export anyway.`,
+      message: `${n} statement${n === 1 ? '' : 's'} in your documents go${n === 1 ? 'es' : ''} beyond your profile and ${n === 1 ? "hasn't" : "haven't"} been reviewed yet. Review them under Insights → Bridged claims, or export anyway.`,
       type: 'warning',
       confirmLabel: 'Export anyway',
       onConfirm: run,
@@ -4029,6 +4031,21 @@ export default function TailorWorkspace() {
   }, [autosaveReady, editingAppId, result, jobDescription, jobUrl, intakeMethod, companyName, roleName, cvLanguage, clLanguage,
     salaryExpectation, noticePeriod, signingLocation, customNotes, themeDirective, matchStrategy, tone, lengthTarget]);
 
+  // Adding every missing keyword at once invites claiming skills the user doesn't have,
+  // which is exactly what the bridging review is meant to prevent (audit 7.3). Ask first.
+  const confirmAddAllMissing = () => {
+    if (!result) return;
+    const missing = dedupeKeywords(result.gapAnalysis.missingSkills);
+    if (missing.length === 0) return;
+    showAlert({
+      title: 'Only add skills you really have',
+      message: `This adds ${missing.join(', ')} to your CV as skills you have. Recruiters and interviewers will ask about them. Add them one by one instead if you only have some.`,
+      type: 'warning',
+      confirmLabel: `I have all ${missing.length}, add them`,
+      onConfirm: () => missing.forEach(s => handleAddSkillInteractive(s, true)),
+    });
+  };
+
   // Copy an outreach message, but warn first if it still has [placeholders] (audit 7.6).
   const copyOutreach = (text: string, what: string) => {
     const doCopy = () => {
@@ -6540,7 +6557,7 @@ export default function TailorWorkspace() {
                         <Check className="w-3 h-3" /> Matching Keywords
                       </h4>
                       <div className="flex flex-wrap gap-1 min-h-[40px] border border-dashed border-emerald-500/10 rounded p-1 items-center">
-                        {result.gapAnalysis.matchingKeywords.map((k, i) => (
+                        {cleanKeywordLists(result.gapAnalysis.matchingKeywords, result.gapAnalysis.missingSkills).matching.map((k, i) => (
                           <span key={i} className="text-xs px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 flex items-center gap-1.5">
                             {k}
                             <button
@@ -6619,7 +6636,7 @@ export default function TailorWorkspace() {
                               onDragStart={(e) => e.dataTransfer.setData('text/plain', s)}
                               onClick={() => handleAddSkillInteractive(s, false)}
                               className="text-xs px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 cursor-pointer hover:bg-amber-500/20 active:scale-95 transition-all select-none"
-                              title="Click or drag to add this skill to your profile"
+                              title="Add only if you really have this skill"
                             >
                               {s}
                             </span>
@@ -6631,10 +6648,7 @@ export default function TailorWorkspace() {
                       {result.gapAnalysis.missingSkills.length > 0 && (
                         <button
                           type="button"
-                          onClick={() => {
-                            const missing = [...result.gapAnalysis.missingSkills];
-                            missing.forEach(s => handleAddSkillInteractive(s, true));
-                          }}
+                          onClick={confirmAddAllMissing}
                           className="mt-2 w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-amber-500/30 hover:border-amber-500/50"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -8099,10 +8113,7 @@ export default function TailorWorkspace() {
                     {result.gapAnalysis.missingSkills.length > 0 && (
                       <button
                         type="button"
-                        onClick={() => {
-                          const missing = [...result.gapAnalysis.missingSkills];
-                          missing.forEach(s => handleAddSkillInteractive(s, true));
-                        }}
+                        onClick={confirmAddAllMissing}
                         className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold cursor-pointer"
                       >
                         + Add All Missing

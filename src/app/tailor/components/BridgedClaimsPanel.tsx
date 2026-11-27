@@ -20,6 +20,7 @@ const KIND_LABEL: Record<BridgedTermKind, string> = {
   'new-skill': 'New skill',
   'moved-skill': 'Moved skill',
   number: 'Figure',
+  qualifier: 'Stronger wording',
   'gap-skill': 'Missing skill',
   credential: 'Credential',
 };
