@@ -6600,24 +6600,29 @@ export default function TailorWorkspace() {
         {/* Right Preview Pane */}
         <div className={`w-full ${isDesktopPanelCollapsed ? 'col-span-1 lg:col-span-12' : 'col-span-1 lg:col-span-7'} bg-[var(--layout-surface-card-bg)]/30 flex flex-col overflow-y-auto h-full min-h-0 pb-[60px] lg:pb-0 transition-all duration-300 ${activeMobileTab === 'preview' ? 'block' : 'hidden lg:block'
           }`}>
-          {/* Multi-Row Sticky Responsive Toolbar with HUD */}
-          <div className="sticky top-0 z-20 no-print flex flex-col gap-2 px-3 sm:px-6 py-2 bg-[var(--layout-surface-panel-bg)]/95 backdrop-blur-md border-b border-white/5 font-sans">
+          {/* Preview toolbar: pinned on desktop only. On phones it scrolls away so the CV gets the screen (audit R1). */}
+          <div className="relative lg:sticky lg:top-0 z-20 no-print flex flex-col gap-2 px-3 sm:px-6 py-2 bg-[var(--layout-surface-panel-bg)]/95 backdrop-blur-md border-b border-white/5 font-sans">
             {/* Top Row: Document Switcher & Floating HUD */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-              <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 {/* Desktop Sidebar Collapse Toggle */}
                 <button
                   type="button"
                   onClick={() => setIsDesktopPanelCollapsed(!isDesktopPanelCollapsed)}
                   className="hidden lg:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-white/10 text-xs font-semibold cursor-pointer transition-all shadow-sm"
-                  title={isDesktopPanelCollapsed ? 'Show Strategy Panel' : 'Collapse Strategy Panel'}
+                  title={isDesktopPanelCollapsed ? 'Show the input panel' : 'Hide the input panel'}
+                  aria-label={isDesktopPanelCollapsed ? 'Show the input panel' : 'Hide the input panel'}
+                  aria-expanded={!isDesktopPanelCollapsed}
                 >
-                  <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isDesktopPanelCollapsed ? '' : 'rotate-180'}`} />
-                  <span>{isDesktopPanelCollapsed ? 'Show Strategy' : 'Hide Strategy'}</span>
+                  <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isDesktopPanelCollapsed ? '' : 'rotate-180'}`} aria-hidden="true" />
+                  <span className="hidden 2xl:inline">{isDesktopPanelCollapsed ? 'Show panel' : 'Hide panel'}</span>
                 </button>
 
-                <div className="flex gap-1.5 font-sans overflow-x-auto no-scrollbar py-0.5">
+                <div role="tablist" aria-label="Documents" className="flex gap-1.5 font-sans overflow-x-auto no-scrollbar py-0.5 min-w-0">
                   <button
+                    type="button"
+                    role="tab"
+                    aria-selected={previewTab === 'cv'}
                     onClick={() => setPreviewTab('cv')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${previewTab === 'cv'
                       ? 'bg-zinc-800 text-white shadow-sm'
@@ -6628,6 +6633,9 @@ export default function TailorWorkspace() {
                     <span>{cvLanguage === 'DE' ? 'Lebenslauf' : 'Resume'}</span>
                   </button>
                   <button
+                    type="button"
+                    role="tab"
+                    aria-selected={previewTab === 'coverLetter'}
                     onClick={() => setPreviewTab('coverLetter')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${previewTab === 'coverLetter'
                       ? 'bg-zinc-800 text-white shadow-sm'
@@ -6635,9 +6643,12 @@ export default function TailorWorkspace() {
                       }`}
                   >
                     <PenTool className="w-3.5 h-3.5" />
-                    <span>{clLanguage === 'DE' ? 'Anschreiben' : 'Cover Letter'}</span>
+                    <span>{clLanguage === 'DE' ? 'Anschreiben' : 'Cover letter'}</span>
                   </button>
                   <button
+                    type="button"
+                    role="tab"
+                    aria-selected={previewTab === 'outreach'}
                     onClick={() => setPreviewTab('outreach')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${previewTab === 'outreach'
                       ? 'bg-indigo-600 text-white shadow-sm'
@@ -6649,6 +6660,9 @@ export default function TailorWorkspace() {
                     {outreachData && <span className="w-2 h-2 rounded-full bg-emerald-400"></span>}
                   </button>
                   <button
+                    type="button"
+                    role="tab"
+                    aria-selected={previewTab === 'interviewPrep'}
                     onClick={() => setPreviewTab('interviewPrep')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${previewTab === 'interviewPrep'
                       ? 'bg-indigo-600 text-white shadow-sm'
@@ -6656,7 +6670,7 @@ export default function TailorWorkspace() {
                       }`}
                   >
                     <Target className="w-3.5 h-3.5" />
-                    <span>Interview Prep</span>
+                    <span>Interview prep</span>
                     {interviewPrepData && <span className="w-2 h-2 rounded-full bg-emerald-400"></span>}
                   </button>
                 </div>
@@ -6690,171 +6704,11 @@ export default function TailorWorkspace() {
               />
             </div>
 
-            {/* Row 2: Layout Presets & ATS Toolbar (Sticky on top of document) */}
-
+            {/* Row 2: one slim row. Status chips on the left, Compare + Design on the right.
+                All visual settings live in the Design panel (audit R1/R2, T4). */}
             {result && previewTab === 'cv' && (
-              <div className="pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-2.5 text-white font-sans text-xs">
-                {/* Top Group: 3-Way CV Format Mode Selector */}
-                {previewTab === 'cv' && (
-                  <div className="flex bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-0.5 font-sans w-full sm:w-auto">
-                    <button
-                      type="button"
-                      onClick={() => handleSetCvFormatMode('visual')}
-                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'visual'
-                        ? 'bg-zinc-800 text-white shadow-sm'
-                        : 'text-zinc-400 hover:text-zinc-200'
-                        }`}
-                    >
-                      Visual Layout
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSetCvFormatMode('ats')}
-                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'ats'
-                        ? 'bg-zinc-800 text-white shadow-sm'
-                        : 'text-zinc-400 hover:text-zinc-200'
-                        }`}
-                    >
-                      Strict ATS
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSetCvFormatMode('bullet-matrix')}
-                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'bullet-matrix'
-                        ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm'
-                        : 'text-zinc-400 hover:text-zinc-200'
-                        }`}
-                    >
-                      Bullet Matrix
-                    </button>
-                  </div>
-                )}
-                {/* Left Group: Layout & Spacing Presets */}
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div className="flex items-center gap-1.5">
-                    <Sliders className="w-3.5 h-3.5 text-indigo-400" />
-                    <span className="font-semibold text-zinc-300 text-[11px]">Spacing:</span>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        onClick={() => applyPreset('default')}
-                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
-                      >
-                        Default
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyPreset('compact')}
-                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
-                      >
-                        Compact
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => applyPreset('tight')}
-                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
-                      >
-                        Ultra-Tight
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Section Layout Order Dropdown */}
-                  <div className="flex items-center gap-1.5 border-l border-zinc-700/60 pl-2.5">
-                    <span className="font-semibold text-zinc-400 text-[10px]">Layout:</span>
-                    <select
-                      value={
-                        sectionOrder[1] === 'work' ? 'work' : sectionOrder[1] === 'skills' ? 'skills' : 'education'
-                      }
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === 'work') setSectionOrder(['summary', 'work', 'projects', 'education', 'skills', 'languages']);
-                        else if (val === 'skills') setSectionOrder(['summary', 'skills', 'projects', 'work', 'education', 'languages']);
-                        else if (val === 'education') setSectionOrder(['summary', 'education', 'work', 'projects', 'skills', 'languages']);
-                      }}
-                      className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                    >
-                      <option value="work">Work-First</option>
-                      <option value="skills">Tech-First</option>
-                      <option value="education">Academic-First</option>
-                    </select>
-                  </div>
-
-                  {/* Modern Layout Template Selector */}
-                  <div className="flex items-center gap-1.5 border-l border-zinc-700/60 pl-2.5">
-                    <span className="font-semibold text-zinc-400 text-[10px]">Template:</span>
-                    <select
-                      value={cvLayoutTemplateId}
-                      onChange={(e) => setCvLayoutTemplateId(e.target.value as CvLayoutTemplateId)}
-                      className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                    >
-                      {Object.values(LAYOUT_TEMPLATES).map((tmpl) => (
-                        <option key={tmpl.id} value={tmpl.id}>
-                          {tmpl.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Curated Color Themes Swatches */}
-                  <div className="flex items-center gap-1.5 border-l border-zinc-700/60 pl-2.5">
-                    <span className="font-semibold text-zinc-400 text-[10px]">Theme:</span>
-                    <div className="flex items-center gap-1">
-                      {Object.values(COLOR_THEMES).map((theme) => (
-                        <button
-                          key={theme.id}
-                          type="button"
-                          onClick={() => setColorThemeId(theme.id)}
-                          style={{ backgroundColor: theme.previewColor }}
-                          className={`w-3.5 h-3.5 rounded-full transition-all cursor-pointer border ${colorThemeId === theme.id
-                            ? 'ring-2 ring-white ring-offset-1 ring-offset-zinc-900 scale-110 border-white'
-                            : 'border-white/20 opacity-70 hover:opacity-100'
-                            }`}
-                          title={`${theme.name} Palette`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right Group: ATS Highlights, Compare & Fine-Tune Popover */}
-                <div className="flex items-center gap-2 flex-wrap relative">
-                  <button
-                    type="button"
-                    onClick={() => setIsCompareModalOpen(true)}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer shadow-sm"
-                    title="Compare Master Profile text side-by-side with Tailored Document"
-                  >
-                    <GitCompare className="w-3 h-3 text-indigo-400" />
-                    <span>⚖️ Compare</span>
-                  </button>
-
-                  {result?.tailoredCv?.personalDetails?.photo && previewTab === 'cv' && (
-                    <button
-                      type="button"
-                      onClick={toggleCvPhoto}
-                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${showPhotoOnCv
-                        ? 'bg-sky-500/15 text-sky-300 border-sky-500/40'
-                        : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'}`}
-                      title="German CVs usually include a photo; UK/US employers usually expect CVs without one."
-                    >
-                      <span>📷 Photo {showPhotoOnCv ? '(ON)' : '(OFF)'}</span>
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => setIsAtsHighlightEnabled((prev) => !prev)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${isAtsHighlightEnabled
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
-                      : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
-                      }`}
-                    title="Highlight ATS Job Description keywords in preview text"
-                  >
-                    <Target className="w-3 h-3 text-emerald-400" />
-                    <span>ATS Highlights {isAtsHighlightEnabled ? '(ON)' : '(OFF)'}</span>
-                  </button>
-
+              <div className="pt-2 border-t border-white/5 flex items-center gap-2 text-white font-sans text-xs">
+                <div className="flex items-center gap-2 min-w-0 overflow-x-auto no-scrollbar [&>*]:whitespace-nowrap [&>*]:shrink-0">
                   {editingAppId && result && (
                     <span
                       className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${autosaveState === 'error' ? 'border-rose-500/40 text-rose-300' : 'border-white/10 text-zinc-400'}`}
@@ -6894,37 +6748,226 @@ export default function TailorWorkspace() {
                       </div>
                     );
                   })()}
+                </div>
 
+                <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsCompareModalOpen(true)}
+                    className="flex items-center gap-1.5 min-h-8 px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-all cursor-pointer"
+                    title="Compare your profile text side by side with the tailored CV"
+                  >
+                    <GitCompare className="w-3.5 h-3.5 text-indigo-400" aria-hidden="true" />
+                    <span>Compare</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => setIsAdjustSpacingOpen((prev) => !prev)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${isAdjustSpacingOpen
-                      ? 'bg-indigo-600 text-white border-indigo-500 shadow-md'
-                      : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
+                    aria-haspopup="dialog"
+                    aria-expanded={isAdjustSpacingOpen}
+                    className={`flex items-center gap-1.5 min-h-8 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${isAdjustSpacingOpen
+                      ? 'bg-indigo-600 text-white border-indigo-500'
+                      : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700'
                       }`}
-                    title="Fine-tune exact pixel spacing and margins"
+                    title="Format, spacing, template, colours and fine-tuning"
                   >
-                    <Sliders className="w-3 h-3 text-indigo-400" />
-                    <span>⚙️ Fine-Tune</span>
+                    <Sliders className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Design</span>
                   </button>
+                </div>
+              </div>
+            )}
 
-                  {/* Fine-Tune Spacing Floating Popover */}
-                  {isAdjustSpacingOpen && (
-                    <div className="absolute right-0 top-9 z-50 bg-zinc-900/98 border border-zinc-700/90 rounded-2xl p-4 shadow-2xl backdrop-blur-xl text-xs text-white w-80 space-y-3 animate-in fade-in zoom-in-95 duration-150">
-                      <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                        <span className="font-bold text-indigo-300 text-[11px] uppercase tracking-wider flex items-center gap-1">
-                          <Sliders className="w-3.5 h-3.5 text-indigo-400" />
-                          Fine-Tune Page Spacing (Live)
-                        </span>
+            {/* Design panel: a right-hand popover on desktop, a bottom sheet on mobile. */}
+            {result && previewTab === 'cv' && isAdjustSpacingOpen && (
+              <Dialog
+                onClose={() => setIsAdjustSpacingOpen(false)}
+                label="Design"
+                className="fixed inset-0 z-[60] flex items-end lg:items-start lg:justify-end lg:pt-[calc(var(--app-header-h)+5.5rem)] lg:pr-6 bg-black/50 lg:bg-transparent"
+              >
+                <div className="absolute inset-0" onClick={() => setIsAdjustSpacingOpen(false)} />
+                <div className="relative w-full lg:w-[380px] max-h-[85dvh] lg:max-h-[calc(100dvh-var(--app-header-h)-7rem)] overflow-y-auto bg-zinc-900 border border-zinc-700/90 rounded-t-2xl lg:rounded-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl text-sm text-white space-y-5 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-indigo-400" aria-hidden="true" />
+                      Design
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setIsAdjustSpacingOpen(false)}
+                      aria-label="Close design panel"
+                      className="w-9 h-9 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  <section className="space-y-2">
+                    <h4 className="text-xs font-semibold text-zinc-400">CV format</h4>
+                {previewTab === 'cv' && (
+                  <div className="flex bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-0.5 font-sans w-full">
+                    <button
+                      type="button"
+                      onClick={() => handleSetCvFormatMode('visual')}
+                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'visual'
+                        ? 'bg-zinc-800 text-white shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                    >
+                      Visual Layout
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetCvFormatMode('ats')}
+                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'ats'
+                        ? 'bg-zinc-800 text-white shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                    >
+                      Strict ATS
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetCvFormatMode('bullet-matrix')}
+                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'bullet-matrix'
+                        ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm'
+                        : 'text-zinc-400 hover:text-zinc-200'
+                        }`}
+                    >
+                      Bullet Matrix
+                    </button>
+                  </div>
+                )}
+                  </section>
+
+                  <section className="space-y-2">
+                    <h4 className="text-xs font-semibold text-zinc-400">Spacing</h4>
+                  <div className="flex items-center gap-1.5">
+                    <Sliders className="w-3.5 h-3.5 text-indigo-400" />
+                    <span className="font-semibold text-zinc-300 text-[11px]">Spacing:</span>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('default')}
+                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                      >
+                        Default
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('compact')}
+                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                      >
+                        Compact
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('tight')}
+                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                      >
+                        Ultra-Tight
+                      </button>
+                    </div>
+                  </div>
+                  </section>
+
+                  <section className="space-y-2">
+                    <h4 className="text-xs font-semibold text-zinc-400">Section order</h4>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-zinc-400 text-[10px]">Layout:</span>
+                    <select
+                      value={
+                        sectionOrder[1] === 'work' ? 'work' : sectionOrder[1] === 'skills' ? 'skills' : 'education'
+                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === 'work') setSectionOrder(['summary', 'work', 'projects', 'education', 'skills', 'languages']);
+                        else if (val === 'skills') setSectionOrder(['summary', 'skills', 'projects', 'work', 'education', 'languages']);
+                        else if (val === 'education') setSectionOrder(['summary', 'education', 'work', 'projects', 'skills', 'languages']);
+                      }}
+                      className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    >
+                      <option value="work">Work-First</option>
+                      <option value="skills">Tech-First</option>
+                      <option value="education">Academic-First</option>
+                    </select>
+                  </div>
+                  </section>
+
+                  <section className="space-y-2">
+                    <h4 className="text-xs font-semibold text-zinc-400">Template</h4>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-zinc-400 text-[10px]">Template:</span>
+                    <select
+                      value={cvLayoutTemplateId}
+                      onChange={(e) => setCvLayoutTemplateId(e.target.value as CvLayoutTemplateId)}
+                      className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    >
+                      {Object.values(LAYOUT_TEMPLATES).map((tmpl) => (
+                        <option key={tmpl.id} value={tmpl.id}>
+                          {tmpl.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  </section>
+
+                  <section className="space-y-2">
+                    <h4 className="text-xs font-semibold text-zinc-400">Colour</h4>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-zinc-400 text-[10px]">Theme:</span>
+                    <div className="flex items-center gap-1">
+                      {Object.values(COLOR_THEMES).map((theme) => (
+                        <button
+                          key={theme.id}
+                          type="button"
+                          onClick={() => setColorThemeId(theme.id)}
+                          style={{ backgroundColor: theme.previewColor }}
+                          className={`w-3.5 h-3.5 rounded-full transition-all cursor-pointer border ${colorThemeId === theme.id
+                            ? 'ring-2 ring-white ring-offset-1 ring-offset-zinc-900 scale-110 border-white'
+                            : 'border-white/20 opacity-70 hover:opacity-100'
+                            }`}
+                          title={`${theme.name} Palette`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  </section>
+
+                  <section className="space-y-2">
+                    <h4 className="text-xs font-semibold text-zinc-400">Preview options</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {result?.tailoredCv?.personalDetails?.photo && (
                         <button
                           type="button"
-                          onClick={() => setIsAdjustSpacingOpen(false)}
-                          className="text-zinc-400 hover:text-white p-0.5 rounded hover:bg-zinc-800 cursor-pointer"
+                          onClick={toggleCvPhoto}
+                          aria-pressed={showPhotoOnCv}
+                          className={`min-h-9 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${showPhotoOnCv
+                            ? 'bg-sky-500/15 text-sky-300 border-sky-500/40'
+                            : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'}`}
+                          title="German CVs usually include a photo; UK/US employers usually expect CVs without one."
                         >
-                          <X className="w-3.5 h-3.5" />
+                          Photo: {showPhotoOnCv ? 'shown' : 'hidden'}
                         </button>
-                      </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setIsAtsHighlightEnabled((prev) => !prev)}
+                        aria-pressed={isAtsHighlightEnabled}
+                        className={`min-h-9 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border flex items-center gap-1.5 ${isAtsHighlightEnabled
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
+                          }`}
+                        title="Highlight the job's keywords in the preview"
+                      >
+                        <Target className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
+                        Highlight job keywords: {isAtsHighlightEnabled ? 'on' : 'off'}
+                      </button>
+                    </div>
+                  </section>
 
+                  <section className="space-y-2">
+                    <h4 className="text-xs font-semibold text-zinc-400">Fine-tune</h4>
                       <div className="space-y-2.5 text-[11px]">
                         <div className="flex items-center justify-between">
                           <span className="text-zinc-400">Section Spacing:</span>
@@ -7007,10 +7050,9 @@ export default function TailorWorkspace() {
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                  </section>
                 </div>
-              </div>
+              </Dialog>
             )}
           </div>
 

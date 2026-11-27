@@ -80,7 +80,7 @@ export default function CanvasFloatingHud({
   return (
     <aside
       aria-label="Canvas HUD Controls"
-      className={`no-print sticky top-2 z-30 flex items-center justify-between flex-wrap gap-2 px-3 py-1.5 rounded-2xl glass-panel bg-zinc-900/90 dark:bg-zinc-900/90 light:bg-white/95 backdrop-blur-xl border border-white/10 light:border-slate-200/80 shadow-2xl text-xs font-sans select-none transition-all duration-200 max-w-full ${className}`}
+      className={`no-print flex items-center justify-between gap-2 whitespace-nowrap px-3 py-1.5 rounded-2xl glass-panel bg-zinc-900/90 dark:bg-zinc-900/90 light:bg-white/95 backdrop-blur-xl border border-white/10 light:border-slate-200/80 shadow-2xl text-xs font-sans select-none transition-all duration-200 max-w-full ${className}`}
     >
       {/* Left: Zoom & Viewport Controls */}
       <div className="flex items-center gap-1">
@@ -88,8 +88,9 @@ export default function CanvasFloatingHud({
           type="button"
           onClick={onZoomOut}
           disabled={scale <= 0.4}
-          className="p-1 rounded-lg text-zinc-400 hover:text-white light:text-slate-600 light:hover:text-slate-900 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
-          title="Zoom Out"
+          className="p-1.5 rounded-lg text-zinc-400 hover:text-white light:text-slate-600 light:hover:text-slate-900 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+          title="Zoom out"
+          aria-label="Zoom out"
         >
           <ZoomOut className="w-3.5 h-3.5" />
         </button>
@@ -97,11 +98,12 @@ export default function CanvasFloatingHud({
         <button
           type="button"
           onClick={onToggleAutoFit}
-          className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 ${isAutoFit
+          className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${isAutoFit
             ? 'bg-indigo-600 text-white shadow-sm'
             : 'text-zinc-400 hover:text-white light:text-slate-600 hover:bg-white/10'
             }`}
-          title="Fit Document to Screen Width"
+          title="Fit the page to the screen width"
+          aria-pressed={isAutoFit}
         >
           <Maximize2 className="w-3 h-3" />
           <span>Fit</span>
@@ -111,13 +113,14 @@ export default function CanvasFloatingHud({
           type="button"
           onClick={onZoomIn}
           disabled={scale >= 1.5}
-          className="p-1 rounded-lg text-zinc-400 hover:text-white light:text-slate-600 light:hover:text-slate-900 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
-          title="Zoom In"
+          className="p-1.5 rounded-lg text-zinc-400 hover:text-white light:text-slate-600 light:hover:text-slate-900 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer"
+          title="Zoom in"
+          aria-label="Zoom in"
         >
           <ZoomIn className="w-3.5 h-3.5" />
         </button>
 
-        <span className="text-[10px] text-zinc-400 light:text-slate-500 font-mono ml-0.5 min-w-[32px] text-center">
+        <span className="text-xs text-zinc-400 light:text-slate-500 font-mono ml-0.5 min-w-[32px] text-center">
           {Math.round(scale * 100)}%
         </span>
       </div>
@@ -129,7 +132,7 @@ export default function CanvasFloatingHud({
         {hasResult && (
           <div className="flex items-center gap-1.5">
             <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 ${numPages === 1
+              className={`text-xs font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 ${numPages === 1
                 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
                 : isStrictOnePage
                   ? 'bg-amber-500/15 text-amber-400 border-amber-500/30 animate-pulse'
@@ -149,14 +152,14 @@ export default function CanvasFloatingHud({
         {/* <button
           type="button"
           onClick={onToggleAtsHighlight}
-          className={`px-2 py-0.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer flex items-center gap-1 border ${isAtsHighlightEnabled
+          className={`px-2 py-0.5 rounded-lg text-xs font-medium transition-all cursor-pointer flex items-center gap-1 border ${isAtsHighlightEnabled
             ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
             : 'text-zinc-400 border-transparent hover:text-white hover:bg-white/5'
             }`}
           title="Toggle ATS Keyword Highlighting"
         >
           <Highlighter className="w-3 h-3 text-amber-400" />
-          <span className="hidden sm:inline text-[10px]">Keywords</span>
+          <span className="hidden sm:inline text-xs">Keywords</span>
         </button> */}
       </div>
 
@@ -169,7 +172,7 @@ export default function CanvasFloatingHud({
             type="button"
             onClick={onSaveToTracker}
             disabled={isSavingToTracker}
-            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold shadow-sm transition-all cursor-pointer flex items-center gap-1 ${saveTrackerSuccess
+            className={`px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm transition-all cursor-pointer flex items-center gap-1 ${saveTrackerSuccess
               ? 'bg-emerald-600 text-white shadow-emerald-500/25'
               : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-white/10 hover:border-indigo-500/40'
               }`}
@@ -195,7 +198,7 @@ export default function CanvasFloatingHud({
               aria-haspopup="menu"
               aria-expanded={exportOpen}
               onClick={() => setExportOpen(!exportOpen)}
-              className="px-3 py-1 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-[11px] font-bold shadow-md shadow-indigo-500/25 flex items-center gap-1 transition-all cursor-pointer"
+              className="px-3 py-1 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-bold shadow-md shadow-indigo-500/25 flex items-center gap-1 transition-all cursor-pointer"
             >
               <Download className="w-3 h-3" />
               <span>Export</span>
@@ -215,7 +218,7 @@ export default function CanvasFloatingHud({
                     <FileDown className="w-4 h-4 text-indigo-400 shrink-0" />
                     <div>
                       <span className="font-semibold block text-white light:text-slate-900 text-xs">Vector PDF</span>
-                      <span className="text-[10px] text-zinc-400 light:text-slate-500">Recruiter ready print</span>
+                      <span className="text-xs text-zinc-400 light:text-slate-500">Recruiter ready print</span>
                     </div>
                   </button>
 
@@ -230,7 +233,7 @@ export default function CanvasFloatingHud({
                     <FileSpreadsheet className="w-4 h-4 text-blue-400 shrink-0" />
                     <div>
                       <span className="font-semibold block text-white light:text-slate-900 text-xs">Word (.docx)</span>
-                      <span className="text-[10px] text-zinc-400 light:text-slate-500">Editable Word document</span>
+                      <span className="text-xs text-zinc-400 light:text-slate-500">Editable Word document</span>
                     </div>
                   </button>
 
@@ -245,7 +248,7 @@ export default function CanvasFloatingHud({
                     <FileText className="w-4 h-4 text-emerald-400 shrink-0" />
                     <div>
                       <span className="font-semibold block text-white light:text-slate-900 text-xs">ATS Plain Text</span>
-                      <span className="text-[10px] text-zinc-400 light:text-slate-500">Direct portal copy-paste</span>
+                      <span className="text-xs text-zinc-400 light:text-slate-500">Direct portal copy-paste</span>
                     </div>
                   </button>
                 </div>
