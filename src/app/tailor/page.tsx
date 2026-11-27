@@ -1426,7 +1426,7 @@ export default function TailorWorkspace() {
     const n = pendingBridgedClaims.length;
     showAlert({
       title: 'Unreviewed bridged claims',
-      message: `${n} statement${n === 1 ? '' : 's'} in your documents go${n === 1 ? 'es' : ''} beyond your Master Vault and ${n === 1 ? "hasn't" : "haven't"} been reviewed yet. Review them under ATS & Insights → Bridged claims, or export anyway.`,
+      message: `${n} statement${n === 1 ? '' : 's'} in your documents go${n === 1 ? 'es' : ''} beyond your profile and ${n === 1 ? "hasn't" : "haven't"} been reviewed yet. Review them under ATS & Insights → Bridged claims, or export anyway.`,
       type: 'warning',
       confirmLabel: 'Export anyway',
       onConfirm: run,
@@ -4395,8 +4395,8 @@ export default function TailorWorkspace() {
     }
     if (vaultIsEmpty) {
       showAlert({
-        title: 'Your Master Vault is empty',
-        message: 'Add your experience first (import your CV, LinkedIn or GitHub in the Master Vault). The AI can only tailor what is in your vault.',
+        title: 'Your profile is empty',
+        message: 'Add your experience first (import your CV, LinkedIn or GitHub in your profile). The AI can only tailor what is in your vault.',
         type: 'warning'
       });
       return;
@@ -5837,12 +5837,12 @@ export default function TailorWorkspace() {
             <div className="space-y-4 animate-in fade-in duration-200">
               {vaultIsEmpty && (
                 <div className="p-4 rounded-2xl border border-indigo-500/30 bg-indigo-500/10 text-xs space-y-2">
-                  <p className="font-bold text-white">Start with your Master Vault</p>
+                  <p className="font-bold text-white">Start with your profile</p>
                   <p className="text-zinc-300 leading-relaxed">
                     Your vault has no experience yet. Import your CV (PDF), LinkedIn or GitHub — or add it by hand — so the AI has real facts to tailor.
                   </p>
                   <Link href="/profile" className="inline-flex px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs">
-                    Open Master Vault →
+                    Open your profile →
                   </Link>
                 </div>
               )}
@@ -6426,7 +6426,7 @@ export default function TailorWorkspace() {
                       </div>
                       <div>
                         <h4 className="font-bold text-white text-sm">Profile fit</h4>
-                        <p className="text-xs text-zinc-400">How well your Master Vault meets this job's requirements. Must-haves count double; related skills count half.</p>
+                        <p className="text-xs text-zinc-400">How well your profile meets this job's requirements. Must-haves count double; related skills count half.</p>
                       </div>
                     </div>
                     {(() => {
@@ -6756,7 +6756,7 @@ export default function TailorWorkspace() {
                       type="button"
                       onClick={() => { setSidePanelTab('ats'); setIsBridgeHighlightEnabled(true); }}
                       className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 transition-all cursor-pointer shadow-sm"
-                      title="Statements that go beyond your Master Vault — review them before sending"
+                      title="Statements that go beyond your profile — review them before sending"
                     >
                       <GitMerge className="w-3 h-3 text-amber-400" />
                       <span>Bridged: {pendingBridgedClaims.length} to review</span>
@@ -7405,7 +7405,7 @@ export default function TailorWorkspace() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-bold text-xs">
-                              ⚡ Elevator Pitch
+                              Elevator pitch
                             </span>
                             <h4 className="font-bold text-white text-sm">"Tell Me About Yourself" (30-Second Hook)</h4>
                           </div>
@@ -8650,7 +8650,7 @@ export default function TailorWorkspace() {
                   <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                     <div className="flex items-center justify-between">
                       <span className="px-2 py-0.5 rounded text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
-                        🎯 ATS Keyword Aligned
+                        ATS keyword aligned
                       </span>
                       <button
                         type="button"
@@ -8667,7 +8667,7 @@ export default function TailorWorkspace() {
                   <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                     <div className="flex items-center justify-between">
                       <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
-                        🚀 Impact & Metrics Driven
+                        Impact & metrics
                       </span>
                       <button
                         type="button"
@@ -8684,7 +8684,7 @@ export default function TailorWorkspace() {
                   <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                     <div className="flex items-center justify-between">
                       <span className="px-2 py-0.5 rounded text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
-                        ⚡ Short & Concise
+                        Short & concise
                       </span>
                       <button
                         type="button"

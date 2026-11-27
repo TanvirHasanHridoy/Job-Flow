@@ -122,6 +122,9 @@ export default function UserMenu() {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setOpen(!open)}
+        aria-label="Account menu"
+        aria-haspopup="menu"
+        aria-expanded={open}
         className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 transition-all duration-200 group cursor-pointer"
       >
         {user.avatar ? (
@@ -227,7 +230,7 @@ export default function UserMenu() {
             <div>
               <h3 className="text-lg font-bold text-white">Delete your account data?</h3>
               <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
-                This permanently deletes your Master Vault, all applications and generated documents, drafts,
+                This permanently deletes your profile, all applications and generated documents, drafts,
                 AI logs and your token balance. It cannot be undone. Consider downloading your data first.
               </p>
               <p className="text-[11px] text-zinc-500 mt-2 leading-relaxed">

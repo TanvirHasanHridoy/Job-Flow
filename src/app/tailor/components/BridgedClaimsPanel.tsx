@@ -59,7 +59,7 @@ export default function BridgedClaimsPanel({
       <div className="flex items-start gap-2.5 p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5">
         <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
         <p className="text-xs text-zinc-300 leading-relaxed">
-          Everything in these documents is backed by your Master Vault. No bridged claims to review.
+          Everything in these documents is backed by your profile. No bridged claims to review.
         </p>
       </div>
     );
@@ -85,7 +85,7 @@ export default function BridgedClaimsPanel({
             )}
           </h3>
           <p className="text-xs text-zinc-400 leading-relaxed mt-1">
-            These statements go beyond what your Master Vault shows. Keep only what you can confidently back up in an interview.
+            These statements go beyond what your profile shows. Keep only what you can confidently back up in an interview.
           </p>
         </div>
         <button

@@ -851,12 +851,13 @@ export default function Dashboard() {
                                   if (idx > 0) updateAppStatus(app.id, COLUMNS[idx - 1].id);
                                 }}
                                 className="p-1 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:text-zinc-500 rounded cursor-pointer"
-                                title="Move left"
+                                title="Move to previous stage"
+                                aria-label="Move to previous stage"
                               >
                                 <ChevronLeft className="w-4 h-4" />
                               </button>
 
-                              <span className="text-xs uppercase tracking-wider text-zinc-600 font-semibold font-sans">Move Status</span>
+                              <span className="text-xs uppercase tracking-wider text-zinc-600 font-semibold font-sans">Move</span>
 
                               <button
                                 disabled={app.status === 'REJECTED' || isUpdating}
@@ -866,7 +867,8 @@ export default function Dashboard() {
                                   if (idx < COLUMNS.length - 1) updateAppStatus(app.id, COLUMNS[idx + 1].id);
                                 }}
                                 className="p-1 text-zinc-500 hover:text-white disabled:opacity-30 disabled:hover:text-zinc-500 rounded cursor-pointer"
-                                title="Move right"
+                                title="Move to next stage"
+                                aria-label="Move to next stage"
                               >
                                 <ChevronRight className="w-4 h-4" />
                               </button>
@@ -1085,6 +1087,7 @@ export default function Dashboard() {
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setCalendarDate(new Date(year, month - 1, 1))}
+                      aria-label="Previous month"
                       className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 cursor-pointer"
                     >
                       <ChevronLeft className="w-4 h-4" />
@@ -1094,6 +1097,7 @@ export default function Dashboard() {
                     </span>
                     <button
                       onClick={() => setCalendarDate(new Date(year, month + 1, 1))}
+                      aria-label="Next month"
                       className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-300 cursor-pointer"
                     >
                       <ChevronRight className="w-4 h-4" />
@@ -1695,7 +1699,7 @@ export default function Dashboard() {
                   <span className="text-xs px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 font-semibold uppercase">Profile Hub</span>
                 </div>
                 <p className="text-zinc-300 text-xs leading-relaxed">
-                  Go to <strong className="text-white">Profile</strong> and configure your Master Vault or create specialized personas (e.g. <em>Frontend Specialist</em>, <em>Full-Stack Lead</em>).
+                  Go to <strong className="text-white">Profile</strong> and configure your profile or create specialized personas (e.g. <em>Frontend Specialist</em>, <em>Full-Stack Lead</em>).
                 </p>
                 <div className="p-2 rounded-lg bg-zinc-900/60 border border-white/5 text-xs text-zinc-400">
                   💡 <strong className="text-zinc-200">Pro Tip:</strong> When tailoring, you can switch personas in 1 click to seed the AI with targeted work experience.

@@ -92,7 +92,7 @@ export default function RefusalReport({ matchScore, gapAnalysis, tokenCost }: Re
       )}
 
       <p className="mt-4 text-xs text-zinc-500">
-        If you do have experience with the missing items, add it to your Master Vault and tailor again.
+        If you do have experience with the missing items, add it to your profile and tailor again.
       </p>
     </div>
   );

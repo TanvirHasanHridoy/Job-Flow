@@ -50,6 +50,7 @@ export default function ThemeToggle() {
         onClick={cycleTheme}
         className="sm:hidden p-2 rounded-xl bg-white/5 border border-white/10 text-zinc-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer flex items-center justify-center no-print shrink-0"
         title={`Current theme: ${theme}. Tap to toggle.`}
+        aria-label={`Theme: ${theme}. Tap to change.`}
       >
         {theme === 'light' ? (
           <Sun className="w-4 h-4 text-amber-400" />
@@ -71,6 +72,7 @@ export default function ThemeToggle() {
               : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
           title="Light Mode"
+          aria-label="Light theme"
         >
           <Sun className="w-3.5 h-3.5" />
         </button>
@@ -83,6 +85,7 @@ export default function ThemeToggle() {
               : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
           title="Dark Mode"
+          aria-label="Dark theme"
         >
           <Moon className="w-3.5 h-3.5" />
         </button>
@@ -95,6 +98,7 @@ export default function ThemeToggle() {
               : 'text-zinc-400 hover:text-white hover:bg-white/5'
           }`}
           title="System Mode"
+          aria-label="Use system theme"
         >
           <Laptop className="w-3.5 h-3.5" />
         </button>
