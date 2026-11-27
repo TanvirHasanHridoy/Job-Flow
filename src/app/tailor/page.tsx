@@ -5780,40 +5780,35 @@ export default function TailorWorkspace() {
             </p>
           </div>
 
-          {/* Token Balance Widget */}
-          {tokens !== null && (
-            <div className="p-3.5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 flex items-center gap-2 text-xs animate-in fade-in duration-200">
-              <Coins className="w-4 h-4 text-indigo-400" />
-              <div>
-                <span className="text-zinc-400 block text-[9px] uppercase font-semibold tracking-wider">Remaining Balance</span>
-                <span className="font-bold text-zinc-200 text-xs">{tokens} Tokens</span>
-              </div>
-            </div>
-          )}
-
-          {/* 3-Tab Switcher Header */}
-          <div className="flex bg-zinc-900 border border-white/10 rounded-xl p-1 gap-1">
+          {/* 3-Tab Switcher Header. Insights and Sections only make sense once there is a result (audit T3). */}
+          <div role="tablist" aria-label="Panel" className="flex bg-zinc-900 border border-white/10 rounded-xl p-1 gap-1">
             <button
               type="button"
+              role="tab"
+              aria-selected={sidePanelTab === 'generation'}
               onClick={() => setSidePanelTab('generation')}
-              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${sidePanelTab === 'generation'
+              className={`flex-1 min-h-10 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${sidePanelTab === 'generation'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-zinc-400 hover:text-white hover:bg-white/5'
                 }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Generation</span>
+              <span>Job</span>
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={sidePanelTab === 'ats'}
+              disabled={!result}
+              title={result ? undefined : 'Available after you generate'}
               onClick={() => setSidePanelTab('ats')}
-              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer relative ${sidePanelTab === 'ats'
+              className={`flex-1 min-h-10 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer relative disabled:opacity-40 disabled:cursor-not-allowed ${sidePanelTab === 'ats'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-zinc-400 hover:text-white hover:bg-white/5'
                 }`}
             >
               <Award className="w-3.5 h-3.5" />
-              <span>ATS &amp; Insights</span>
+              <span>Insights</span>
               {result?.matchScore !== undefined && (
                 <span title="Profile fit" className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
                   {result.matchScore}%
@@ -5822,14 +5817,18 @@ export default function TailorWorkspace() {
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={sidePanelTab === 'customization'}
+              disabled={!result}
+              title={result ? undefined : 'Available after you generate'}
               onClick={() => setSidePanelTab('customization')}
-              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${sidePanelTab === 'customization'
+              className={`flex-1 min-h-10 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${sidePanelTab === 'customization'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-zinc-400 hover:text-white hover:bg-white/5'
                 }`}
             >
               <Layers className="w-3.5 h-3.5" />
-              <span>Customization</span>
+              <span>Sections</span>
             </button>
           </div>
 
@@ -5847,262 +5846,12 @@ export default function TailorWorkspace() {
                   </Link>
                 </div>
               )}
-              <DraftsList currentAppId={editingAppId} refreshKey={editingAppId} limit={4} />
-              {/* Source Career Persona Selection */}
-              {profile?.personas && profile.personas.length > 1 && (
-                <div className="p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-xl space-y-1.5 text-left font-sans shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                      Source Career Persona
-                    </label>
-                    <span className="text-[9px] text-zinc-400">Baseline for AI tailoring</span>
-                  </div>
-                  <select
-                    value={selectedPersonaId}
-                    onChange={e => handleSelectPersona(e.target.value)}
-                    className="glass-input px-3 py-2 text-xs bg-zinc-900 border border-white/10 w-full text-white cursor-pointer font-medium"
-                  >
-                    {profile.personas.map((p: any) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} {p.isDefault ? '(Default)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Company Name</label>
-                  <input
-                    type="text"
-                    value={companyName}
-                    onChange={e => setCompanyName(e.target.value)}
-                    placeholder="e.g. BMW Group"
-                    className="glass-input px-3.5 py-2.5 text-xs"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Role Name</label>
-                  <input
-                    type="text"
-                    value={roleName}
-                    onChange={e => setRoleName(e.target.value)}
-                    placeholder="e.g. Senior Cloud Engineer"
-                    className="glass-input px-3.5 py-2.5 text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">CV Language</label>
-                  <div className="grid grid-cols-2 gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
-                    <button
-                      type="button"
-                      onClick={() => setCvLanguage('EN')}
-                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'EN'
-                        ? 'bg-indigo-600 text-white shadow'
-                        : 'text-zinc-400 hover:text-white'
-                        }`}
-                    >
-                      EN
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCvLanguage('DE')}
-                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'DE'
-                        ? 'bg-indigo-600 text-white shadow'
-                        : 'text-zinc-400 hover:text-white'
-                        }`}
-                    >
-                      DE
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Cover Letter Language</label>
-                  <div className="grid grid-cols-2 gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
-                    <button
-                      type="button"
-                      onClick={() => setClLanguage('EN')}
-                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'EN'
-                        ? 'bg-indigo-600 text-white shadow'
-                        : 'text-zinc-400 hover:text-white'
-                        }`}
-                    >
-                      EN
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setClLanguage('DE')}
-                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'DE'
-                        ? 'bg-indigo-600 text-white shadow'
-                        : 'text-zinc-400 hover:text-white'
-                        }`}
-                    >
-                      DE
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Prompt Customization Options */}
-              <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3">
-                <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                  Tailoring Customizations
-                </h3>
-
-                {/* CV Style & Format 3-Way Selector */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Format & Prompting Style</label>
-                  <div className="grid grid-cols-3 gap-1 p-1 bg-zinc-900 border border-white/10 rounded-lg text-xs font-sans">
-                    <button
-                      type="button"
-                      onClick={() => handleSetCvFormatMode('visual')}
-                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'visual' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
-                    >
-                      Visual Layout
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSetCvFormatMode('ats')}
-                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'ats' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
-                    >
-                      Strict ATS
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSetCvFormatMode('bullet-matrix')}
-                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'bullet-matrix' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
-                    >
-                      Bullet Matrix
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Tone</label>
-                    <select
-                      value={tone}
-                      onChange={e => setTone(e.target.value)}
-                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                    >
-                      <option value="Bold & Action-oriented">Bold & Action-oriented</option>
-                      <option value="Academic & Technical">Academic & Technical</option>
-                      <option value="Executive & High-level">Executive & High-level</option>
-                      <option value="Humble & Fact-driven">Humble & Fact-driven</option>
-                    </select>
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Length Target</label>
-                    <select
-                      value={lengthTarget}
-                      onChange={e => setLengthTarget(e.target.value)}
-                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                    >
-                      <option value="Strict 1-Page (concise)">Strict 1-Page</option>
-                      <option value="Standard 2-Page (detailed)">Standard 2-Page</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">CL Length</label>
-                    <select
-                      value={clLength}
-                      onChange={e => setClLength(e.target.value)}
-                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                    >
-                      <option value="Short & Punchy (under 300 words)">Short & Punchy</option>
-                      <option value="Detailed & Elaborate">Detailed & Elaborate</option>
-                    </select>
-                    {result?.tailoredCoverLetter && getDisplayedClKey(result.tailoredCoverLetter, clLength) !== (clLength.includes('Short') ? 'short' : 'detailed') && (
-                      <p className="text-[10px] text-amber-300 leading-snug">
-                        This letter was written in the other length. Use “Regenerate Cover Letter” on the letter (5 tokens) to get this version.
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Skills Highlight Mode</label>
-                    <select
-                      value={skillsFocus}
-                      onChange={e => setSkillsFocus(e.target.value)}
-                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                    >
-                      <option value="Tech-Heavy Focus">Tech-Heavy Focus</option>
-                      <option value="Soft Skills & Leadership focus">Soft Skills & Leadership Focus</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* AI Description Nudging Toggle Switch */}
-                <div className="pt-3 mt-3 border-t border-white/5 flex items-center justify-between gap-3 font-sans">
-                  <div className="flex flex-col text-left">
-                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
-                      AI Description Nudging
-                    </span>
-                    <span className="text-[10px] text-zinc-400 leading-tight">
-                      Adapts project & work descriptions towards target Job Description
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsNudgeEnabled(prev => !prev)}
-                    className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer shrink-0 ${isNudgeEnabled ? 'bg-indigo-600' : 'bg-zinc-800 border border-white/10'
-                      }`}
-                    title="Toggle AI Description Nudging"
-                  >
-                    <div
-                      className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${isNudgeEnabled ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                    />
-                  </button>
-                </div>
-              </div>
-
-              {/* Match Strategy Selection */}
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Match Strategy</label>
-                  <span className="text-[9px] text-zinc-500 font-medium">Selects AI prompt logic</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
-                  <button
-                    type="button"
-                    onClick={() => setMatchStrategy('TACTICAL_PIVOT')}
-                    className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${matchStrategy === 'TACTICAL_PIVOT'
-                      ? 'bg-indigo-600 text-white shadow'
-                      : 'text-zinc-400 hover:text-white'
-                      }`}
-                  >
-                    Tactical Pivot
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMatchStrategy('AGGRESIVE_BRIDGING')}
-                    className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${matchStrategy === 'AGGRESIVE_BRIDGING'
-                      ? 'bg-indigo-600 text-white shadow'
-                      : 'text-zinc-400 hover:text-white'
-                      }`}
-                  >
-                    Aggressive Bridging
-                  </button>
-                </div>
-              </div>
-
+              {/* Step 1: the job. The one required input comes first (audit T1). */}
+              <section aria-label="Job" className="space-y-3">
               {/* Intake Method Toggle & Inputs */}
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Job Intake Method</label>
+                <label className="text-xs font-semibold text-zinc-300">Add the job from</label>
                 <div className="grid grid-cols-3 gap-1.5 p-1 bg-white/5 rounded-xl border border-white/5">
                   <button
                     type="button"
@@ -6112,7 +5861,7 @@ export default function TailorWorkspace() {
                       : 'text-zinc-400 hover:text-white'
                       }`}
                   >
-                    Text Paste
+                    Pasted text
                   </button>
                   <button
                     type="button"
@@ -6122,7 +5871,7 @@ export default function TailorWorkspace() {
                       : 'text-zinc-400 hover:text-white'
                       }`}
                   >
-                    Job URL
+                    Link
                   </button>
                   <button
                     type="button"
@@ -6132,7 +5881,7 @@ export default function TailorWorkspace() {
                       : 'text-zinc-400 hover:text-white'
                       }`}
                   >
-                    Job PDF
+                    PDF
                   </button>
                 </div>
               </div>
@@ -6231,22 +5980,295 @@ export default function TailorWorkspace() {
               )}
 
               <div className="flex flex-col gap-1 text-left">
-                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Job Description (Raw Text)</label>
+                <label htmlFor="job-description" className="text-sm font-semibold text-white">Job description <span className="text-rose-400" aria-hidden="true">*</span></label>
                 <textarea
+                  id="job-description"
+                  required
                   value={jobDescription}
                   onChange={e => setJobDescription(e.target.value)}
                   placeholder="Paste the target job description or requirements here..."
-                  rows={6}
-                  className="glass-input p-3 text-xs font-mono w-full resize-none"
+                  rows={8}
+                  className="glass-input p-3 text-sm w-full resize-y min-h-40"
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Company Name</label>
+                  <input
+                    type="text"
+                    value={companyName}
+                    onChange={e => setCompanyName(e.target.value)}
+                    placeholder="e.g. BMW Group"
+                    className="glass-input px-3.5 py-2.5 text-xs"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Role Name</label>
+                  <input
+                    type="text"
+                    value={roleName}
+                    onChange={e => setRoleName(e.target.value)}
+                    placeholder="e.g. Senior Cloud Engineer"
+                    className="glass-input px-3.5 py-2.5 text-xs"
+                  />
+                </div>
+              </div>
+              </section>
+
+              {/* Step 2: options, collapsed behind a one-line summary. */}
+              <details className="group rounded-xl border border-white/10 bg-white/[0.02] open:bg-white/[0.03]">
+                <summary className="flex items-center justify-between gap-3 cursor-pointer list-none min-h-11 px-4 py-2.5 select-none [&::-webkit-details-marker]:hidden">
+                  <span className="text-sm font-semibold text-white">Options</span>
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs text-zinc-400 truncate">{cvLanguage} · {cvFormatMode === 'visual' ? 'Visual' : cvFormatMode === 'ats' ? 'Strict ATS' : 'Bullet Matrix'} · {matchStrategy === 'TACTICAL_PIVOT' ? 'Stay close' : 'Stretch'}</span>
+                    <ChevronDown className="w-4 h-4 text-zinc-400 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true" />
+                  </span>
+                </summary>
+                <div className="px-4 pb-4 pt-1 space-y-4">
+              {/* Source Career Persona Selection */}
+              {profile?.personas && profile.personas.length > 1 && (
+                <div className="p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-xl space-y-1.5 text-left font-sans shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                      Source Career Persona
+                    </label>
+                    <span className="text-[9px] text-zinc-400">Baseline for AI tailoring</span>
+                  </div>
+                  <select
+                    value={selectedPersonaId}
+                    onChange={e => handleSelectPersona(e.target.value)}
+                    className="glass-input px-3 py-2 text-xs bg-zinc-900 border border-white/10 w-full text-white cursor-pointer font-medium"
+                  >
+                    {profile.personas.map((p: any) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} {p.isDefault ? '(Default)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">CV Language</label>
+                  <div className="grid grid-cols-2 gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => setCvLanguage('EN')}
+                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'EN'
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'text-zinc-400 hover:text-white'
+                        }`}
+                    >
+                      EN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCvLanguage('DE')}
+                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'DE'
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'text-zinc-400 hover:text-white'
+                        }`}
+                    >
+                      DE
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Cover Letter Language</label>
+                  <div className="grid grid-cols-2 gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => setClLanguage('EN')}
+                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'EN'
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'text-zinc-400 hover:text-white'
+                        }`}
+                    >
+                      EN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClLanguage('DE')}
+                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'DE'
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'text-zinc-400 hover:text-white'
+                        }`}
+                    >
+                      DE
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Match Strategy Selection */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-zinc-300">How closely to follow your profile</label>
+                </div>
+                <div className="grid grid-cols-2 gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => setMatchStrategy('TACTICAL_PIVOT')}
+                    className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${matchStrategy === 'TACTICAL_PIVOT'
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
+                  >
+                    Stay close to my profile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMatchStrategy('AGGRESIVE_BRIDGING')}
+                    className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${matchStrategy === 'AGGRESIVE_BRIDGING'
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
+                  >
+                    Stretch to fit the job
+                  </button>
+                </div>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  {matchStrategy === 'TACTICAL_PIVOT'
+                    ? 'Reorders and rewords what you already have. Nothing new is claimed.'
+                    : 'Also links your experience to nearby skills the job asks for. Every stretch is flagged for you to review.'}
+                </p>
+              </div>
+
+              {/* Prompt Customization Options */}
+              <div className="space-y-3">
+
+                {/* CV Style & Format 3-Way Selector */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV format</label>
+                  <div className="grid grid-cols-3 gap-1 p-1 bg-zinc-900 border border-white/10 rounded-lg text-xs font-sans">
+                    <button
+                      type="button"
+                      onClick={() => handleSetCvFormatMode('visual')}
+                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'visual' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
+                    >
+                      Visual Layout
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetCvFormatMode('ats')}
+                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'ats' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
+                    >
+                      Strict ATS
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetCvFormatMode('bullet-matrix')}
+                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'bullet-matrix' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
+                    >
+                      Bullet Matrix
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Tone</label>
+                    <select
+                      value={tone}
+                      onChange={e => setTone(e.target.value)}
+                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                    >
+                      <option value="Bold & Action-oriented">Bold & Action-oriented</option>
+                      <option value="Academic & Technical">Academic & Technical</option>
+                      <option value="Executive & High-level">Executive & High-level</option>
+                      <option value="Humble & Fact-driven">Humble & Fact-driven</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Length Target</label>
+                    <select
+                      value={lengthTarget}
+                      onChange={e => setLengthTarget(e.target.value)}
+                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                    >
+                      <option value="Strict 1-Page (concise)">Strict 1-Page</option>
+                      <option value="Standard 2-Page (detailed)">Standard 2-Page</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">CL Length</label>
+                    <select
+                      value={clLength}
+                      onChange={e => setClLength(e.target.value)}
+                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                    >
+                      <option value="Short & Punchy (under 300 words)">Short & Punchy</option>
+                      <option value="Detailed & Elaborate">Detailed & Elaborate</option>
+                    </select>
+                    {result?.tailoredCoverLetter && getDisplayedClKey(result.tailoredCoverLetter, clLength) !== (clLength.includes('Short') ? 'short' : 'detailed') && (
+                      <p className="text-[10px] text-amber-300 leading-snug">
+                        This letter was written in the other length. Use “Regenerate Cover Letter” on the letter (5 tokens) to get this version.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Skills Highlight Mode</label>
+                    <select
+                      value={skillsFocus}
+                      onChange={e => setSkillsFocus(e.target.value)}
+                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                    >
+                      <option value="Tech-Heavy Focus">Tech-Heavy Focus</option>
+                      <option value="Soft Skills & Leadership focus">Soft Skills & Leadership Focus</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* AI Description Nudging Toggle Switch */}
+                <div className="pt-3 mt-3 border-t border-white/5 flex items-center justify-between gap-3 font-sans">
+                  <div className="flex flex-col text-left">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      Adapt my descriptions to the job
+                    </span>
+                    <span className="text-[10px] text-zinc-400 leading-tight">
+                      Rewords your project and work descriptions toward the job, using only your facts
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsNudgeEnabled(prev => !prev)}
+                    className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer shrink-0 ${isNudgeEnabled ? 'bg-indigo-600' : 'bg-zinc-800 border border-white/10'
+                      }`}
+                    role="switch"
+                    aria-checked={isNudgeEnabled}
+                    aria-label="Adapt my descriptions to the job"
+                  >
+                    <div
+                      className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${isNudgeEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                    />
+                  </button>
+                </div>
+              </div>
+                </div>
+              </details>
+
+              <details className="group rounded-xl border border-white/10 bg-white/[0.02] open:bg-white/[0.03]">
+                <summary className="flex items-center justify-between gap-3 cursor-pointer list-none min-h-11 px-4 py-2.5 select-none [&::-webkit-details-marker]:hidden">
+                  <span className="text-sm font-semibold text-white">More options</span>
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs text-zinc-500 truncate">Salary, notice, location, notes</span>
+                    <ChevronDown className="w-4 h-4 text-zinc-400 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true" />
+                  </span>
+                </summary>
+                <div className="px-4 pb-4 pt-1 space-y-4">
               {/* Context Panel Toggle */}
-              <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3">
-                <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5">
-                  <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
-                  Additional Details / Overrides
-                </h3>
+              <div className="space-y-3">
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
@@ -6307,6 +6329,8 @@ export default function TailorWorkspace() {
                   />
                 </div>
               </div>
+                </div>
+              </details>
 
               {/* Missing Assets Prompt */}
               {profile && (!profile.photo || !profile.signature) && (
@@ -6327,6 +6351,10 @@ export default function TailorWorkspace() {
                 </div>
               )}
 
+              <DraftsList currentAppId={editingAppId} refreshKey={editingAppId} limit={4} />
+
+              {/* Step 3: Generate, always reachable at the bottom of the panel. */}
+              <div className="sticky bottom-0 -mx-4 sm:-mx-6 md:-mx-8 px-4 sm:px-6 md:px-8 py-3 bg-zinc-950/95 backdrop-blur-md border-t border-white/10 z-10">
               <button
                 type="button"
                 onClick={handleTailor}
@@ -6336,15 +6364,16 @@ export default function TailorWorkspace() {
                 {loading ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    Analyzing Job &amp; Tailoring Documents...
+                    Tailoring… (about 30–60 s)
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4 animate-pulse" />
-                    Tailor CV &amp; Cover Letter (20 tokens)
+                    <Sparkles className="w-4 h-4" aria-hidden="true" />
+                    Generate CV &amp; cover letter · 20 tokens
                   </>
                 )}
               </button>
+              </div>
             </div>
           )}
 
