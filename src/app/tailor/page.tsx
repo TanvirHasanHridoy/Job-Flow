@@ -8806,7 +8806,7 @@ export default function TailorWorkspace() {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 flex-1 overflow-y-auto divide-x divide-white/10 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 flex-1 overflow-y-auto divide-y md:divide-y-0 md:divide-x divide-white/10 text-xs">
               {/* Left: Original Master Profile */}
               <div className="p-6 space-y-4 bg-zinc-900/30">
                 <div className="sticky top-0 bg-zinc-950/90 backdrop-blur-sm p-2 rounded-lg border border-zinc-800 font-bold text-zinc-400 uppercase tracking-wider text-xs mb-3">
