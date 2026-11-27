@@ -5,6 +5,9 @@ import Link from 'next/link';
 import DraftsList from '../tailor/components/DraftsList';
 import OnboardingCard from '../components/OnboardingCard';
 import { hasVaultContent } from '@/lib/profileMerge';
+import Dialog from '@/app/components/Dialog';
+import MarkdownLite from '@/app/tailor/components/MarkdownLite';
+import { cleanKeywordLists, dedupeKeywords } from '@/lib/keywordLists';
 import {
   Plus, Calendar, MapPin, DollarSign, Clock, FileText, Trash2, Eye, ChevronRight, ChevronLeft, Award, Sparkles, LayoutGrid, CheckCircle2, TrendingUp, Building, User, Mail, Globe, Loader2,
   HelpCircle, BookOpen, Layers, Target, Palette, Send, X
@@ -1133,7 +1136,7 @@ export default function Dashboard() {
 
       {/* Slideout Application Detail Modal Overlay */}
       {selectedApp && (
-        <div className="fixed inset-0 z-[9999] flex justify-end bg-black/70 backdrop-blur-sm transition-all duration-300">
+        <Dialog onClose={() => setSelectedApp(null)} label="Application details" className="fixed inset-0 z-[9999] flex justify-end bg-black/70 backdrop-blur-sm transition-all duration-300">
           {/* Close trigger boundary */}
           <div className="hidden sm:block flex-1" onClick={() => setSelectedApp(null)}></div>
 
@@ -1246,12 +1249,6 @@ export default function Dashboard() {
                     </span>
                     <p className="text-zinc-200 font-medium">{selectedApp.remoteOrPhysical || 'Not specified'}</p>
                   </div>
-                  <div className="space-y-1">
-                    <span className="text-[9px] uppercase font-bold text-zinc-500 flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-indigo-400" /> Signing Location
-                    </span>
-                    <p className="text-zinc-200 font-medium">{selectedApp.signingLocation || 'Not specified'}</p>
-                  </div>
                 </div>
 
                 {selectedApp.techStack && (
@@ -1283,7 +1280,7 @@ export default function Dashboard() {
                     <div className="p-3 bg-emerald-500/5 border border-emerald-500/10 rounded-lg">
                       <span className="text-[10px] text-emerald-400 font-bold block mb-1">Keywords Met</span>
                       <div className="flex flex-wrap gap-1">
-                        {selectedApp.gapAnalysis.matchingKeywords.map((k, i) => (
+                        {cleanKeywordLists(selectedApp.gapAnalysis.matchingKeywords, selectedApp.gapAnalysis.missingSkills).matching.map((k, i) => (
                           <span key={i} className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300">{k}</span>
                         ))}
                       </div>
@@ -1293,7 +1290,7 @@ export default function Dashboard() {
                       <span className="text-[10px] text-amber-400 font-bold block mb-1">Target Skill Gaps</span>
                       <div className="flex flex-wrap gap-1">
                         {selectedApp.gapAnalysis.missingSkills.length > 0 ? (
-                          selectedApp.gapAnalysis.missingSkills.map((s, i) => (
+                          dedupeKeywords(selectedApp.gapAnalysis.missingSkills).map((s, i) => (
                             <span key={i} className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300">{s}</span>
                           ))
                         ) : (
@@ -1307,7 +1304,7 @@ export default function Dashboard() {
                 {selectedApp.gapAnalysis.recommendations && (
                   <div className="p-3 bg-indigo-500/5 border border-indigo-500/10 rounded-lg text-xs leading-relaxed">
                     <h5 className="font-bold text-indigo-300 mb-0.5">Recommendations</h5>
-                    <p className="text-zinc-300">{selectedApp.gapAnalysis.recommendations}</p>
+                    <MarkdownLite text={selectedApp.gapAnalysis.recommendations} className="text-zinc-300" />
                   </div>
                 )}
               </div>
@@ -1393,12 +1390,12 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Follow-Up Automation Modal Overlay */}
       {followUpModalApp && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <Dialog onClose={() => setFollowUpModalApp(null)} label="Follow-up email" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-xl bg-zinc-950 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 font-sans text-left">
             <div className="flex justify-between items-center pb-3 border-b border-white/5">
               <div className="flex items-center gap-2">
@@ -1522,12 +1519,12 @@ export default function Dashboard() {
               </a>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Calendar Event Scheduler Modal Overlay */}
       {calendarModalApp && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <Dialog onClose={() => setCalendarModalApp(null)} label="Schedule event" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-lg bg-zinc-950 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-4 font-sans text-left">
             <div className="flex justify-between items-center pb-3 border-b border-white/5">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
@@ -1647,12 +1644,12 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* 📖 Application Mastery Workflow Guide Modal */}
       {isGuideModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+        <Dialog onClose={() => setIsGuideModalOpen(false)} label="Workflow guide" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-3xl bg-zinc-950 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-6 font-sans text-left max-h-[90vh] overflow-y-auto custom-scrollbar">
             {/* Modal Header */}
             <div className="flex justify-between items-center pb-4 border-b border-white/10 sticky top-0 bg-zinc-950 z-10">
@@ -1778,7 +1775,7 @@ export default function Dashboard() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   );

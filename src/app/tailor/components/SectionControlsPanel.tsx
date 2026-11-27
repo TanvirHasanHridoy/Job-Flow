@@ -8,6 +8,7 @@ import {
   GripVertical, Award, ArrowUp, ArrowDown, ArrowLeft, ArrowRight
 } from 'lucide-react';
 import { CustomSection, CustomSectionType, CustomSectionItem, CustomSectionSubgroup, createDefaultCustomSection } from '@/lib/customSections';
+import Dialog from '@/app/components/Dialog';
 
 interface SectionControlsPanelProps {
   result: any;
@@ -1958,7 +1959,7 @@ export default function SectionControlsPanel({
       {/* MODALS */}
       {/* 1. Add Custom Section Modal */}
       {isAddCustomModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
+        <Dialog onClose={() => setIsAddCustomModalOpen(false)} label="Add custom section" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="glass-panel p-5 rounded-2xl w-full max-w-md space-y-4 border border-white/10 bg-zinc-900 shadow-2xl">
             <div className="flex justify-between items-center border-b border-white/10 pb-3">
               <span className="font-bold text-white text-sm">Add Custom Section</span>
@@ -2022,12 +2023,12 @@ export default function SectionControlsPanel({
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* 2. Add Work Experience Modal */}
       {isAddWorkModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
+        <Dialog onClose={() => setIsAddWorkModalOpen(false)} label="Add work experience" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="glass-panel p-5 rounded-2xl w-full max-w-md space-y-4 border border-white/10 bg-zinc-900 shadow-2xl">
             <div className="flex justify-between items-center border-b border-white/10 pb-3">
               <span className="font-bold text-white text-sm">Add Work Experience</span>
@@ -2123,12 +2124,12 @@ export default function SectionControlsPanel({
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* 3. Add Education Modal */}
       {isAddEduModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
+        <Dialog onClose={() => setIsAddEduModalOpen(false)} label="Add education" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="glass-panel p-5 rounded-2xl w-full max-w-md space-y-4 border border-white/10 bg-zinc-900 shadow-2xl">
             <div className="flex justify-between items-center border-b border-white/10 pb-3">
               <span className="font-bold text-white text-sm">Add Education</span>
@@ -2212,12 +2213,12 @@ export default function SectionControlsPanel({
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* 4. Add Project Modal */}
       {isAddProjModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
+        <Dialog onClose={() => setIsAddProjModalOpen(false)} label="Add project" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="glass-panel p-5 rounded-2xl w-full max-w-md space-y-4 border border-white/10 bg-zinc-900 shadow-2xl">
             <div className="flex justify-between items-center border-b border-white/10 pb-3">
               <span className="font-bold text-white text-sm">Add Project</span>
@@ -2300,12 +2301,12 @@ export default function SectionControlsPanel({
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* 5. Add Language Modal */}
       {isAddLanguageModalOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
+        <Dialog onClose={() => setIsAddLanguageModalOpen(false)} label="Add language" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
           <div className="glass-panel p-5 rounded-2xl w-full max-w-md space-y-4 border border-white/10 bg-zinc-900 shadow-2xl">
             <div className="flex justify-between items-center border-b border-white/10 pb-3">
               <span className="font-bold text-white text-sm">Add Language</span>
@@ -2384,7 +2385,7 @@ export default function SectionControlsPanel({
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   );

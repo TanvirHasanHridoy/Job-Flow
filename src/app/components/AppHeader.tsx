@@ -1,9 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, X, Sparkles } from 'lucide-react';
+import { Sparkles, ChevronLeft } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import UserMenu from './UserMenu';
 
@@ -11,7 +10,6 @@ const PUBLIC_ROUTES = ['/', '/login'];
 
 export default function AppHeader() {
   const pathname = usePathname();
-  const [menuOpen, setMenuOpen] = useState(false);
 
   // Don't render the header on public pages (landing, login)
   if (PUBLIC_ROUTES.includes(pathname)) {
@@ -19,9 +17,19 @@ export default function AppHeader() {
   }
 
   return (
-    <header className="no-print sticky top-0 z-30 glass-panel border-b border-white/5 light:border-slate-200/80 px-3.5 sm:px-6 py-2.5 sm:py-3.5 flex items-center justify-between gap-3 w-full bg-zinc-950/80 dark:bg-zinc-950/80 light:bg-white/80 backdrop-blur-xl transition-all">
-      <div className="flex items-center gap-3 shrink-0">
-        <Link href="/dashboard" className="flex items-center gap-2 group">
+    <header className="no-print sticky top-0 z-50 glass-panel border-b border-white/5 light:border-slate-200/80 px-3.5 sm:px-6 h-[var(--app-header-h)] box-border shrink-0 flex items-center justify-between gap-3 w-full bg-zinc-950/80 dark:bg-zinc-950/80 light:bg-white/80 backdrop-blur-xl transition-all">
+      <div className="flex items-center gap-2 shrink-0">
+        {/* The bottom nav is hidden on the focused Tailor workspace below lg, so offer a way back. */}
+        {pathname === '/tailor' && (
+          <Link
+            href="/dashboard"
+            aria-label="Back to dashboard"
+            className="lg:hidden -ml-1.5 w-11 h-11 flex items-center justify-center rounded-xl text-zinc-300 hover:text-white hover:bg-white/5 light:text-slate-600"
+          >
+            <ChevronLeft className="w-5 h-5" aria-hidden="true" />
+          </Link>
+        )}
+        <Link href="/dashboard" className="flex items-center gap-2 group" aria-label="JobFlow AI home">
           <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 via-indigo-600 to-purple-600 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/25 group-hover:scale-105 transition-all duration-300 text-sm">
             J
           </div>
@@ -46,14 +54,14 @@ export default function AppHeader() {
             className={`text-xs font-semibold uppercase tracking-wider transition-colors duration-200 ${pathname === '/profile' ? 'text-indigo-400 light:text-indigo-600 font-bold' : 'text-zinc-400 hover:text-white light:text-slate-600 light:hover:text-slate-900'
               }`}
           >
-            Master Vault
+            Your Profile
           </Link>
           <Link
             href="/tailor"
             className="px-4 py-1.5 text-xs font-bold rounded-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-500/25 hover:scale-105 transition-all duration-200 flex items-center gap-1.5"
           >
-            <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-            Tailor Workspace
+            <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+            Tailor a CV
           </Link>
         </nav>
 

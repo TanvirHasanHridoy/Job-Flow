@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ZoomIn,
   ZoomOut,
@@ -57,6 +57,25 @@ export default function CanvasFloatingHud({
   className = ''
 }: CanvasFloatingHudProps) {
   const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+
+  // Close the export menu on Esc or a click outside it. This replaces a full-screen
+  // invisible backdrop that swallowed the next click (audit R5).
+  useEffect(() => {
+    if (!exportOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setExportOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [exportOpen]);
 
   return (
     <aside
@@ -170,9 +189,11 @@ export default function CanvasFloatingHud({
         )}
 
         {hasResult && (
-          <div className="relative">
+          <div className="relative" ref={exportRef}>
             <button
               type="button"
+              aria-haspopup="menu"
+              aria-expanded={exportOpen}
               onClick={() => setExportOpen(!exportOpen)}
               className="px-3 py-1 rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-[11px] font-bold shadow-md shadow-indigo-500/25 flex items-center gap-1 transition-all cursor-pointer"
             >
@@ -182,11 +203,7 @@ export default function CanvasFloatingHud({
 
             {exportOpen && (
               <>
-                <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setExportOpen(false)}
-                />
-                <div className="absolute sm:right-0 -right-32  ht-16 mt-2 w-56 bg-zinc-900/95 dark:bg-zinc-900/95 light:bg-white border border-white/15 light:border-slate-200 rounded-xl shadow-2xl z-50 py-1.5 text-xs text-zinc-300 light:text-slate-700 backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-150">
+                <div role="menu" aria-label="Export" className="absolute right-0 mt-2 w-56 bg-zinc-900/95 dark:bg-zinc-900/95 light:bg-white border border-white/15 light:border-slate-200 rounded-xl shadow-2xl z-50 py-1.5 text-xs text-zinc-300 light:text-slate-700 backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-150">
                   <button
                     type="button"
                     onClick={() => {

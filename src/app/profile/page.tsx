@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   User, Briefcase, GraduationCap, Code2, Globe2, Plus, Trash2, Save, Sparkles, CheckCircle2, RefreshCw, FileText, FolderGit, Pencil,
   Layers, AlignLeft, List, Tag, ChevronUp, ChevronDown, Check, X
@@ -12,6 +13,7 @@ import { useTokens } from '@/context/TokenContext';
 import { useAlertModal } from '@/context/AlertModalContext';
 import { MAX_IMAGE_BYTES } from '@/lib/uploads';
 import { hasVaultContent, mergeImportedProfile, replaceWithImported } from '@/lib/profileMerge';
+import Dialog from '@/app/components/Dialog';
 
 interface WorkExperience {
   company: string;
@@ -130,6 +132,7 @@ export default function ProfileVault() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const { setIsTokenModalOpen, fetchTokens } = useTokens();
   const { showAlert } = useAlertModal();
+  const router = useRouter();
 
   // Importer states
   const [importOpen, setImportOpen] = useState(false);
@@ -253,10 +256,18 @@ export default function ProfileVault() {
       if (!a || a.target === '_blank' || e.metaKey || e.ctrlKey || e.shiftKey) return;
       const url = new URL(a.href, window.location.href);
       if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
-      if (!window.confirm('You have unsaved changes in your Master Vault. Leave without saving?')) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
+      // Same confirmation pattern as the rest of the app (AlertModalContext), not window.confirm.
+      // Closing the dialog (X, Esc, backdrop) keeps the user on the page.
+      e.preventDefault();
+      e.stopPropagation();
+      const target = url.pathname + url.search + url.hash;
+      showAlert({
+        title: 'Unsaved changes',
+        message: 'Your profile has changes that are not saved yet. Leave this page without saving?',
+        type: 'warning',
+        confirmLabel: 'Leave without saving',
+        onConfirm: () => router.push(target),
+      });
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     document.addEventListener('click', onClickCapture, true);
@@ -264,6 +275,7 @@ export default function ProfileVault() {
       window.removeEventListener('beforeunload', onBeforeUnload);
       document.removeEventListener('click', onClickCapture, true);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDirty]);
 
   // Ask before touching a vault that already has content; otherwise fill it directly
@@ -955,11 +967,11 @@ export default function ProfileVault() {
           <div className="flex items-center gap-2 mb-1">
             <Sparkles className="w-5 h-5 text-indigo-400" />
             <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-zinc-100 to-indigo-200 bg-clip-text text-transparent">
-              Master Professional Vault
+              Your profile
             </h1>
           </div>
           <p className="text-zinc-400 text-sm">
-            Enter your core skills, education, and career facts. This vault acts as the single source of truth for all AI-tailored applications.
+            Your experience, skills and education. Every tailored CV is built only from what you enter here.
           </p>
         </div>
         
@@ -971,7 +983,7 @@ export default function ProfileVault() {
         <button
           onClick={() => saveProfile()}
           disabled={saving}
-          className="w-full md:w-auto px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 disabled:opacity-50"
+          className="hidden lg:flex w-full md:w-auto px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 items-center justify-center gap-2 cursor-pointer transition-all duration-300 disabled:opacity-50"
         >
           {saving ? (
             <>
@@ -1222,7 +1234,7 @@ export default function ProfileVault() {
 
       {/* Modal: New Persona */}
       {showNewPersonaModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 font-sans animate-in fade-in duration-200">
+        <Dialog onClose={() => setShowNewPersonaModal(false)} label="New persona" className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 font-sans animate-in fade-in duration-200">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 text-left">
             <div className="flex items-center justify-between pb-3 border-b border-white/5">
               <h3 className="font-bold text-white text-md flex items-center gap-2">
@@ -1300,12 +1312,12 @@ export default function ProfileVault() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Modal: Rename Persona */}
       {isRenamingPersona && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 font-sans animate-in fade-in duration-200">
+        <Dialog onClose={() => setIsRenamingPersona(false)} label="Rename persona" className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 font-sans animate-in fade-in duration-200">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-left">
             <h3 className="font-bold text-white text-sm flex items-center gap-2">
               <Pencil className="w-4 h-4 text-indigo-400" />
@@ -1343,7 +1355,7 @@ export default function ProfileVault() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Responsive Tabs Navigation */}
@@ -2757,7 +2769,7 @@ export default function ProfileVault() {
 
       {/* Add Custom Section Modal */}
       {showAddCustomModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <Dialog onClose={() => setShowAddCustomModal(false)} label="Add custom section" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="relative w-full max-w-lg bg-[var(--layout-surface-panel-bg)] border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col gap-5 font-sans">
             <div className="flex justify-between items-center pb-3 border-b border-white/5">
               <div className="flex items-center gap-2">
@@ -2873,12 +2885,12 @@ export default function ProfileVault() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Signature Processing Modal */}
       {showSigProcessor && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+        <Dialog onClose={() => { setShowSigProcessor(false); setSigProcessorOriginal(''); setSigProcessorProcessed(''); }} label="Signature background removal" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
           <style>{`
             .checkerboard-bg {
               background-image: linear-gradient(45deg, var(--effect-checkerboard-square) 25%, transparent 25%), 
@@ -2984,18 +2996,18 @@ export default function ProfileVault() {
             </div>
 
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Floating Save Button on Mobile */}
       <aside
         aria-label="Floating Mobile Save"
-        className="lg:hidden fixed bottom-[70px] right-4 z-40"
+        className={`lg:hidden fixed bottom-[calc(76px+env(safe-area-inset-bottom))] right-4 z-40 transition-all ${isDirty || saving || saveSuccess ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
       >
         <button
           onClick={() => saveProfile()}
           disabled={saving}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs shadow-2xl flex items-center gap-2 cursor-pointer transition-all ${
+          className={`min-h-11 px-5 py-2.5 rounded-2xl font-bold text-sm shadow-2xl flex items-center gap-2 cursor-pointer transition-all ${
             saveSuccess
               ? 'bg-emerald-600 text-white shadow-emerald-500/30'
               : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-indigo-500/30 hover:scale-105 active:scale-95'
@@ -3013,15 +3025,15 @@ export default function ProfileVault() {
             </>
           ) : (
             <>
-              <Save className="w-3.5 h-3.5" />
-              <span>Save Vault</span>
+              <Save className="w-4 h-4" aria-hidden="true" />
+              <span>Save changes</span>
             </>
           )}
         </button>
       </aside>
 
       {pendingImport && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <Dialog onClose={() => setPendingImport(null)} label="Review imported profile" className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 p-6 shadow-2xl space-y-4">
             <div>
               <h3 className="text-lg font-bold text-white">Your vault already has content</h3>
@@ -3055,7 +3067,7 @@ export default function ProfileVault() {
               Cancel (discard the import)
             </button>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   );

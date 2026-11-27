@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase-browser';
 import { LogOut, User, ChevronDown, Coins, Download, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTokens } from '@/context/TokenContext';
+import Dialog from '@/app/components/Dialog';
 
 interface UserData {
   email: string;
@@ -221,7 +222,7 @@ export default function UserMenu() {
       )}
 
       {deleteOpen && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <Dialog onClose={() => setDeleteOpen(false)} label="Delete account" className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-red-500/30 bg-zinc-900 p-6 shadow-2xl space-y-4 text-left">
             <div>
               <h3 className="text-lg font-bold text-white">Delete your account data?</h3>
@@ -260,7 +261,7 @@ export default function UserMenu() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   );

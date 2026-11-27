@@ -29,7 +29,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "JobFlow AI - International CV & Resume Tailor",
-  description: "Generate culturally tailored, high-impact German Lebenslauf (DIN 5008) and English Resumes natively with DeepSeek AI.",
+  description: "Generate culturally tailored, high-impact German Lebenslauf (DIN 5008) and English Resumes with AI.",
   keywords: ["Resume", "Lebenslauf", "ATS Optimization", "Job Application", "DIN 5008", "AI Resume Writer", "German CV"],
 };
 
@@ -62,7 +62,7 @@ export default function RootLayout({
             <AppHeader />
 
             {/* Content Shell with responsive bottom nav padding on mobile */}
-            <main className="flex-1 flex flex-col relative z-10 w-full min-w-0 pb-16 lg:pb-0">
+            <main className="flex-1 flex flex-col relative z-10 w-full min-w-0 pb-16 lg:pb-0 has-[[data-focus-workspace]]:pb-0">
               {children}
             </main>
 

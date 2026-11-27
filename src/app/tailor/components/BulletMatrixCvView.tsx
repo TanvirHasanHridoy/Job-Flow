@@ -238,7 +238,7 @@ export default function BulletMatrixCvView({
       <div key="summary" data-block-id="summary" className="relative group/sec" style={{ marginBottom: `${sectionSpacing}px` }}>
         {/* Hover AI Regen Button */}
         {!isMeasurement && handleOpenRegenModal && (
-          <div className="absolute right-0 -top-1 opacity-0 group-hover/sec:opacity-100 transition-opacity z-20 no-print flex items-center gap-1">
+          <div className="absolute right-0 -top-1 opacity-0 group-hover/sec:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity z-20 no-print flex items-center gap-1">
             <button
               type="button"
               onClick={() => handleOpenRegenModal('summary', sectionTitles.summary, cv.summary)}
@@ -289,7 +289,7 @@ export default function BulletMatrixCvView({
     return (
       <div key="skills" data-block-id="skills" className="relative group/sec" style={{ marginBottom: `${sectionSpacing}px` }}>
         {!isMeasurement && handleOpenRegenModal && (
-          <div className="absolute right-0 -top-1 opacity-0 group-hover/sec:opacity-100 transition-opacity z-20 no-print flex items-center gap-1">
+          <div className="absolute right-0 -top-1 opacity-0 group-hover/sec:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity z-20 no-print flex items-center gap-1">
             <button
               type="button"
               onClick={() => handleOpenRegenModal('skills', sectionTitles.skills, cv.skills)}
@@ -323,7 +323,7 @@ export default function BulletMatrixCvView({
     return (
       <div key="projects" data-block-id="projects" className="relative group/sec" style={{ marginBottom: `${sectionSpacing}px` }}>
         {!isMeasurement && handleOpenRegenModal && (
-          <div className="absolute right-0 -top-1 opacity-0 group-hover/sec:opacity-100 transition-opacity z-20 no-print flex items-center gap-1">
+          <div className="absolute right-0 -top-1 opacity-0 group-hover/sec:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity z-20 no-print flex items-center gap-1">
             <button
               type="button"
               onClick={() => handleOpenRegenModal('projects', sectionTitles.projects, cv.projects)}
@@ -361,7 +361,7 @@ export default function BulletMatrixCvView({
     return (
       <div key="work" data-block-id="work" className="relative group/sec" style={{ marginBottom: `${sectionSpacing}px` }}>
         {!isMeasurement && handleOpenRegenModal && (
-          <div className="absolute right-0 -top-1 opacity-0 group-hover/sec:opacity-100 transition-opacity z-20 no-print flex items-center gap-1">
+          <div className="absolute right-0 -top-1 opacity-0 group-hover/sec:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity z-20 no-print flex items-center gap-1">
             <button
               type="button"
               onClick={() => handleOpenRegenModal('work', sectionTitles.work, cv.workExperience)}
@@ -418,7 +418,7 @@ export default function BulletMatrixCvView({
                           <button
                             type="button"
                             onClick={() => handleFetchBulletVariations(eIdx, bIdx, bText)}
-                            className="inline-flex ml-1.5 opacity-0 group-hover/bullet:opacity-100 transition-opacity text-indigo-600 hover:text-indigo-800 align-middle no-print"
+                            className="inline-flex ml-1.5 opacity-0 group-hover/bullet:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity text-indigo-600 hover:text-indigo-800 align-middle no-print"
                             title="AI Polish Bullet Variations"
                           >
                             <Wand2 className="w-3 h-3" />

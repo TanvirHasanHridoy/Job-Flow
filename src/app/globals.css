@@ -223,10 +223,27 @@
 /* ═══════════════════════════════════════════════════════════════
    ROOT & BODY STYLES
    ═══════════════════════════════════════════════════════════════ */
+/* Single source of truth for the sticky app header height (AppHeader uses h-16).
+   Layouts below the header use calc(100dvh - var(--app-header-h)) instead of
+   hard-coded pixel offsets. */
+:root {
+  --app-header-h: 4rem;
+}
+
 html, body {
   width: 100%;
   max-width: 100vw;
   overflow-x: hidden;
+}
+
+/* Respect users who ask for less motion: stop decorative pulse/ping loops. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 body {
