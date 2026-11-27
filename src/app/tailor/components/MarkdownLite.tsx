@@ -16,7 +16,13 @@ export function renderInline(text: string): React.ReactNode[] {
 }
 
 export default function MarkdownLite({ text, className = '' }: { text: string; className?: string }) {
-  const lines = (text || '').split('\n');
+  // Some stored analyses lost their line breaks ("### Positives - item - item").
+  // When there is no newline at all, restore one before headings and bullets.
+  const raw = text || '';
+  const normalized = raw.includes('\n')
+    ? raw
+    : raw.replace(/\s+(#{1,6}\s)/g, '\n$1').replace(/\s+[-•]\s+(?=\S)/g, '\n- ');
+  const lines = normalized.split('\n');
   const blocks: React.ReactNode[] = [];
   let bullets: string[] = [];
 

@@ -6,7 +6,10 @@
  * claim" that the user must review (keep or remove):
  *   - new-skill    a technology the profile never mentions
  *   - moved-skill  a technology the profile has, but not at this job/project
- *   - number       a figure that does not appear anywhere in the profile
+ *   - number       a figure that does not appear anywhere in the profile (or in what
+ *                  the user typed on the Tailor page, e.g. their salary expectation)
+ *   - qualifier    stronger wording the profile never uses ("real-time", "strict
+ *                  adherence", "architected"...): a common, quiet form of inflation
  * Hard-line violations are removed automatically (server side):
  *   - gap-skill    a GAP requirement claimed in the CV
  *   - credential   a degree / certification / licence the profile does not have
@@ -17,7 +20,7 @@
 
 import type { Requirement } from './requirements';
 
-export type BridgedTermKind = 'new-skill' | 'moved-skill' | 'number' | 'gap-skill' | 'credential';
+export type BridgedTermKind = 'new-skill' | 'moved-skill' | 'number' | 'qualifier' | 'gap-skill' | 'credential';
 
 export interface BridgedTerm {
   term: string;          // text as it appears in the claim
@@ -182,6 +185,38 @@ export function extractNumbers(text: string): NumberToken[] {
 }
 
 /* ------------------------------------------------------------------ */
+/* Qualifiers                                                          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Wording that makes work sound bigger than described. Each pattern maps to a
+ * key so different spellings ("real-time" / "realtime") count as the same word.
+ * Only flagged when the profile never uses that word itself.
+ */
+const QUALIFIERS: Array<[string, RegExp]> = [
+  ['real-time', /\breal[\s-]?time\b/i],
+  ['strict', /\bstrict(?:ly)?\b/i],
+  ['zero-latency', /\bzero[\s-]latency\b/i],
+  ['seamless', /\bseamless(?:ly)?\b/i],
+  ['architected', /\barchitect(?:ed|ing)\b/i],
+  ['spearheaded', /\bspearhead(?:ed|ing)?\b/i],
+  ['led', /\bled\s+(?:a|an|the|our|my)\b/i],
+  ['mission-critical', /\bmission[\s-]critical\b/i],
+  ['enterprise-grade', /\benterprise[\s-](?:grade|scale)\b/i],
+  ['world-class', /\bworld[\s-]class\b/i],
+  ['large-scale', /\b(?:large|massive)[\s-]scale\b/i],
+];
+
+export function findQualifiers(text: string): Array<{ key: string; raw: string }> {
+  const out: Array<{ key: string; raw: string }> = [];
+  for (const [key, re] of QUALIFIERS) {
+    const m = text.match(re);
+    if (m) out.push({ key, raw: m[0] });
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
 /* Credentials                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -214,6 +249,7 @@ interface DetectContext {
   jobCorpora: Array<{ company: string; text: string }>;
   projectCorpora: Array<{ name: string; text: string }>;
   profileNumbers: Set<string>;
+  profileQualifiers: Set<string>;
   profileCredentials: Set<string>;
   candidateTerms: string[];
   adjacentTerms: Map<string, string>;   // lowercased term -> bridgeFrom
@@ -226,7 +262,7 @@ function asArray(v: unknown): any[] {
   return Array.isArray(parsed) ? parsed : [];
 }
 
-function buildContext(profile: any, requirements: Requirement[], tailoredCv: any): DetectContext {
+function buildContext(profile: any, requirements: Requirement[], tailoredCv: any, userInputs: string[] = []): DetectContext {
   const work = asArray(profile?.workExperience);
   const projects = asArray(profile?.projects);
   const profileCorpus = textOf({ ...profile, personas: undefined });
@@ -234,7 +270,10 @@ function buildContext(profile: any, requirements: Requirement[], tailoredCv: any
   const jobCorpora = work.map((j: any) => ({ company: String(j?.company || ''), text: textOf(j) }));
   const projectCorpora = projects.map((p: any) => ({ name: String(p?.name || ''), text: textOf(p) }));
 
-  const profileNumbers = new Set(extractNumbers(profileCorpus).map(n => n.key));
+  // Figures the user typed on the Tailor page (salary, notice period...) are theirs, not invented.
+  const userText = userInputs.filter(s => typeof s === 'string' && s.trim()).join(' \n ');
+  const profileNumbers = new Set(extractNumbers(`${profileCorpus} \n ${userText}`).map(n => n.key));
+  const profileQualifiers = new Set(findQualifiers(profileCorpus).map(q => q.key));
   const educationText = textOf([profile?.education, profile?.customSections]);
   const profileCredentials = credentialsInProfile(educationText);
 
@@ -266,7 +305,7 @@ function buildContext(profile: any, requirements: Requirement[], tailoredCv: any
     candidateTerms.push(term);
   }
 
-  return { requirements, profileCorpus, jobCorpora, projectCorpora, profileNumbers, profileCredentials, candidateTerms, adjacentTerms, gapTerms, matchTerms };
+  return { requirements, profileCorpus, jobCorpora, projectCorpora, profileNumbers, profileQualifiers, profileCredentials, candidateTerms, adjacentTerms, gapTerms, matchTerms };
 }
 
 /** Loose name equality: ignores case, punctuation and parenthetical suffixes. */
@@ -333,6 +372,10 @@ function analyseUnit(
     if (!ctx.profileNumbers.has(n.key)) terms.push({ term: n.raw, kind: 'number', source: 'figure not in your profile' });
   }
 
+  for (const q of findQualifiers(clean)) {
+    if (!ctx.profileQualifiers.has(q.key)) terms.push({ term: q.raw, kind: 'qualifier', source: 'stronger than your profile says' });
+  }
+
   for (const sentence of splitSentences(clean)) {
     const m = sentence.match(CREDENTIAL_RE);
     if (m && !NEGATION_RE.test(sentence) && !ctx.profileCredentials.has(credentialKey(m[1]))) {
@@ -361,10 +404,12 @@ export function detectBridgedClaims(input: {
   coverLetter?: any;
   profile: any;
   requirements: Requirement[];
+  /** Free text the user entered for this application (salary, notice, notes). */
+  userInputs?: string[];
 }): BridgedClaim[] {
-  const { tailoredCv, coverLetter, profile, requirements } = input;
+  const { tailoredCv, coverLetter, profile, requirements, userInputs } = input;
   if (!tailoredCv || !profile) return [];
-  const ctx = buildContext(profile, requirements || [], tailoredCv);
+  const ctx = buildContext(profile, requirements || [], tailoredCv, userInputs);
   const claims: BridgedClaim[] = [];
 
   const push = (base: Omit<BridgedClaim, 'key' | 'isViolation' | 'terms'>, terms: BridgedTerm[]) => {
@@ -427,7 +472,9 @@ export function detectBridgedClaims(input: {
     }
     const techs = asArray(p?.technologies).filter((t: unknown) => typeof t === 'string');
     techs.forEach((t: string, itemIndex: number) => {
-      const terms = analyseUnit(ctx, t, { projectCorpus }).filter(x => x.kind !== 'number');
+      // A skill the profile already has, listed on a project, is not worth a review
+      // (e.g. JavaScript on a Node.js CLI). New and missing skills are still flagged.
+      const terms = analyseUnit(ctx, t, { projectCorpus }).filter(x => x.kind !== 'number' && x.kind !== 'moved-skill' && x.kind !== 'qualifier');
       push({ section: 'projects', text: t, projectIndex, field: 'technologies', itemIndex }, terms);
     });
   });

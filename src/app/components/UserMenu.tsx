@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase-browser';
 import { LogOut, User, ChevronDown, Coins, Download, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useTokens } from '@/context/TokenContext';
+import Dialog from '@/app/components/Dialog';
 
 interface UserData {
   email: string;
@@ -121,6 +122,9 @@ export default function UserMenu() {
     <div className="relative" ref={menuRef}>
       <button
         onClick={() => setOpen(!open)}
+        aria-label="Account menu"
+        aria-haspopup="menu"
+        aria-expanded={open}
         className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-white/5 border border-transparent hover:border-white/5 transition-all duration-200 group cursor-pointer"
       >
         {user.avatar ? (
@@ -221,12 +225,12 @@ export default function UserMenu() {
       )}
 
       {deleteOpen && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <Dialog onClose={() => setDeleteOpen(false)} label="Delete account" className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-red-500/30 bg-zinc-900 p-6 shadow-2xl space-y-4 text-left">
             <div>
               <h3 className="text-lg font-bold text-white">Delete your account data?</h3>
               <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
-                This permanently deletes your Master Vault, all applications and generated documents, drafts,
+                This permanently deletes your profile, all applications and generated documents, drafts,
                 AI logs and your token balance. It cannot be undone. Consider downloading your data first.
               </p>
               <p className="text-[11px] text-zinc-500 mt-2 leading-relaxed">
@@ -260,7 +264,7 @@ export default function UserMenu() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   );

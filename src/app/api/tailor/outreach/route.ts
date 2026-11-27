@@ -158,7 +158,7 @@ ${isDe ? 'Ensure polite German business communication (Sie-Form, professional et
 GENERATE 3 DISTINCT MESSAGE TYPES:
 1. "linkedInInMail":
    - Target: Recruiters / Talent Acquisition Partners on LinkedIn.
-   - Character count / Word count: Under 130 words. Extremely punchy, hook in first sentence, highlight 2 core matching skills/metrics from the CV, and end with a low-friction question (e.g., "Open to a brief 5-minute chat this week?").
+   - Length: HARD LIMIT of 300 characters for "message" (including spaces), so it fits a LinkedIn connection note. Aim for 250-290. Extremely punchy, hook in first sentence, highlight 2 core matching skills/metrics from the CV, and end with a low-friction question (e.g., "Open to a brief 5-minute chat this week?").
    - Include a short tip explaining why this hook works.
 
 2. "hiringManagerEmail":

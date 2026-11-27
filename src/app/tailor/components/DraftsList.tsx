@@ -64,27 +64,27 @@ export default function DraftsList({ currentAppId, refreshKey, limit = 6, classN
           <FileClock className="w-3.5 h-3.5 text-indigo-400" />
           Drafts <span className="text-zinc-500 font-semibold">({drafts.length})</span>
         </h3>
-        <span className="text-[10px] text-zinc-500">Not in your tracker yet · kept {RETENTION_DAYS} days</span>
+        <span className="text-xs text-zinc-500">Not in your tracker yet · kept {RETENTION_DAYS} days</span>
       </div>
       <ul className="space-y-1.5">
         {drafts.slice(0, limit).map(d => (
           <li
             key={d.id}
-            className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border text-[11px] ${d.id === currentAppId ? 'border-indigo-500/40 bg-indigo-500/10' : 'border-white/5 bg-white/[0.02]'}`}
+            className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border text-xs ${d.id === currentAppId ? 'border-indigo-500/40 bg-indigo-500/10' : 'border-white/5 bg-white/[0.02]'}`}
           >
             <div className="min-w-0">
               <p className="text-zinc-200 font-semibold truncate">{d.role} · {d.company}</p>
-              <p className="text-zinc-500 text-[10px]">
+              <p className="text-zinc-500 text-xs">
                 {d.matchScore}% fit · {timeAgo(d.updatedAt)} · deleted in {daysLeft(d.updatedAt)} d
               </p>
             </div>
             <div className="flex items-center gap-1 shrink-0">
               {d.id === currentAppId ? (
-                <span className="text-[10px] text-indigo-300 font-semibold px-1.5">Open</span>
+                <span className="text-xs text-indigo-300 font-semibold px-1.5">Open</span>
               ) : (
                 <a
                   href={`/tailor?appId=${d.id}`}
-                  className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-indigo-600/80 hover:bg-indigo-500 text-white font-semibold text-[10px]"
+                  className="inline-flex items-center gap-0.5 px-2 py-1 rounded-md bg-indigo-600/80 hover:bg-indigo-500 text-white font-semibold text-xs"
                 >
                   Open <ArrowUpRight className="w-3 h-3" />
                 </a>
@@ -102,7 +102,7 @@ export default function DraftsList({ currentAppId, refreshKey, limit = 6, classN
         ))}
       </ul>
       {drafts.length > limit && (
-        <p className="text-[10px] text-zinc-500 mt-1.5">+ {drafts.length - limit} more</p>
+        <p className="text-xs text-zinc-500 mt-1.5">+ {drafts.length - limit} more</p>
       )}
     </div>
   );

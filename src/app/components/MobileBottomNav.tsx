@@ -11,7 +11,8 @@ export default function MobileBottomNav() {
   const pathname = usePathname();
 
   // Hide on public pages or printable views
-  if (PUBLIC_ROUTES.includes(pathname) || pathname === '/cv-preview') {
+  // The Tailor workspace is a focused, full-height view: the header shows a back arrow instead.
+  if (PUBLIC_ROUTES.includes(pathname) || pathname === '/cv-preview' || pathname === '/tailor') {
     return null;
   }
 
@@ -23,14 +24,14 @@ export default function MobileBottomNav() {
       isActive: pathname === '/dashboard'
     },
     {
-      label: 'Tailor AI',
+      label: 'Tailor',
       href: '/tailor',
       icon: Sparkles,
       isActive: pathname === '/tailor',
       isHero: true
     },
     {
-      label: 'Profile Vault',
+      label: 'Profile',
       href: '/profile',
       icon: User,
       isActive: pathname === '/profile'
@@ -61,10 +62,10 @@ export default function MobileBottomNav() {
                     : 'bg-gradient-to-tr from-zinc-800 to-zinc-700 text-zinc-300 hover:text-white group-hover:scale-105 shadow-zinc-900/40'
                 }`}
               >
-                <Icon className={`w-5 h-5 ${active ? 'animate-pulse' : ''}`} />
+                <Icon className="w-5 h-5" aria-hidden="true" />
               </div>
               <span
-                className={`text-[10px] font-bold tracking-tight mt-0.5 transition-colors ${
+                className={`text-xs font-bold tracking-tight mt-0.5 transition-colors ${
                   active ? 'text-indigo-400 light:text-indigo-600' : 'text-zinc-400'
                 }`}
               >
@@ -87,10 +88,10 @@ export default function MobileBottomNav() {
             <div className="relative">
               <Icon className="w-5 h-5 transition-transform duration-200" />
               {active && (
-                <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-indigo-400 animate-ping" />
+                <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-indigo-400" aria-hidden="true" />
               )}
             </div>
-            <span className="text-[10px] mt-0.5 font-medium">{item.label}</span>
+            <span className="text-xs mt-0.5 font-medium">{item.label}</span>
           </Link>
         );
       })}

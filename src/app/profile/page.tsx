@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   User, Briefcase, GraduationCap, Code2, Globe2, Plus, Trash2, Save, Sparkles, CheckCircle2, RefreshCw, FileText, FolderGit, Pencil,
   Layers, AlignLeft, List, Tag, ChevronUp, ChevronDown, Check, X
@@ -12,6 +13,7 @@ import { useTokens } from '@/context/TokenContext';
 import { useAlertModal } from '@/context/AlertModalContext';
 import { MAX_IMAGE_BYTES } from '@/lib/uploads';
 import { hasVaultContent, mergeImportedProfile, replaceWithImported } from '@/lib/profileMerge';
+import Dialog from '@/app/components/Dialog';
 
 interface WorkExperience {
   company: string;
@@ -130,6 +132,7 @@ export default function ProfileVault() {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const { setIsTokenModalOpen, fetchTokens } = useTokens();
   const { showAlert } = useAlertModal();
+  const router = useRouter();
 
   // Importer states
   const [importOpen, setImportOpen] = useState(false);
@@ -253,10 +256,18 @@ export default function ProfileVault() {
       if (!a || a.target === '_blank' || e.metaKey || e.ctrlKey || e.shiftKey) return;
       const url = new URL(a.href, window.location.href);
       if (url.origin !== window.location.origin || url.pathname === window.location.pathname) return;
-      if (!window.confirm('You have unsaved changes in your Master Vault. Leave without saving?')) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
+      // Same confirmation pattern as the rest of the app (AlertModalContext), not window.confirm.
+      // Closing the dialog (X, Esc, backdrop) keeps the user on the page.
+      e.preventDefault();
+      e.stopPropagation();
+      const target = url.pathname + url.search + url.hash;
+      showAlert({
+        title: 'Unsaved changes',
+        message: 'Your profile has changes that are not saved yet. Leave this page without saving?',
+        type: 'warning',
+        confirmLabel: 'Leave without saving',
+        onConfirm: () => router.push(target),
+      });
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     document.addEventListener('click', onClickCapture, true);
@@ -264,6 +275,7 @@ export default function ProfileVault() {
       window.removeEventListener('beforeunload', onBeforeUnload);
       document.removeEventListener('click', onClickCapture, true);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDirty]);
 
   // Ask before touching a vault that already has content; otherwise fill it directly
@@ -950,16 +962,16 @@ export default function ProfileVault() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8 w-full">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 sm:mb-8 gap-3 sm:gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <Sparkles className="w-5 h-5 text-indigo-400" />
-            <h1 className="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-zinc-100 to-indigo-200 bg-clip-text text-transparent">
-              Master Professional Vault
+            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-zinc-100 to-indigo-200 bg-clip-text text-transparent">
+              Your profile
             </h1>
           </div>
           <p className="text-zinc-400 text-sm">
-            Enter your core skills, education, and career facts. This vault acts as the single source of truth for all AI-tailored applications.
+            Your experience, skills and education. Every tailored CV is built only from what you enter here.
           </p>
         </div>
         
@@ -971,7 +983,7 @@ export default function ProfileVault() {
         <button
           onClick={() => saveProfile()}
           disabled={saving}
-          className="w-full md:w-auto px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 flex items-center justify-center gap-2 cursor-pointer transition-all duration-300 disabled:opacity-50"
+          className="hidden lg:flex w-full md:w-auto px-6 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 items-center justify-center gap-2 cursor-pointer transition-all duration-300 disabled:opacity-50"
         >
           {saving ? (
             <>
@@ -992,21 +1004,21 @@ export default function ProfileVault() {
         </button>
       </div>
 
-      {/* Importer Section */}
-      <div className="mb-8">
+      {/* Importer Section: a compact button until opened (audit P1) */}
+      <div className="mb-4 sm:mb-8">
         {!importOpen ? (
           <button
             onClick={() => setImportOpen(true)}
-            className="w-full py-4 px-6 rounded-2xl border border-dashed border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-300 hover:text-indigo-200 flex items-center justify-between transition-all duration-300 cursor-pointer shadow-md"
+            className="w-full min-h-11 py-2.5 sm:py-4 px-4 sm:px-6 rounded-2xl border border-dashed border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-300 hover:text-indigo-200 flex items-center justify-between transition-all duration-300 cursor-pointer shadow-md"
           >
             <div className="flex items-center gap-3 text-left">
-              <Sparkles className="w-5 h-5 text-indigo-400 animate-pulse" />
+              <Sparkles className="w-5 h-5 text-indigo-400 shrink-0" aria-hidden="true" />
               <div>
-                <h4 className="font-bold text-sm text-white">Bootstrap with AI Profile Auto-Importer</h4>
-                <p className="text-xs text-zinc-400 mt-0.5">Quickly pre-populate your vault using public GitHub (30 tokens) or LinkedIn details (30 tokens) or PDF Resume (30 tokens).</p>
+                <h4 className="font-bold text-sm text-white">Import from CV, LinkedIn or GitHub</h4>
+                <p className="hidden sm:block text-xs text-zinc-400 mt-0.5">Fill your profile from a PDF CV, LinkedIn text or a public GitHub account. 30 tokens per import.</p>
               </div>
             </div>
-            <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-white">Open Importer</span>
+            <span className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-white shrink-0">Import</span>
           </button>
         ) : (
           <div className="glass-panel p-6 rounded-2xl space-y-4 border border-indigo-500/20 shadow-xl relative overflow-hidden">
@@ -1015,13 +1027,13 @@ export default function ProfileVault() {
             <div className="flex items-center justify-between pb-3 border-b border-white/5">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-indigo-400" />
-                <h3 className="font-bold text-white text-md">AI Profile Auto-Importer</h3>
+                <h3 className="font-bold text-white text-base">Import from CV, LinkedIn or GitHub</h3>
               </div>
               <button
                 onClick={() => setImportOpen(false)}
                 className="text-xs text-zinc-400 hover:text-white px-2.5 py-1 rounded bg-white/5 cursor-pointer"
               >
-                Cancel / Close
+                Close
               </button>
             </div>
 
@@ -1042,7 +1054,7 @@ export default function ProfileVault() {
                     className="glass-input px-3.5 py-2.5 text-xs w-full text-white"
                     disabled={importing}
                   />
-                  <p className="text-[10px] text-zinc-500">Fetches bio and top public repositories to extract skills.</p>
+                  <p className="text-xs text-zinc-500">Fetches bio and top public repositories to extract skills.</p>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -1073,8 +1085,8 @@ export default function ProfileVault() {
                       }}
                     >
                       <FileText className="w-6 h-6 text-indigo-400 mb-1.5 group-hover:scale-110 transition-transform duration-300" />
-                      <span className="text-[11px] text-white font-medium">Select PDF Resume (30 tokens)</span>
-                      <span className="text-[9px] text-zinc-500 mt-0.5">Drag and drop here</span>
+                      <span className="text-xs text-white font-medium">Select PDF Resume (30 tokens)</span>
+                      <span className="text-xs text-zinc-500 mt-0.5">Drag and drop here</span>
                     </label>
                   </div>
                 </div>
@@ -1095,7 +1107,7 @@ export default function ProfileVault() {
                   className="glass-input p-3 text-xs w-full resize-none font-sans text-white"
                   disabled={importing}
                 />
-                <p className="text-[10px] text-zinc-500">Paste raw text. The AI extracts dates, metrics, and experience bullet details factually.</p>
+                <p className="text-xs text-zinc-500">Paste raw text. The AI extracts dates, metrics, and experience bullet details factually.</p>
               </div>
             </div>
 
@@ -1120,13 +1132,15 @@ export default function ProfileVault() {
         )}
       </div>
 
-      {/* Career Persona Management Bar */}
+      {/* Career Persona Management Bar: hidden until the profile has at least one job,
+          unless personas already exist (audit P5). Most users never need personas. */}
+      {(profile.workExperience.length > 0 || (profile.personas || []).length > 1) && (
       <div className="mb-6 p-4 rounded-2xl glass-panel border border-indigo-500/20 shadow-lg space-y-3 font-sans">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-white/5">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-indigo-400" />
-            <span className="text-sm font-bold text-white">Career Persona Vault</span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-semibold">
+            <span className="text-sm font-bold text-white">Profile versions</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-semibold">
               {(profile.personas || []).length} Persona{(profile.personas || []).length !== 1 ? 's' : ''}
             </span>
           </div>
@@ -1137,7 +1151,7 @@ export default function ProfileVault() {
               className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-indigo-500/20"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>New Persona</span>
+              <span>New version</span>
             </button>
           </div>
         </div>
@@ -1158,7 +1172,7 @@ export default function ProfileVault() {
               >
                 <span>{persona.name}</span>
                 {persona.isDefault && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-bold border border-amber-400/30">
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-400/20 text-amber-300 font-bold border border-amber-400/30">
                     Default
                   </span>
                 )}
@@ -1170,8 +1184,9 @@ export default function ProfileVault() {
                         e.stopPropagation();
                         handleDuplicatePersona(persona.id);
                       }}
-                      className="hover:text-indigo-200 transition-colors p-0.5"
+                      className="hover:text-indigo-200 transition-colors p-1.5 -m-1"
                       title="Duplicate persona"
+                      aria-label="Duplicate persona"
                     >
                       <Layers className="w-3 h-3" />
                     </button>
@@ -1181,8 +1196,9 @@ export default function ProfileVault() {
                         e.stopPropagation();
                         handleStartRenamePersona(persona);
                       }}
-                      className="hover:text-indigo-200 transition-colors p-0.5"
+                      className="hover:text-indigo-200 transition-colors p-1.5 -m-1"
                       title="Rename persona"
+                      aria-label="Rename persona"
                     >
                       <Pencil className="w-3 h-3" />
                     </button>
@@ -1193,8 +1209,9 @@ export default function ProfileVault() {
                           e.stopPropagation();
                           handleSetDefaultPersona(persona.id);
                         }}
-                        className="hover:text-amber-200 transition-colors p-0.5"
+                        className="hover:text-amber-200 transition-colors p-1.5 -m-1"
                         title="Set as Default for AI tailoring"
+                        aria-label="Set as default"
                       >
                         <Check className="w-3 h-3" />
                       </button>
@@ -1206,8 +1223,9 @@ export default function ProfileVault() {
                           e.stopPropagation();
                           handleDeletePersona(persona.id);
                         }}
-                        className="hover:text-rose-200 transition-colors p-0.5"
+                        className="hover:text-rose-200 transition-colors p-1.5 -m-1"
                         title="Delete persona"
+                        aria-label="Delete persona"
                       >
                         <Trash2 className="w-3 h-3" />
                       </button>
@@ -1219,10 +1237,11 @@ export default function ProfileVault() {
           })}
         </div>
       </div>
+      )}
 
       {/* Modal: New Persona */}
       {showNewPersonaModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 font-sans animate-in fade-in duration-200">
+        <Dialog onClose={() => setShowNewPersonaModal(false)} label="New persona" className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 font-sans animate-in fade-in duration-200">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 text-left">
             <div className="flex items-center justify-between pb-3 border-b border-white/5">
               <h3 className="font-bold text-white text-md flex items-center gap-2">
@@ -1264,7 +1283,7 @@ export default function ProfileVault() {
                     }`}
                   >
                     <span className="block font-bold">Clone Active Profile</span>
-                    <span className="text-[10px] text-zinc-400 font-normal">Copies current skills & projects</span>
+                    <span className="text-xs text-zinc-400 font-normal">Copies current skills & projects</span>
                   </button>
                   <button
                     type="button"
@@ -1276,7 +1295,7 @@ export default function ProfileVault() {
                     }`}
                   >
                     <span className="block font-bold">Start Fresh</span>
-                    <span className="text-[10px] text-zinc-400 font-normal">Blank skills & projects list</span>
+                    <span className="text-xs text-zinc-400 font-normal">Blank skills & projects list</span>
                   </button>
                 </div>
               </div>
@@ -1300,19 +1319,19 @@ export default function ProfileVault() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Modal: Rename Persona */}
       {isRenamingPersona && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 font-sans animate-in fade-in duration-200">
+        <Dialog onClose={() => setIsRenamingPersona(false)} label="Rename persona" className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 font-sans animate-in fade-in duration-200">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 text-left">
             <h3 className="font-bold text-white text-sm flex items-center gap-2">
               <Pencil className="w-4 h-4 text-indigo-400" />
               Rename Persona
             </h3>
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-semibold text-zinc-400 uppercase">Persona Name</label>
+              <label className="text-xs font-semibold text-zinc-400 uppercase">Persona Name</label>
               <input
                 type="text"
                 value={renamePersonaName}
@@ -1343,14 +1362,17 @@ export default function ProfileVault() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Responsive Tabs Navigation */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 lg:gap-8">
         {/* Navigation Sidebar / Mobile Scrollable Tab Bar */}
-        <div className="lg:col-span-1 flex flex-row lg:flex-col gap-2 overflow-x-auto no-scrollbar pb-2 lg:pb-0">
+        {/* On phones the tab row scrolls sideways; the faded right edge hints that there is more (audit P2). */}
+        <div role="tablist" aria-label="Profile sections" className="lg:col-span-1 flex flex-row lg:flex-col gap-2 overflow-x-auto no-scrollbar pb-2 lg:pb-0 pr-8 lg:pr-0 [mask-image:linear-gradient(to_right,black_80%,transparent)] lg:[mask-image:none]">
           <button
+            role="tab"
+            aria-selected={activeTab === 'personal'}
             onClick={() => setActiveTab('personal')}
             className={`shrink-0 lg:w-full text-left px-3.5 sm:px-4 py-2.5 sm:py-3.5 rounded-xl flex items-center gap-2 sm:gap-3 transition-all duration-300 border text-xs sm:text-sm font-sans ${
               activeTab === 'personal'
@@ -1363,6 +1385,8 @@ export default function ProfileVault() {
           </button>
           
           <button
+            role="tab"
+            aria-selected={activeTab === 'experience'}
             onClick={() => setActiveTab('experience')}
             className={`shrink-0 lg:w-full text-left px-3.5 sm:px-4 py-2.5 sm:py-3.5 rounded-xl flex items-center gap-2 sm:gap-3 transition-all duration-300 border text-xs sm:text-sm font-sans ${
               activeTab === 'experience'
@@ -1373,13 +1397,15 @@ export default function ProfileVault() {
             <Briefcase className="w-4 h-4 text-cyan-400 shrink-0" />
             <span className="whitespace-nowrap">Work Experience</span>
             {profile.workExperience.length > 0 && (
-              <span className="text-[10px] bg-white/20 text-white px-1.5 py-0.5 rounded-full font-bold ml-auto hidden sm:inline">
+              <span className="text-xs bg-white/20 text-white px-1.5 py-0.5 rounded-full font-bold ml-auto hidden sm:inline">
                 {profile.workExperience.length}
               </span>
             )}
           </button>
           
           <button
+            role="tab"
+            aria-selected={activeTab === 'education'}
             onClick={() => setActiveTab('education')}
             className={`shrink-0 lg:w-full text-left px-3.5 sm:px-4 py-2.5 sm:py-3.5 rounded-xl flex items-center gap-2 sm:gap-3 transition-all duration-300 border text-xs sm:text-sm font-sans ${
               activeTab === 'education'
@@ -1392,6 +1418,8 @@ export default function ProfileVault() {
           </button>
           
           <button
+            role="tab"
+            aria-selected={activeTab === 'skills'}
             onClick={() => setActiveTab('skills')}
             className={`shrink-0 lg:w-full text-left px-3.5 sm:px-4 py-2.5 sm:py-3.5 rounded-xl flex items-center gap-2 sm:gap-3 transition-all duration-300 border text-xs sm:text-sm font-sans ${
               activeTab === 'skills'
@@ -1404,6 +1432,8 @@ export default function ProfileVault() {
           </button>
 
           <button
+            role="tab"
+            aria-selected={activeTab === 'projects'}
             onClick={() => setActiveTab('projects')}
             className={`shrink-0 lg:w-full text-left px-3.5 sm:px-4 py-2.5 sm:py-3.5 rounded-xl flex items-center gap-2 sm:gap-3 transition-all duration-300 border text-xs sm:text-sm font-sans ${
               activeTab === 'projects'
@@ -1416,6 +1446,8 @@ export default function ProfileVault() {
           </button>
 
           <button
+            role="tab"
+            aria-selected={activeTab === 'custom'}
             onClick={() => setActiveTab('custom')}
             className={`shrink-0 lg:w-full text-left px-3.5 sm:px-4 py-2.5 sm:py-3.5 rounded-xl flex items-center gap-2 sm:gap-3 transition-all duration-300 border text-xs sm:text-sm font-sans ${
               activeTab === 'custom'
@@ -1426,7 +1458,7 @@ export default function ProfileVault() {
             <Layers className="w-4 h-4 text-indigo-400 shrink-0" />
             <span className="whitespace-nowrap">Custom Sections</span>
             {profile.customSections && profile.customSections.length > 0 && (
-              <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded-full font-bold ml-auto">
+              <span className="text-xs bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded-full font-bold ml-auto">
                 {profile.customSections.length}
               </span>
             )}
@@ -1565,7 +1597,7 @@ export default function ProfileVault() {
                           Remove Photo
                         </button>
                       )}
-                      <p className="text-[10px] text-zinc-500">Supported formats: JPG, PNG. Recommended passport size ratio.</p>
+                      <p className="text-xs text-zinc-500">Supported formats: JPG, PNG. Recommended passport size ratio.</p>
                     </div>
                   </div>
                 </div>
@@ -1603,20 +1635,24 @@ export default function ProfileVault() {
                           Remove Signature
                         </button>
                       )}
-                      <p className="text-[10px] text-zinc-500">Supported formats: PNG (transparent background recommended), JPG.</p>
+                      <p className="text-xs text-zinc-500">Supported formats: PNG (transparent background recommended), JPG.</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* DACH Specifics */}
-              <div className="pt-6 border-t border-white/5 space-y-4">
-                <div>
-                  <h3 className="text-md font-bold text-white mb-1">DACH Region Optional Details</h3>
-                  <p className="text-xs text-zinc-400">
-                    These cultural standards (age, birth city, and nationality) are expected in German *Lebensläufe* but are automatically omitted in English applications.
-                  </p>
-                </div>
+              {/* DACH Specifics: collapsed unless already filled in (audit P3) */}
+              <details className="group pt-6 border-t border-white/5" open={!!(profile.dateOfBirth || profile.birthplace || profile.nationality)}>
+                <summary className="cursor-pointer list-none select-none [&::-webkit-details-marker]:hidden flex items-start justify-between gap-3">
+                  <span>
+                    <span className="block text-base font-bold text-white mb-1">German CV details (optional)</span>
+                    <span className="block text-xs text-zinc-400">
+                      Date of birth, birthplace and nationality. Used only for German CVs (Lebenslauf); left out of English ones.
+                    </span>
+                  </span>
+                  <ChevronDown className="w-4 h-4 mt-1 text-zinc-400 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true" />
+                </summary>
+                <div className="pt-4">
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="flex flex-col gap-1.5">
@@ -1655,7 +1691,8 @@ export default function ProfileVault() {
                     />
                   </div>
                 </div>
-              </div>
+                </div>
+              </details>
             </div>
           )}
 
@@ -1826,7 +1863,7 @@ export default function ProfileVault() {
                       Add Bullet
                     </button>
                   </div>
-                  <p className="text-[10px] text-zinc-500">
+                  <p className="text-xs text-zinc-500">
                     Use factual, metrics-driven bullets. The AI tailors them without hallucinating any non-existent stats.
                   </p>
                 </div>
@@ -1883,7 +1920,7 @@ export default function ProfileVault() {
                         <div>
                           <h4 className="font-bold text-white text-md">{edu.degree}</h4>
                           <p className="text-xs text-indigo-400 mt-0.5">{edu.institution} | {edu.location}</p>
-                          <p className="text-[11px] text-zinc-400 mt-0.5">{edu.startDate} - {edu.current ? 'Present' : edu.endDate}</p>
+                          <p className="text-xs text-zinc-400 mt-0.5">{edu.startDate} - {edu.current ? 'Present' : edu.endDate}</p>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <button
@@ -2035,9 +2072,9 @@ export default function ProfileVault() {
                     {profile.skills.map((skill, idx) => (
                       <span key={idx} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-indigo-500/20 bg-indigo-500/5 text-xs text-indigo-300">
                         <span className="font-semibold text-white">{skill.name}</span>
-                        <span className="opacity-50 text-[10px]">({skill.level})</span>
+                        <span className="opacity-50 text-xs">({skill.level})</span>
                         {skill.category && (
-                          <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-indigo-500/10 text-indigo-200">
+                          <span className="px-1.5 py-0.5 rounded text-xs font-medium bg-indigo-500/10 text-indigo-200">
                             {skill.category}
                           </span>
                         )}
@@ -2121,7 +2158,7 @@ export default function ProfileVault() {
                     {profile.languages.map((lang, idx) => (
                       <span key={idx} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-purple-500/20 bg-purple-500/5 text-xs text-purple-300">
                         <span className="font-semibold text-white">{lang.language}</span>
-                        <span className="opacity-50 text-[10px]">({lang.level})</span>
+                        <span className="opacity-50 text-xs">({lang.level})</span>
                         <button
                           onClick={() => removeLanguage(idx)}
                           className="hover:text-rose-400 p-0.5 rounded cursor-pointer"
@@ -2197,7 +2234,7 @@ export default function ProfileVault() {
                         {proj.technologies && proj.technologies.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1">
                             {proj.technologies.map((t, tIdx) => (
-                              <span key={tIdx} className="px-2 py-0.5 rounded bg-zinc-800 text-[10px] text-zinc-400 border border-zinc-700/50">
+                              <span key={tIdx} className="px-2 py-0.5 rounded bg-zinc-800 text-xs text-zinc-400 border border-zinc-700/50">
                                 {t}
                               </span>
                             ))}
@@ -2243,7 +2280,7 @@ export default function ProfileVault() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Project Name</label>
+                    <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Project Name</label>
                     <input
                       type="text"
                       value={newProject.name}
@@ -2254,7 +2291,7 @@ export default function ProfileVault() {
                   </div>
 
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Project URL / Github Link (Optional)</label>
+                    <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Project URL / Github Link (Optional)</label>
                     <input
                       type="url"
                       value={newProject.url || ''}
@@ -2266,7 +2303,7 @@ export default function ProfileVault() {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Technologies (Comma separated)</label>
+                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Technologies (Comma separated)</label>
                   <input
                     type="text"
                     value={newProjTechs}
@@ -2277,7 +2314,7 @@ export default function ProfileVault() {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">Project Description</label>
+                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Project Description</label>
                   <textarea
                     value={newProject.description}
                     onChange={e => setNewProject(prev => ({ ...prev, description: e.target.value }))}
@@ -2391,7 +2428,7 @@ export default function ProfileVault() {
                             placeholder="Section Title..."
                             className="bg-zinc-900 border border-zinc-700/80 rounded-lg px-3 py-1.5 text-sm font-bold text-white focus:outline-none focus:border-indigo-500 min-w-[200px]"
                           />
-                          <span className="text-[10px] px-2 py-0.5 rounded-md font-semibold uppercase tracking-wider bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+                          <span className="text-xs px-2 py-0.5 rounded-md font-semibold uppercase tracking-wider bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
                             {sec.type === 'bullet-list' ? 'Bullet List' : sec.type === 'paragraph' ? 'Paragraph Text' : sec.type === 'subgroup-chips' ? 'Subgroup Badges' : 'Structured Items'}
                           </span>
                         </div>
@@ -2546,7 +2583,7 @@ export default function ProfileVault() {
                                 {sub.items.map((item, itemIdx) => (
                                   <span
                                     key={itemIdx}
-                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] bg-zinc-800 text-zinc-200 border border-zinc-700"
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs bg-zinc-800 text-zinc-200 border border-zinc-700"
                                   >
                                     <span>{item}</span>
                                     <button
@@ -2579,7 +2616,7 @@ export default function ProfileVault() {
                                       e.currentTarget.value = '';
                                     }
                                   }}
-                                  className="bg-transparent border border-dashed border-zinc-700 hover:border-zinc-500 rounded-md px-2.5 py-1 text-[11px] text-zinc-300 focus:outline-none focus:border-indigo-500 w-36"
+                                  className="bg-transparent border border-dashed border-zinc-700 hover:border-zinc-500 rounded-md px-2.5 py-1 text-xs text-zinc-300 focus:outline-none focus:border-indigo-500 w-36"
                                 />
                               </div>
                             </div>
@@ -2627,7 +2664,7 @@ export default function ProfileVault() {
 
                               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                 <div>
-                                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Title / Role / Award</label>
+                                  <label className="text-xs text-zinc-400 font-semibold uppercase">Title / Role / Award</label>
                                   <input
                                     type="text"
                                     value={item.title}
@@ -2643,7 +2680,7 @@ export default function ProfileVault() {
                                   />
                                 </div>
                                 <div>
-                                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Issuer / Organization</label>
+                                  <label className="text-xs text-zinc-400 font-semibold uppercase">Issuer / Organization</label>
                                   <input
                                     type="text"
                                     value={item.subtitle || ''}
@@ -2659,7 +2696,7 @@ export default function ProfileVault() {
                                   />
                                 </div>
                                 <div>
-                                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Date / Location</label>
+                                  <label className="text-xs text-zinc-400 font-semibold uppercase">Date / Location</label>
                                   <input
                                     type="text"
                                     value={item.dateOrLocation || ''}
@@ -2677,7 +2714,7 @@ export default function ProfileVault() {
                               </div>
 
                               <div className="space-y-1.5">
-                                <label className="text-[10px] text-zinc-400 font-semibold uppercase">Bullet Points</label>
+                                <label className="text-xs text-zinc-400 font-semibold uppercase">Bullet Points</label>
                                 {(item.bullets || []).map((b, bIdx) => (
                                   <div key={bIdx} className="flex items-center gap-2">
                                     <span className="text-zinc-500 text-xs select-none">•</span>
@@ -2719,7 +2756,7 @@ export default function ProfileVault() {
                                     updated[secIdx] = { ...updated[secIdx], items };
                                     setProfile(prev => ({ ...prev, customSections: updated }));
                                   }}
-                                  className="text-[11px] text-indigo-400 hover:text-indigo-300 font-semibold inline-flex items-center gap-1 cursor-pointer pt-1"
+                                  className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold inline-flex items-center gap-1 cursor-pointer pt-1"
                                 >
                                   <Plus className="w-3 h-3" />
                                   <span>Add Bullet Point</span>
@@ -2757,7 +2794,7 @@ export default function ProfileVault() {
 
       {/* Add Custom Section Modal */}
       {showAddCustomModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <Dialog onClose={() => setShowAddCustomModal(false)} label="Add custom section" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="relative w-full max-w-lg bg-[var(--layout-surface-panel-bg)] border border-white/10 rounded-2xl p-6 shadow-2xl flex flex-col gap-5 font-sans">
             <div className="flex justify-between items-center pb-3 border-b border-white/5">
               <div className="flex items-center gap-2">
@@ -2800,7 +2837,7 @@ export default function ProfileVault() {
                   >
                     <List className="w-4 h-4 text-indigo-400" />
                     <span className="text-xs font-bold">Bullet Points</span>
-                    <span className="text-[10px] text-zinc-400 leading-tight">Key takeaways, achievements, and lists</span>
+                    <span className="text-xs text-zinc-400 leading-tight">Key takeaways, achievements, and lists</span>
                   </button>
 
                   <button
@@ -2814,7 +2851,7 @@ export default function ProfileVault() {
                   >
                     <AlignLeft className="w-4 h-4 text-indigo-400" />
                     <span className="text-xs font-bold">Paragraph / Narrative</span>
-                    <span className="text-[10px] text-zinc-400 leading-tight">Longer text blocks, executive bio, research</span>
+                    <span className="text-xs text-zinc-400 leading-tight">Longer text blocks, executive bio, research</span>
                   </button>
 
                   <button
@@ -2828,7 +2865,7 @@ export default function ProfileVault() {
                   >
                     <Tag className="w-4 h-4 text-indigo-400" />
                     <span className="text-xs font-bold">Subgroups & Badges</span>
-                    <span className="text-[10px] text-zinc-400 leading-tight">Categories with pill chips / tags</span>
+                    <span className="text-xs text-zinc-400 leading-tight">Categories with pill chips / tags</span>
                   </button>
 
                   <button
@@ -2842,7 +2879,7 @@ export default function ProfileVault() {
                   >
                     <Briefcase className="w-4 h-4 text-indigo-400" />
                     <span className="text-xs font-bold">Structured Entries</span>
-                    <span className="text-[10px] text-zinc-400 leading-tight">Title, organization, date, and bullets</span>
+                    <span className="text-xs text-zinc-400 leading-tight">Title, organization, date, and bullets</span>
                   </button>
                 </div>
               </div>
@@ -2873,12 +2910,12 @@ export default function ProfileVault() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Signature Processing Modal */}
       {showSigProcessor && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+        <Dialog onClose={() => { setShowSigProcessor(false); setSigProcessorOriginal(''); setSigProcessorProcessed(''); }} label="Signature background removal" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
           <style>{`
             .checkerboard-bg {
               background-image: linear-gradient(45deg, var(--effect-checkerboard-square) 25%, transparent 25%), 
@@ -2951,7 +2988,7 @@ export default function ProfileVault() {
                 onChange={e => setSigProcessorThreshold(parseInt(e.target.value))}
                 className="w-full h-1.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
               />
-              <p className="text-[10px] text-zinc-500 mt-1">
+              <p className="text-xs text-zinc-500 mt-1">
                 Drag the slider to the left if lines are missing (lower threshold keeps more ink details). Drag to the right if there is still grey paper background visible (higher threshold removes lighter colors).
               </p>
             </div>
@@ -2984,18 +3021,18 @@ export default function ProfileVault() {
             </div>
 
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Floating Save Button on Mobile */}
       <aside
         aria-label="Floating Mobile Save"
-        className="lg:hidden fixed bottom-[70px] right-4 z-40"
+        className={`lg:hidden fixed bottom-[calc(76px+env(safe-area-inset-bottom))] right-4 z-40 transition-all ${isDirty || saving || saveSuccess ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}
       >
         <button
           onClick={() => saveProfile()}
           disabled={saving}
-          className={`px-4 py-2.5 rounded-2xl font-bold text-xs shadow-2xl flex items-center gap-2 cursor-pointer transition-all ${
+          className={`min-h-11 px-5 py-2.5 rounded-2xl font-bold text-sm shadow-2xl flex items-center gap-2 cursor-pointer transition-all ${
             saveSuccess
               ? 'bg-emerald-600 text-white shadow-emerald-500/30'
               : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-indigo-500/30 hover:scale-105 active:scale-95'
@@ -3013,15 +3050,15 @@ export default function ProfileVault() {
             </>
           ) : (
             <>
-              <Save className="w-3.5 h-3.5" />
-              <span>Save Vault</span>
+              <Save className="w-4 h-4" aria-hidden="true" />
+              <span>Save changes</span>
             </>
           )}
         </button>
       </aside>
 
       {pendingImport && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        <Dialog onClose={() => setPendingImport(null)} label="Review imported profile" className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-white/10 bg-zinc-900 p-6 shadow-2xl space-y-4">
             <div>
               <h3 className="text-lg font-bold text-white">Your vault already has content</h3>
@@ -3036,7 +3073,7 @@ export default function ProfileVault() {
                 className="w-full text-left p-3 rounded-xl border border-indigo-500/40 bg-indigo-500/10 hover:bg-indigo-500/20 cursor-pointer"
               >
                 <span className="block text-sm font-bold text-white">Merge (recommended)</span>
-                <span className="block text-[11px] text-zinc-400">Keep everything you have and add new jobs, education, skills, languages and projects from the import.</span>
+                <span className="block text-xs text-zinc-400">Keep everything you have and add new jobs, education, skills, languages and projects from the import.</span>
               </button>
               <button
                 type="button"
@@ -3044,7 +3081,7 @@ export default function ProfileVault() {
                 className="w-full text-left p-3 rounded-xl border border-white/10 hover:bg-white/5 cursor-pointer"
               >
                 <span className="block text-sm font-bold text-white">Replace</span>
-                <span className="block text-[11px] text-zinc-400">Use the imported details instead. Photo, signature and custom sections are kept.</span>
+                <span className="block text-xs text-zinc-400">Use the imported details instead. Photo, signature and custom sections are kept.</span>
               </button>
             </div>
             <button
@@ -3055,7 +3092,7 @@ export default function ProfileVault() {
               Cancel (discard the import)
             </button>
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   );

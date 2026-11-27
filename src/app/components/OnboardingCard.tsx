@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { CheckCircle2, Circle, ArrowRight } from 'lucide-react';
 
 interface OnboardingCardProps {
-  vaultReady: boolean;        // Master Vault has jobs / education / skills / projects
+  vaultReady: boolean;        // profile has jobs / education / skills / projects
   hasApplications: boolean;   // at least one tracked application
 }
 
@@ -19,10 +19,10 @@ export default function OnboardingCard({ vaultReady, hasApplications }: Onboardi
   const steps = [
     {
       done: vaultReady,
-      title: 'Fill your Master Vault',
+      title: 'Fill in your profile',
       text: 'Import your CV (PDF), LinkedIn text or GitHub, or enter your experience by hand. Everything the AI writes is based on it.',
       href: '/profile',
-      cta: 'Open Master Vault',
+      cta: 'Open your profile',
     },
     {
       done: hasApplications,
@@ -45,7 +45,7 @@ export default function OnboardingCard({ vaultReady, hasApplications }: Onboardi
     <div className="mb-6 rounded-2xl border border-indigo-500/25 bg-indigo-500/5 p-5 no-print">
       <h2 className="text-sm font-bold text-white mb-1">Get started in 3 steps</h2>
       <p className="text-xs text-zinc-400 mb-4">
-        {vaultReady ? 'Your Master Vault is ready — tailor your first application.' : 'Start with your Master Vault: tailoring needs your real experience to work from.'}
+        {vaultReady ? 'Your profile is ready — tailor your first application.' : 'Start with your profile: tailoring needs your real experience to work from.'}
       </p>
       <ol className="grid gap-3 md:grid-cols-3">
         {steps.map((s, i) => (

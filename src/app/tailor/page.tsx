@@ -19,6 +19,9 @@ import BulletMatrixCvView from './components/BulletMatrixCvView';
 import CanvasViewport from './components/CanvasViewport';
 import CanvasFloatingHud from './components/CanvasFloatingHud';
 import MobileToolBottomSheet from './components/MobileToolBottomSheet';
+import { loadTailorInputs, saveTailorInputs, clearTailorInputs } from '@/lib/tailorInputsAutosave';
+import { cleanKeywordLists, dedupeKeywords } from '@/lib/keywordLists';
+import OutreachTextarea, { findPlaceholders, LINKEDIN_NOTE_LIMIT } from './components/OutreachTextarea';
 import RefusalReport from './components/RefusalReport';
 import { renderInline } from './components/MarkdownLite';
 import { hasVaultContent } from '@/lib/profileMerge';
@@ -27,6 +30,7 @@ import { checkJobDescription } from '@/lib/jobDescriptionCheck';
 import { computeKeywordCoverage } from '@/lib/keywordCoverage';
 import BridgedClaimsPanel from './components/BridgedClaimsPanel';
 import { detectBridgedClaims, removeClaim, removeClaims, summarizeKeptClaims, type BridgedClaim } from '@/lib/bridging';
+import Dialog from '@/app/components/Dialog';
 
 interface WorkExperience {
   company: string;
@@ -609,10 +613,30 @@ export default function TailorWorkspace() {
   const [isAdjustSpacingOpen, setIsAdjustSpacingOpen] = useState<boolean>(false);
   const [isAutoFit, setIsAutoFit] = useState<boolean>(true);
   const [manualScale, setManualScale] = useState<number>(1.0);
+
+  // A manual zoom level chosen on one screen size is wrong on another: when the
+  // viewport width changes a lot (rotation, window resize, phone -> tablet), go
+  // back to Fit so the A4 page matches the new width (audit R6).
+  useEffect(() => {
+    let lastWidth = window.innerWidth;
+    const onResize = () => {
+      const w = window.innerWidth;
+      if (Math.abs(w - lastWidth) >= 120) {
+        lastWidth = w;
+        setIsAutoFit(true);
+      }
+    };
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, []);
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState<boolean>(false);
   const [isDesktopPanelCollapsed, setIsDesktopPanelCollapsed] = useState<boolean>(false);
   const { tokens, setIsTokenModalOpen, fetchTokens } = useTokens();
-  const { showAlert } = useAlertModal();
+  const { showAlert, showToast } = useAlertModal();
 
   // Navigation Sub-tab inside Left Side Panel: Generation, ATS Intelligence, Customization & Spacing
   const [sidePanelTab, setSidePanelTab] = useState<'generation' | 'ats' | 'customization' | 'spacing'>('generation');
@@ -670,6 +694,8 @@ export default function TailorWorkspace() {
   // Intake Method States
   const [intakeMethod, setIntakeMethod] = useState<'text' | 'url' | 'pdf'>('text');
   const [jobUrl, setJobUrl] = useState('');
+  const [restoredInputs, setRestoredInputs] = useState(false);
+  const [autosaveReady, setAutosaveReady] = useState(false);
   const [scraping, setScraping] = useState(false);
   const [scrapeError, setScrapeError] = useState<string | null>(null);
   const [scrapeWarning, setScrapeWarning] = useState<string | null>(null);
@@ -686,9 +712,8 @@ export default function TailorWorkspace() {
   const handleSetCvFormatMode = (mode: 'visual' | 'ats' | 'bullet-matrix') => {
     setCvFormatMode(mode);
     setIsAtsMode(mode === 'ats');
-    if (mode === 'bullet-matrix') {
-      applyPreset('default');
-    }
+    // Note: switching format used to reset custom spacing to Default silently (audit R11).
+    // The user's spacing is kept; they can pick a preset themselves.
   };
 
   // Project Description Polish Modal State
@@ -794,13 +819,20 @@ export default function TailorWorkspace() {
     showAlert({ title: 'Keyword Injected', message: `Skill '${skillName}' injected into CV Skills & marked as matched!`, type: 'success' });
   };
 
-  const handleFetchClParagraphVariations = async (paraIndex: number, originalPara: string) => {
+  // Opening a polish modal never charges tokens: the user reviews the text, adds an
+  // optional instruction and then explicitly presses Generate (audit R3).
+  const handleFetchClParagraphVariations = (paraIndex: number, originalPara: string) => {
     setClPolishModal({
       isOpen: true,
       paraIndex,
       originalPara,
       variations: null
     });
+  };
+
+  const runClParagraphPolish = async () => {
+    const { originalPara } = clPolishModal;
+    if (!originalPara) return;
     setIsPolishingClPara(true);
     try {
       const res = await fetch('/api/tailor/section', {
@@ -861,7 +893,7 @@ export default function TailorWorkspace() {
     });
   };
 
-  const handleFetchProjectVariations = async (projectIndex: number, originalDescription: string, projectName: string) => {
+  const handleFetchProjectVariations = (projectIndex: number, originalDescription: string, projectName: string) => {
     setProjectPolishModal({
       isOpen: true,
       projectIndex,
@@ -869,6 +901,11 @@ export default function TailorWorkspace() {
       projectName,
       variations: null
     });
+  };
+
+  const runProjectPolish = async () => {
+    const { originalDescription } = projectPolishModal;
+    if (!originalDescription) return;
     setIsPolishingProject(true);
     try {
       const res = await fetch('/api/tailor/section', {
@@ -1044,7 +1081,7 @@ export default function TailorWorkspace() {
     }
   };
 
-  const handleFetchBulletVariations = async (expIndex: number, bulletIndex: number, originalBullet: string) => {
+  const handleFetchBulletVariations = (expIndex: number, bulletIndex: number, originalBullet: string) => {
     setBulletPolishModal({
       isOpen: true,
       expIndex,
@@ -1052,6 +1089,11 @@ export default function TailorWorkspace() {
       originalBullet,
       variations: null
     });
+  };
+
+  const runBulletPolish = async () => {
+    const { originalBullet } = bulletPolishModal;
+    if (!originalBullet) return;
     setIsPolishingBullet(true);
     try {
       const res = await fetch('/api/tailor/section', {
@@ -1327,12 +1369,13 @@ export default function TailorWorkspace() {
         coverLetter: result.tailoredCoverLetter,
         profile,
         requirements,
+        userInputs: [salaryExpectation, noticePeriod, signingLocation, customNotes, themeDirective],
       });
     } catch (err) {
       console.warn('Bridged-claim detection failed:', err);
       return [];
     }
-  }, [result, profile]);
+  }, [result, profile, salaryExpectation, noticePeriod, signingLocation, customNotes, themeDirective]);
   const activeBulletVariant = bulletStyle === 'STAR Method' ? 'star' : bulletStyle === 'Short & Punchy' ? 'punchy' : 'standard';
   const activeParagraphSet = result?.tailoredCoverLetter ? getDisplayedClKey(result.tailoredCoverLetter, clLength) : (clLength.includes('Short') ? 'short' : 'detailed');
   const bridgedClaims = allBridgedClaims.filter(c =>
@@ -1389,7 +1432,7 @@ export default function TailorWorkspace() {
     const n = pendingBridgedClaims.length;
     showAlert({
       title: 'Unreviewed bridged claims',
-      message: `${n} statement${n === 1 ? '' : 's'} in your documents go${n === 1 ? 'es' : ''} beyond your Master Vault and ${n === 1 ? "hasn't" : "haven't"} been reviewed yet. Review them under ATS & Insights → Bridged claims, or export anyway.`,
+      message: `${n} statement${n === 1 ? '' : 's'} in your documents go${n === 1 ? 'es' : ''} beyond your profile and ${n === 1 ? "hasn't" : "haven't"} been reviewed yet. Review them under Insights → Bridged claims, or export anyway.`,
       type: 'warning',
       confirmLabel: 'Export anyway',
       onConfirm: run,
@@ -1850,7 +1893,7 @@ export default function TailorWorkspace() {
     const isHidden = hiddenSections.includes(sectionKey);
 
     return (
-      <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-all duration-200 flex items-center gap-1 bg-zinc-900/95 border border-zinc-700/80 rounded-lg p-1 text-[11px] shadow-xl backdrop-blur-md z-30 font-sans no-print">
+      <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 focus-within:opacity-100 transition-all duration-200 flex items-center gap-1 bg-zinc-900/95 border border-zinc-700/80 rounded-lg p-1 text-[11px] shadow-xl backdrop-blur-md z-30 font-sans no-print">
         <button
           disabled={idx <= 0}
           onClick={(e) => {
@@ -2520,7 +2563,7 @@ export default function TailorWorkspace() {
                     className="focus:outline-none flex-1 text-black"
                   />
                   {!isMeasurement && (
-                    <div className="no-print opacity-0 group-hover/sumbullet:opacity-100 flex items-center gap-1 ml-1.5 shrink-0 transition-opacity">
+                    <div className="no-print opacity-0 group-hover/sumbullet:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 flex items-center gap-1 ml-1.5 shrink-0 transition-opacity">
                       <button
                         type="button"
                         onClick={() => handleFetchBulletVariations(-1, bIdx, bText)}
@@ -2567,7 +2610,7 @@ export default function TailorWorkspace() {
                       }
                     });
                   }}
-                  className="opacity-0 group-hover:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 inline-flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
+                  className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 inline-flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
                   title="Add new bullet point to summary"
                 >
                   <Plus className="w-3 h-3 text-indigo-600" />
@@ -2726,7 +2769,7 @@ export default function TailorWorkspace() {
                 <button
                   type="button"
                   onClick={() => handleAddWorkExperienceBullet(idx)}
-                  className="opacity-0 group-hover/workitem:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 inline-flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
+                  className="opacity-0 group-hover/workitem:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 inline-flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
                   title="Add new bullet point to this work experience entry"
                 >
                   <Plus className="w-3 h-3 text-indigo-600" />
@@ -2853,7 +2896,7 @@ export default function TailorWorkspace() {
                 <button
                   type="button"
                   onClick={() => handleAddWorkExperienceBullet(idx)}
-                  className="opacity-0 group-hover/workitem:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 inline-flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
+                  className="opacity-0 group-hover/workitem:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 inline-flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
                   title="Add new bullet point to this work experience entry"
                 >
                   <Plus className="w-3 h-3 text-indigo-600" />
@@ -2990,7 +3033,7 @@ export default function TailorWorkspace() {
                       <button
                         type="button"
                         onClick={() => handleAddWorkExperienceBullet(idx)}
-                        className="opacity-0 group-hover/workitem:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 inline-flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
+                        className="opacity-0 group-hover/workitem:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 inline-flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
                         title="Add new bullet point to this work experience entry"
                       >
                         <Plus className="w-3 h-3 text-indigo-600" />
@@ -3298,7 +3341,7 @@ export default function TailorWorkspace() {
                 )}
               </p>
               {!isMeasurement && (
-                <div className="no-print opacity-0 group-hover:opacity-100 flex items-center gap-1 shrink-0 transition-opacity">
+                <div className="no-print opacity-0 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 flex items-center gap-1 shrink-0 transition-opacity">
                   <button
                     type="button"
                     onClick={() => handleMoveProject(idx, 'up')}
@@ -3362,7 +3405,7 @@ export default function TailorWorkspace() {
                 )}
               </p>
               {!isMeasurement && (
-                <div className="no-print opacity-100 sm:opacity-0 group-hover:opacity-100 flex items-center gap-1 shrink-0 transition-opacity">
+                <div className="no-print opacity-100 sm:opacity-0 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 flex items-center gap-1 shrink-0 transition-opacity">
                   <button
                     type="button"
                     onClick={() => handleMoveProject(idx, 'up')}
@@ -3479,7 +3522,7 @@ export default function TailorWorkspace() {
                       )}
                     </div>
                     {!isMeasurement && (
-                      <div className="no-print opacity-100 sm:opacity-0 group-hover:opacity-100 flex items-center gap-1 shrink-0 transition-opacity">
+                      <div className="no-print opacity-100 sm:opacity-0 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 flex items-center gap-1 shrink-0 transition-opacity">
                         <button
                           type="button"
                           onClick={() => handleMoveProject(idx, 'up')}
@@ -3814,7 +3857,7 @@ export default function TailorWorkspace() {
                   });
                   setCustomSections(updated);
                 }}
-                className="opacity-0 group-hover:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 inline-flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
+                className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 focus:opacity-100 px-2 py-0.5 rounded text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 inline-flex items-center gap-1 transition-all cursor-pointer select-none shadow-sm"
                 title="Add new bullet point"
               >
                 <Plus className="w-3 h-3" />
@@ -3948,9 +3991,84 @@ export default function TailorWorkspace() {
       if (appId) {
         setEditingAppId(appId);
         fetchApplicationForEditing(appId);
+      } else {
+        // Restore inputs typed before leaving the page (nothing is on the server yet).
+        const saved = loadTailorInputs();
+        if (saved) {
+          if (saved.jobDescription !== undefined) setJobDescription(saved.jobDescription);
+          if (saved.jobUrl !== undefined) setJobUrl(saved.jobUrl);
+          if (saved.intakeMethod) setIntakeMethod(saved.intakeMethod);
+          if (saved.companyName !== undefined) setCompanyName(saved.companyName);
+          if (saved.roleName !== undefined) setRoleName(saved.roleName);
+          if (saved.cvLanguage) setCvLanguage(saved.cvLanguage);
+          if (saved.clLanguage) setClLanguage(saved.clLanguage);
+          if (saved.salaryExpectation !== undefined) setSalaryExpectation(saved.salaryExpectation);
+          if (saved.noticePeriod !== undefined) setNoticePeriod(saved.noticePeriod);
+          if (saved.signingLocation !== undefined) setSigningLocation(saved.signingLocation);
+          if (saved.customNotes !== undefined) setCustomNotes(saved.customNotes);
+          if (saved.themeDirective !== undefined) setThemeDirective(saved.themeDirective);
+          if (saved.matchStrategy) setMatchStrategy(saved.matchStrategy);
+          if (saved.tone) setTone(saved.tone);
+          if (saved.lengthTarget) setLengthTarget(saved.lengthTarget);
+          setRestoredInputs(true);
+        }
       }
+      setAutosaveReady(true);
     }
   }, []);
+
+  // Autosave the inputs locally until a generation creates a server draft (audit 5, autosave).
+  useEffect(() => {
+    if (!autosaveReady || editingAppId || result) return;
+    const t = setTimeout(() => {
+      saveTailorInputs({
+        jobDescription, jobUrl, intakeMethod, companyName, roleName, cvLanguage, clLanguage,
+        salaryExpectation, noticePeriod, signingLocation, customNotes, themeDirective,
+        matchStrategy, tone, lengthTarget,
+      });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [autosaveReady, editingAppId, result, jobDescription, jobUrl, intakeMethod, companyName, roleName, cvLanguage, clLanguage,
+    salaryExpectation, noticePeriod, signingLocation, customNotes, themeDirective, matchStrategy, tone, lengthTarget]);
+
+  // Adding every missing keyword at once invites claiming skills the user doesn't have,
+  // which is exactly what the bridging review is meant to prevent (audit 7.3). Ask first.
+  const confirmAddAllMissing = () => {
+    if (!result) return;
+    const missing = dedupeKeywords(result.gapAnalysis.missingSkills);
+    if (missing.length === 0) return;
+    showAlert({
+      title: 'Only add skills you really have',
+      message: `This adds ${missing.join(', ')} to your CV as skills you have. Recruiters and interviewers will ask about them. Add them one by one instead if you only have some.`,
+      type: 'warning',
+      confirmLabel: `I have all ${missing.length}, add them`,
+      onConfirm: () => missing.forEach(s => handleAddSkillInteractive(s, true)),
+    });
+  };
+
+  // Copy an outreach message, but warn first if it still has [placeholders] (audit 7.6).
+  const copyOutreach = (text: string, what: string) => {
+    const doCopy = () => {
+      navigator.clipboard.writeText(text);
+      showToast({ title: 'Copied', message: `${what} copied to the clipboard.` });
+    };
+    const missing = findPlaceholders(text);
+    if (missing.length === 0) return doCopy();
+    showAlert({
+      title: 'Placeholders not filled in',
+      message: `This message still contains ${missing.join(', ')}. Replace them before sending, or copy it as it is.`,
+      type: 'warning',
+      confirmLabel: 'Copy anyway',
+      onConfirm: doCopy,
+    });
+  };
+
+  const discardRestoredInputs = () => {
+    clearTailorInputs();
+    setRestoredInputs(false);
+    setJobDescription(''); setJobUrl(''); setCompanyName(''); setRoleName('');
+    setSalaryExpectation(''); setNoticePeriod(''); setSigningLocation(''); setCustomNotes(''); setThemeDirective('');
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -4358,8 +4476,8 @@ export default function TailorWorkspace() {
     }
     if (vaultIsEmpty) {
       showAlert({
-        title: 'Your Master Vault is empty',
-        message: 'Add your experience first (import your CV, LinkedIn or GitHub in the Master Vault). The AI can only tailor what is in your vault.',
+        title: 'Your profile is empty',
+        message: 'Add your experience first (import your CV, LinkedIn or GitHub in your profile). The AI can only tailor what is in your vault.',
         type: 'warning'
       });
       return;
@@ -4429,6 +4547,9 @@ export default function TailorWorkspace() {
       }
       setResult(data);
       fetchTokens();
+      // The server draft now holds these inputs; drop the local autosave copy.
+      clearTailorInputs();
+      setRestoredInputs(false);
       if ((data as any).applicationId) {
         // Saved server-side as a DRAFT; edits now auto-save to it
         setEditingAppId((data as any).applicationId);
@@ -4766,10 +4887,17 @@ export default function TailorWorkspace() {
       .replace(/\s+/g, '_');
 
     // 3. Document Label
-    const docLabel = type === 'cv' ? 'CV' : 'CL';
+    const docLabel = type === 'cv' ? 'CV' : 'Cover_Letter';
 
-    // 4. Construct format: company_name-Position-(CV/CL)
-    const baseName = `${cleanCompany}-${cleanPosition}-(${docLabel})`;
+    // 4. Applicant's last name first: recruiters file attachments by person
+    //    (audit 5, export filename preset: Lastname_Company_CV.pdf).
+    const fullName = (result?.tailoredCv?.personalDetails?.fullName || profile?.fullName || '').trim();
+    const lastName = fullName.split(/\s+/).filter(Boolean).pop() || '';
+    const cleanLast = lastName.replace(/[\\/:*?"<>|]/g, '');
+
+    const baseName = [cleanLast, cleanCompany !== 'Company' ? cleanCompany : cleanPosition, docLabel]
+      .filter(Boolean)
+      .join('_');
     return ext ? `${baseName}.${ext}` : baseName;
   };
 
@@ -5036,7 +5164,7 @@ export default function TailorWorkspace() {
 
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
-      const fileName = `${(result.tailoredCv.personalDetails.fullName || 'Resume').replace(/\s+/g, '_')}_Tailored_CV.docx`;
+      const fileName = getExportFileName('cv', 'docx');
       const a = document.createElement('a');
       a.href = url;
       a.download = fileName;
@@ -5367,12 +5495,18 @@ export default function TailorWorkspace() {
 
       if (res.ok) {
         const savedApp = await res.json();
+        const wasTracked = !!editingAppId && editingAppStatus !== 'DRAFT';
         if (savedApp && savedApp.id) {
           setEditingAppId(savedApp.id);
           setEditingAppStatus(savedApp.status || null);
         }
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
+        // Visible confirmation (audit R7): saving used to happen silently.
+        showToast({
+          title: wasTracked ? 'Application updated' : 'Added to your tracker',
+          message: wasTracked ? 'Your changes are saved on the Dashboard.' : 'You can find it on the Dashboard under Tailored.',
+        });
       } else {
         const err = await res.json();
         throw new Error(err.error || 'Failed to save');
@@ -5687,34 +5821,42 @@ export default function TailorWorkspace() {
 
 
   return (
-    <div className="flex-grow flex flex-col min-h-[calc(100vh-73px)] w-full overflow-x-hidden">
+    // Fixed-height flex column under the header: switch bar / panes (each pane scrolls itself).
+    // Uses dvh + the header CSS variable instead of hard-coded pixel offsets.
+    <div data-focus-workspace className="flex flex-col h-[calc(100dvh-var(--app-header-h))] w-full overflow-hidden">
       {/* Mobile Switch Tab Bar */}
-      <div className="lg:hidden sticky top-[49px] sm:top-[65px] z-30 flex bg-zinc-950/95 backdrop-blur-md border-b border-white/10 p-2 gap-2 w-full shrink-0">
+      <div role="tablist" aria-label="Workspace view" className="lg:hidden relative z-30 flex bg-zinc-950/95 backdrop-blur-md border-b border-white/10 p-2 gap-2 w-full shrink-0">
         <button
+          type="button"
+          role="tab"
+          aria-selected={activeMobileTab === 'edit'}
           onClick={() => setActiveMobileTab('edit')}
-          className={`flex-grow flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeMobileTab === 'edit'
+          className={`flex-grow flex-1 min-h-11 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeMobileTab === 'edit'
             ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/20'
             : 'text-zinc-400 hover:text-white bg-white/5'
             }`}
         >
-          <Sliders className="w-3.5 h-3.5" />
-          Edit & Strategy
+          <Sliders className="w-4 h-4" aria-hidden="true" />
+          Edit
         </button>
         <button
+          type="button"
+          role="tab"
+          aria-selected={activeMobileTab === 'preview'}
           onClick={() => setActiveMobileTab('preview')}
-          className={`flex-grow flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeMobileTab === 'preview'
+          className={`flex-grow flex-1 min-h-11 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${activeMobileTab === 'preview'
             ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/20'
             : 'text-zinc-400 hover:text-white bg-white/5'
             }`}
         >
-          <FileText className="w-3.5 h-3.5" />
-          Document Preview
+          <FileText className="w-4 h-4" aria-hidden="true" />
+          Preview
         </button>
       </div>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-0 w-full overflow-hidden">
+      <div className="flex-1 min-h-0 grid grid-cols-1 grid-rows-[minmax(0,1fr)] lg:grid-cols-12 gap-0 w-full overflow-hidden">
         {/* Left Input Pane: Collapsible on Desktop & Full-screen on Mobile Edit */}
-        <div className={`w-full border-r border-white/5 bg-zinc-950/40 p-4 sm:p-6 md:p-8 overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] space-y-6 ${
+        <div className={`w-full border-r border-white/5 bg-zinc-950/40 p-4 sm:p-6 md:p-8 overflow-y-auto h-full min-h-0 space-y-6 ${
           activeMobileTab === 'edit' ? 'block' : 'hidden'
         } ${
           isDesktopPanelCollapsed ? 'lg:!hidden' : 'lg:!block lg:col-span-5'
@@ -5722,63 +5864,62 @@ export default function TailorWorkspace() {
           <div>
             <h1 className="text-2xl font-bold text-white mb-1 flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-indigo-400" />
-              AI Tailoring Workspace
+              Tailor a CV
             </h1>
-            <p className="text-xs text-zinc-400">
-              Feed the job post requirements and details. The engine builds hyper-aligned outputs based exclusively on your master details.
+            <p className="text-sm text-zinc-400">
+              Paste a job post. We tailor your CV and cover letter to it using only what is in your profile.
             </p>
           </div>
 
-          {/* Token Balance Widget */}
-          {tokens !== null && (
-            <div className="p-3.5 rounded-xl border border-indigo-500/20 bg-indigo-500/5 flex items-center gap-2 text-xs animate-in fade-in duration-200">
-              <Coins className="w-4 h-4 text-indigo-400" />
-              <div>
-                <span className="text-zinc-400 block text-[9px] uppercase font-semibold tracking-wider">Remaining Balance</span>
-                <span className="font-bold text-zinc-200 text-xs">{tokens} Tokens</span>
-              </div>
-            </div>
-          )}
-
-          {/* 3-Tab Switcher Header */}
-          <div className="flex bg-zinc-900 border border-white/10 rounded-xl p-1 gap-1">
+          {/* 3-Tab Switcher Header. Insights and Sections only make sense once there is a result (audit T3). */}
+          <div role="tablist" aria-label="Panel" className="flex bg-zinc-900 border border-white/10 rounded-xl p-1 gap-1">
             <button
               type="button"
+              role="tab"
+              aria-selected={sidePanelTab === 'generation'}
               onClick={() => setSidePanelTab('generation')}
-              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${sidePanelTab === 'generation'
+              className={`flex-1 min-h-10 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${sidePanelTab === 'generation'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-zinc-400 hover:text-white hover:bg-white/5'
                 }`}
             >
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Generation</span>
+              <span>Job</span>
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={sidePanelTab === 'ats'}
+              disabled={!result}
+              title={result ? undefined : 'Available after you generate'}
               onClick={() => setSidePanelTab('ats')}
-              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer relative ${sidePanelTab === 'ats'
+              className={`flex-1 min-h-10 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer relative disabled:opacity-40 disabled:cursor-not-allowed ${sidePanelTab === 'ats'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-zinc-400 hover:text-white hover:bg-white/5'
                 }`}
             >
               <Award className="w-3.5 h-3.5" />
-              <span>ATS &amp; Insights</span>
+              <span>Insights</span>
               {result?.matchScore !== undefined && (
-                <span title="Profile fit" className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
+                <span title="Profile fit" className="ml-1 text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">
                   {result.matchScore}%
                 </span>
               )}
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={sidePanelTab === 'customization'}
+              disabled={!result}
+              title={result ? undefined : 'Available after you generate'}
               onClick={() => setSidePanelTab('customization')}
-              className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${sidePanelTab === 'customization'
+              className={`flex-1 min-h-10 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${sidePanelTab === 'customization'
                 ? 'bg-indigo-600 text-white shadow-md'
                 : 'text-zinc-400 hover:text-white hover:bg-white/5'
                 }`}
             >
               <Layers className="w-3.5 h-3.5" />
-              <span>Customization</span>
+              <span>Sections</span>
             </button>
           </div>
 
@@ -5787,271 +5928,29 @@ export default function TailorWorkspace() {
             <div className="space-y-4 animate-in fade-in duration-200">
               {vaultIsEmpty && (
                 <div className="p-4 rounded-2xl border border-indigo-500/30 bg-indigo-500/10 text-xs space-y-2">
-                  <p className="font-bold text-white">Start with your Master Vault</p>
+                  <p className="font-bold text-white">Start with your profile</p>
                   <p className="text-zinc-300 leading-relaxed">
                     Your vault has no experience yet. Import your CV (PDF), LinkedIn or GitHub — or add it by hand — so the AI has real facts to tailor.
                   </p>
-                  <Link href="/profile" className="inline-flex px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-[11px]">
-                    Open Master Vault →
+                  <Link href="/profile" className="inline-flex px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs">
+                    Open your profile →
                   </Link>
                 </div>
               )}
-              <DraftsList currentAppId={editingAppId} refreshKey={editingAppId} limit={4} />
-              {/* Source Career Persona Selection */}
-              {profile?.personas && profile.personas.length > 1 && (
-                <div className="p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-xl space-y-1.5 text-left font-sans shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                      Source Career Persona
-                    </label>
-                    <span className="text-[9px] text-zinc-400">Baseline for AI tailoring</span>
-                  </div>
-                  <select
-                    value={selectedPersonaId}
-                    onChange={e => handleSelectPersona(e.target.value)}
-                    className="glass-input px-3 py-2 text-xs bg-zinc-900 border border-white/10 w-full text-white cursor-pointer font-medium"
-                  >
-                    {profile.personas.map((p: any) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} {p.isDefault ? '(Default)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Company Name</label>
-                  <input
-                    type="text"
-                    value={companyName}
-                    onChange={e => setCompanyName(e.target.value)}
-                    placeholder="e.g. BMW Group"
-                    className="glass-input px-3.5 py-2.5 text-xs"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Role Name</label>
-                  <input
-                    type="text"
-                    value={roleName}
-                    onChange={e => setRoleName(e.target.value)}
-                    placeholder="e.g. Senior Cloud Engineer"
-                    className="glass-input px-3.5 py-2.5 text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">CV Language</label>
-                  <div className="grid grid-cols-2 gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
-                    <button
-                      type="button"
-                      onClick={() => setCvLanguage('EN')}
-                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'EN'
-                        ? 'bg-indigo-600 text-white shadow'
-                        : 'text-zinc-400 hover:text-white'
-                        }`}
-                    >
-                      EN
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setCvLanguage('DE')}
-                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'DE'
-                        ? 'bg-indigo-600 text-white shadow'
-                        : 'text-zinc-400 hover:text-white'
-                        }`}
-                    >
-                      DE
+              {/* Step 1: the job. The one required input comes first (audit T1). */}
+              <section aria-label="Job" className="space-y-3">
+                {restoredInputs && (
+                  <div role="status" className="flex items-center justify-between gap-3 p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-sm text-zinc-200">
+                    <span>We restored what you typed last time.</span>
+                    <button type="button" onClick={discardRestoredInputs} className="shrink-0 text-xs font-semibold text-indigo-300 hover:text-white underline cursor-pointer">
+                      Start fresh
                     </button>
                   </div>
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Cover Letter Language</label>
-                  <div className="grid grid-cols-2 gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
-                    <button
-                      type="button"
-                      onClick={() => setClLanguage('EN')}
-                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'EN'
-                        ? 'bg-indigo-600 text-white shadow'
-                        : 'text-zinc-400 hover:text-white'
-                        }`}
-                    >
-                      EN
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setClLanguage('DE')}
-                      className={`py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'DE'
-                        ? 'bg-indigo-600 text-white shadow'
-                        : 'text-zinc-400 hover:text-white'
-                        }`}
-                    >
-                      DE
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Prompt Customization Options */}
-              <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3">
-                <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                  Tailoring Customizations
-                </h3>
-
-                {/* CV Style & Format 3-Way Selector */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Format & Prompting Style</label>
-                  <div className="grid grid-cols-3 gap-1 p-1 bg-zinc-900 border border-white/10 rounded-lg text-xs font-sans">
-                    <button
-                      type="button"
-                      onClick={() => handleSetCvFormatMode('visual')}
-                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'visual' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
-                    >
-                      Visual Layout
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSetCvFormatMode('ats')}
-                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'ats' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
-                    >
-                      Strict ATS
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSetCvFormatMode('bullet-matrix')}
-                      className={`px-2 py-1.5 rounded-md font-medium text-[11px] transition-all cursor-pointer ${cvFormatMode === 'bullet-matrix' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
-                    >
-                      Bullet Matrix
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Tone</label>
-                    <select
-                      value={tone}
-                      onChange={e => setTone(e.target.value)}
-                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                    >
-                      <option value="Bold & Action-oriented">Bold & Action-oriented</option>
-                      <option value="Academic & Technical">Academic & Technical</option>
-                      <option value="Executive & High-level">Executive & High-level</option>
-                      <option value="Humble & Fact-driven">Humble & Fact-driven</option>
-                    </select>
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">CV Length Target</label>
-                    <select
-                      value={lengthTarget}
-                      onChange={e => setLengthTarget(e.target.value)}
-                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                    >
-                      <option value="Strict 1-Page (concise)">Strict 1-Page</option>
-                      <option value="Standard 2-Page (detailed)">Standard 2-Page</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">CL Length</label>
-                    <select
-                      value={clLength}
-                      onChange={e => setClLength(e.target.value)}
-                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                    >
-                      <option value="Short & Punchy (under 300 words)">Short & Punchy</option>
-                      <option value="Detailed & Elaborate">Detailed & Elaborate</option>
-                    </select>
-                    {result?.tailoredCoverLetter && getDisplayedClKey(result.tailoredCoverLetter, clLength) !== (clLength.includes('Short') ? 'short' : 'detailed') && (
-                      <p className="text-[10px] text-amber-300 leading-snug">
-                        This letter was written in the other length. Use “Regenerate Cover Letter” on the letter (5 tokens) to get this version.
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Skills Highlight Mode</label>
-                    <select
-                      value={skillsFocus}
-                      onChange={e => setSkillsFocus(e.target.value)}
-                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
-                    >
-                      <option value="Tech-Heavy Focus">Tech-Heavy Focus</option>
-                      <option value="Soft Skills & Leadership focus">Soft Skills & Leadership Focus</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* AI Description Nudging Toggle Switch */}
-                <div className="pt-3 mt-3 border-t border-white/5 flex items-center justify-between gap-3 font-sans">
-                  <div className="flex flex-col text-left">
-                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
-                      AI Description Nudging
-                    </span>
-                    <span className="text-[10px] text-zinc-400 leading-tight">
-                      Adapts project & work descriptions towards target Job Description
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsNudgeEnabled(prev => !prev)}
-                    className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer shrink-0 ${isNudgeEnabled ? 'bg-indigo-600' : 'bg-zinc-800 border border-white/10'
-                      }`}
-                    title="Toggle AI Description Nudging"
-                  >
-                    <div
-                      className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${isNudgeEnabled ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                    />
-                  </button>
-                </div>
-              </div>
-
-              {/* Match Strategy Selection */}
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Match Strategy</label>
-                  <span className="text-[9px] text-zinc-500 font-medium">Selects AI prompt logic</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
-                  <button
-                    type="button"
-                    onClick={() => setMatchStrategy('TACTICAL_PIVOT')}
-                    className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${matchStrategy === 'TACTICAL_PIVOT'
-                      ? 'bg-indigo-600 text-white shadow'
-                      : 'text-zinc-400 hover:text-white'
-                      }`}
-                  >
-                    Tactical Pivot
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setMatchStrategy('AGGRESIVE_BRIDGING')}
-                    className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${matchStrategy === 'AGGRESIVE_BRIDGING'
-                      ? 'bg-indigo-600 text-white shadow'
-                      : 'text-zinc-400 hover:text-white'
-                      }`}
-                  >
-                    Aggressive Bridging
-                  </button>
-                </div>
-              </div>
-
+                )}
               {/* Intake Method Toggle & Inputs */}
               <div className="flex flex-col gap-2">
-                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Job Intake Method</label>
+                <label className="text-xs font-semibold text-zinc-300">Add the job from</label>
                 <div className="grid grid-cols-3 gap-1.5 p-1 bg-white/5 rounded-xl border border-white/5">
                   <button
                     type="button"
@@ -6061,7 +5960,7 @@ export default function TailorWorkspace() {
                       : 'text-zinc-400 hover:text-white'
                       }`}
                   >
-                    Text Paste
+                    Pasted text
                   </button>
                   <button
                     type="button"
@@ -6071,7 +5970,7 @@ export default function TailorWorkspace() {
                       : 'text-zinc-400 hover:text-white'
                       }`}
                   >
-                    Job URL
+                    Link
                   </button>
                   <button
                     type="button"
@@ -6081,14 +5980,14 @@ export default function TailorWorkspace() {
                       : 'text-zinc-400 hover:text-white'
                       }`}
                   >
-                    Job PDF
+                    PDF
                   </button>
                 </div>
               </div>
 
               {intakeMethod === 'url' && (
                 <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] space-y-3 text-left">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Target Job Posting URL</label>
+                  <label className="text-xs text-zinc-400 font-semibold uppercase">Target Job Posting URL</label>
                   <div className="flex gap-2">
                     <input
                       type="url"
@@ -6113,17 +6012,17 @@ export default function TailorWorkspace() {
                       )}
                     </button>
                   </div>
-                  <p className="text-[10px] text-zinc-500 leading-relaxed">
+                  <p className="text-xs text-zinc-500 leading-relaxed">
                     Free and instant for Greenhouse, Lever, Ashby, Personio, SmartRecruiters and sites that publish job data. Other pages are read by AI for 5 tokens (refunded if it fails).
                   </p>
                   {scrapeWarning && (
-                    <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
+                    <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 text-amber-300 rounded-lg text-xs leading-relaxed flex items-start gap-1.5 font-sans">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                       <span>{scrapeWarning}</span>
                     </div>
                   )}
                   {scrapeError && (
-                    <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
+                    <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-xs leading-relaxed flex items-start gap-1.5 font-sans">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                       <span>{scrapeError}</span>
                     </div>
@@ -6133,7 +6032,7 @@ export default function TailorWorkspace() {
 
               {intakeMethod === 'pdf' && (
                 <div className="p-4 rounded-xl border border-white/5 bg-white/[0.01] space-y-3 text-left">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase">Upload Job Advertisement PDF</label>
+                  <label className="text-xs text-zinc-400 font-semibold uppercase">Upload Job Advertisement PDF</label>
                   <div className="relative group">
                     <input
                       type="file"
@@ -6160,18 +6059,18 @@ export default function TailorWorkspace() {
                       {scraping ? (
                         <div className="flex items-center gap-1.5 font-sans">
                           <div className="w-3.5 h-3.5 border-2 border-indigo-400/30 border-t-indigo-400 rounded-full animate-spin"></div>
-                          <span className="text-[11px] text-zinc-400">Parsing PDF job description...</span>
+                          <span className="text-xs text-zinc-400">Parsing PDF job description...</span>
                         </div>
                       ) : (
                         <>
                           <span className="text-xs text-white font-medium">Select JD PDF (5 tokens)</span>
-                          <span className="text-[10px] text-zinc-500 mt-1">Drag and drop here</span>
+                          <span className="text-xs text-zinc-500 mt-1">Drag and drop here</span>
                         </>
                       )}
                     </label>
                   </div>
                   {scrapeError && (
-                    <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-[11px] leading-relaxed flex items-start gap-1.5 font-sans">
+                    <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded-lg text-xs leading-relaxed flex items-start gap-1.5 font-sans">
                       <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                       <span>{scrapeError}</span>
                     </div>
@@ -6180,26 +6079,299 @@ export default function TailorWorkspace() {
               )}
 
               <div className="flex flex-col gap-1 text-left">
-                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Job Description (Raw Text)</label>
+                <label htmlFor="job-description" className="text-sm font-semibold text-white">Job description <span className="text-rose-400" aria-hidden="true">*</span></label>
                 <textarea
+                  id="job-description"
+                  required
                   value={jobDescription}
                   onChange={e => setJobDescription(e.target.value)}
                   placeholder="Paste the target job description or requirements here..."
-                  rows={6}
-                  className="glass-input p-3 text-xs font-mono w-full resize-none"
+                  rows={8}
+                  className="glass-input p-3 text-sm w-full resize-y min-h-40"
                 />
               </div>
 
-              {/* Context Panel Toggle */}
-              <div className="border border-white/5 bg-white/[0.01] rounded-xl p-4 space-y-3">
-                <h3 className="text-xs font-bold text-white uppercase tracking-wide flex items-center gap-1.5">
-                  <Briefcase className="w-3.5 h-3.5 text-indigo-400" />
-                  Additional Details / Overrides
-                </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Company Name</label>
+                  <input
+                    type="text"
+                    value={companyName}
+                    onChange={e => setCompanyName(e.target.value)}
+                    placeholder="e.g. BMW Group"
+                    className="glass-input px-3.5 py-2.5 text-xs"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Role Name</label>
+                  <input
+                    type="text"
+                    value={roleName}
+                    onChange={e => setRoleName(e.target.value)}
+                    placeholder="e.g. Senior Cloud Engineer"
+                    className="glass-input px-3.5 py-2.5 text-xs"
+                  />
+                </div>
+              </div>
+              </section>
+
+              {/* Step 2: options, collapsed behind a one-line summary. */}
+              <details className="group rounded-xl border border-white/10 bg-white/[0.02] open:bg-white/[0.03]">
+                <summary className="flex items-center justify-between gap-3 cursor-pointer list-none min-h-11 px-4 py-2.5 select-none [&::-webkit-details-marker]:hidden">
+                  <span className="text-sm font-semibold text-white">Options</span>
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs text-zinc-400 truncate">{cvLanguage} · {cvFormatMode === 'visual' ? 'Visual' : cvFormatMode === 'ats' ? 'Strict ATS' : 'Bullet Matrix'} · {matchStrategy === 'TACTICAL_PIVOT' ? 'Stay close' : 'Stretch'}</span>
+                    <ChevronDown className="w-4 h-4 text-zinc-400 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true" />
+                  </span>
+                </summary>
+                <div className="px-4 pb-4 pt-1 space-y-4">
+              {/* Source Career Persona Selection */}
+              {profile?.personas && profile.personas.length > 1 && (
+                <div className="p-3 bg-indigo-500/5 border border-indigo-500/20 rounded-xl space-y-1.5 text-left font-sans shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-indigo-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                      Source Career Persona
+                    </label>
+                    <span className="text-xs text-zinc-400">Baseline for AI tailoring</span>
+                  </div>
+                  <select
+                    value={selectedPersonaId}
+                    onChange={e => handleSelectPersona(e.target.value)}
+                    className="glass-input px-3 py-2 text-xs bg-zinc-900 border border-white/10 w-full text-white cursor-pointer font-medium"
+                  >
+                    {profile.personas.map((p: any) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} {p.isDefault ? '(Default)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">CV Language</label>
+                  <div className="grid grid-cols-2 gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => setCvLanguage('EN')}
+                      className={`py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'EN'
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'text-zinc-400 hover:text-white'
+                        }`}
+                    >
+                      EN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCvLanguage('DE')}
+                      className={`py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${cvLanguage === 'DE'
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'text-zinc-400 hover:text-white'
+                        }`}
+                    >
+                      DE
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Cover Letter Language</label>
+                  <div className="grid grid-cols-2 gap-1 bg-white/5 p-1 rounded-xl border border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => setClLanguage('EN')}
+                      className={`py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'EN'
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'text-zinc-400 hover:text-white'
+                        }`}
+                    >
+                      EN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setClLanguage('DE')}
+                      className={`py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${clLanguage === 'DE'
+                        ? 'bg-indigo-600 text-white shadow'
+                        : 'text-zinc-400 hover:text-white'
+                        }`}
+                    >
+                      DE
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Match Strategy Selection */}
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-zinc-300">How closely to follow your profile</label>
+                </div>
+                <div className="grid grid-cols-2 gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => setMatchStrategy('TACTICAL_PIVOT')}
+                    className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${matchStrategy === 'TACTICAL_PIVOT'
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
+                  >
+                    Stay close to my profile
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMatchStrategy('AGGRESIVE_BRIDGING')}
+                    className={`py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${matchStrategy === 'AGGRESIVE_BRIDGING'
+                      ? 'bg-indigo-600 text-white shadow'
+                      : 'text-zinc-400 hover:text-white'
+                      }`}
+                  >
+                    Stretch to fit the job
+                  </button>
+                </div>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  {matchStrategy === 'TACTICAL_PIVOT'
+                    ? 'Reorders and rewords what you already have. Nothing new is claimed.'
+                    : 'Also links your experience to nearby skills the job asks for. Every stretch is flagged for you to review.'}
+                </p>
+              </div>
+
+              {/* Prompt Customization Options */}
+              <div className="space-y-3">
+
+                {/* CV Style & Format 3-Way Selector */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-zinc-400 font-semibold uppercase">CV format</label>
+                  <div className="grid grid-cols-3 gap-1 p-1 bg-zinc-900 border border-white/10 rounded-lg text-xs font-sans">
+                    <button
+                      type="button"
+                      onClick={() => handleSetCvFormatMode('visual')}
+                      className={`px-2 py-1.5 rounded-md font-medium text-xs transition-all cursor-pointer ${cvFormatMode === 'visual' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
+                    >
+                      Visual Layout
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetCvFormatMode('ats')}
+                      className={`px-2 py-1.5 rounded-md font-medium text-xs transition-all cursor-pointer ${cvFormatMode === 'ats' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
+                    >
+                      Strict ATS
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSetCvFormatMode('bullet-matrix')}
+                      className={`px-2 py-1.5 rounded-md font-medium text-xs transition-all cursor-pointer ${cvFormatMode === 'bullet-matrix' ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm font-bold' : 'text-zinc-400 hover:text-zinc-200'}`}
+                    >
+                      Bullet Matrix
+                    </button>
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Salary Expectation</label>
+                    <label className="text-xs text-zinc-400 font-semibold uppercase">CV Tone</label>
+                    <select
+                      value={tone}
+                      onChange={e => setTone(e.target.value)}
+                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                    >
+                      <option value="Bold & Action-oriented">Bold & Action-oriented</option>
+                      <option value="Academic & Technical">Academic & Technical</option>
+                      <option value="Executive & High-level">Executive & High-level</option>
+                      <option value="Humble & Fact-driven">Humble & Fact-driven</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-zinc-400 font-semibold uppercase">CV Length Target</label>
+                    <select
+                      value={lengthTarget}
+                      onChange={e => setLengthTarget(e.target.value)}
+                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                    >
+                      <option value="Strict 1-Page (concise)">Strict 1-Page</option>
+                      <option value="Standard 2-Page (detailed)">Standard 2-Page</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-zinc-400 font-semibold uppercase">CL Length</label>
+                    <select
+                      value={clLength}
+                      onChange={e => setClLength(e.target.value)}
+                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                    >
+                      <option value="Short & Punchy (under 300 words)">Short & Punchy</option>
+                      <option value="Detailed & Elaborate">Detailed & Elaborate</option>
+                    </select>
+                    {result?.tailoredCoverLetter && getDisplayedClKey(result.tailoredCoverLetter, clLength) !== (clLength.includes('Short') ? 'short' : 'detailed') && (
+                      <p className="text-xs text-amber-300 leading-snug">
+                        This letter was written in the other length. Use “Regenerate Cover Letter” on the letter (5 tokens) to get this version.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-zinc-400 font-semibold uppercase">Skills Highlight Mode</label>
+                    <select
+                      value={skillsFocus}
+                      onChange={e => setSkillsFocus(e.target.value)}
+                      className="glass-input px-2.5 py-1.5 text-xs bg-zinc-900 border border-white/10 w-full"
+                    >
+                      <option value="Tech-Heavy Focus">Tech-Heavy Focus</option>
+                      <option value="Soft Skills & Leadership focus">Soft Skills & Leadership Focus</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* AI Description Nudging Toggle Switch */}
+                <div className="pt-3 mt-3 border-t border-white/5 flex items-center justify-between gap-3 font-sans">
+                  <div className="flex flex-col text-left">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      Adapt my descriptions to the job
+                    </span>
+                    <span className="text-xs text-zinc-400 leading-tight">
+                      Rewords your project and work descriptions toward the job, using only your facts
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsNudgeEnabled(prev => !prev)}
+                    className={`w-11 h-6 flex items-center rounded-full p-1 transition-colors cursor-pointer shrink-0 ${isNudgeEnabled ? 'bg-indigo-600' : 'bg-zinc-800 border border-white/10'
+                      }`}
+                    role="switch"
+                    aria-checked={isNudgeEnabled}
+                    aria-label="Adapt my descriptions to the job"
+                  >
+                    <div
+                      className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${isNudgeEnabled ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                    />
+                  </button>
+                </div>
+              </div>
+                </div>
+              </details>
+
+              <details className="group rounded-xl border border-white/10 bg-white/[0.02] open:bg-white/[0.03]">
+                <summary className="flex items-center justify-between gap-3 cursor-pointer list-none min-h-11 px-4 py-2.5 select-none [&::-webkit-details-marker]:hidden">
+                  <span className="text-sm font-semibold text-white">More options</span>
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs text-zinc-500 truncate">Salary, notice, location, notes</span>
+                    <ChevronDown className="w-4 h-4 text-zinc-400 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true" />
+                  </span>
+                </summary>
+                <div className="px-4 pb-4 pt-1 space-y-4">
+              {/* Context Panel Toggle */}
+              <div className="space-y-3">
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-zinc-400 font-semibold uppercase">Salary Expectation</label>
                     <input
                       type="text"
                       value={salaryExpectation}
@@ -6210,7 +6382,7 @@ export default function TailorWorkspace() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Notice Period / Availability</label>
+                    <label className="text-xs text-zinc-400 font-semibold uppercase">Notice Period / Availability</label>
                     <input
                       type="text"
                       value={noticePeriod}
@@ -6223,7 +6395,7 @@ export default function TailorWorkspace() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Signing Location</label>
+                    <label className="text-xs text-zinc-400 font-semibold uppercase">Signing Location</label>
                     <input
                       type="text"
                       value={signingLocation}
@@ -6234,7 +6406,7 @@ export default function TailorWorkspace() {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] text-zinc-400 font-semibold uppercase">Custom Focus Notes</label>
+                    <label className="text-xs text-zinc-400 font-semibold uppercase">Custom Focus Notes</label>
                     <input
                       type="text"
                       value={customNotes}
@@ -6246,7 +6418,7 @@ export default function TailorWorkspace() {
                 </div>
 
                 <div className="flex flex-col gap-1 mt-3">
-                  <label className="text-[10px] text-zinc-400 font-semibold uppercase text-left">Overarching Theme / Directive (Optional)</label>
+                  <label className="text-xs text-zinc-400 font-semibold uppercase text-left">Overarching Theme / Directive (Optional)</label>
                   <textarea
                     value={themeDirective}
                     onChange={e => setThemeDirective(e.target.value)}
@@ -6256,6 +6428,8 @@ export default function TailorWorkspace() {
                   />
                 </div>
               </div>
+                </div>
+              </details>
 
               {/* Missing Assets Prompt */}
               {profile && (!profile.photo || !profile.signature) && (
@@ -6276,6 +6450,10 @@ export default function TailorWorkspace() {
                 </div>
               )}
 
+              <DraftsList currentAppId={editingAppId} refreshKey={editingAppId} limit={4} />
+
+              {/* Step 3: Generate, always reachable at the bottom of the panel. */}
+              <div className="sticky bottom-0 -mx-4 sm:-mx-6 md:-mx-8 px-4 sm:px-6 md:px-8 py-3 bg-zinc-950/95 backdrop-blur-md border-t border-white/10 z-10">
               <button
                 type="button"
                 onClick={handleTailor}
@@ -6285,15 +6463,16 @@ export default function TailorWorkspace() {
                 {loading ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    Analyzing Job &amp; Tailoring Documents...
+                    Tailoring… (about 30–60 s)
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4 animate-pulse" />
-                    Tailor CV &amp; Cover Letter (20 tokens)
+                    <Sparkles className="w-4 h-4" aria-hidden="true" />
+                    Generate CV &amp; cover letter · 20 tokens
                   </>
                 )}
               </button>
+              </div>
             </div>
           )}
 
@@ -6346,7 +6525,7 @@ export default function TailorWorkspace() {
                       </div>
                       <div>
                         <h4 className="font-bold text-white text-sm">Profile fit</h4>
-                        <p className="text-xs text-zinc-400">How well your Master Vault meets this job's requirements. Must-haves count double; related skills count half.</p>
+                        <p className="text-xs text-zinc-400">How well your profile meets this job's requirements. Must-haves count double; related skills count half.</p>
                       </div>
                     </div>
                     {(() => {
@@ -6357,7 +6536,7 @@ export default function TailorWorkspace() {
                           <span className="font-extrabold text-white text-sm shrink-0 w-16 text-center">{kc.matched}/{kc.total}</span>
                           <div>
                             <h4 className="font-bold text-white text-xs">Keywords in your CV</h4>
-                            <p className="text-[11px] text-zinc-400">Job keywords that appear in this CV's text — what ATS filters scan for.{kc.missing.length > 0 ? ` Not in the CV: ${kc.missing.join(', ')}.` : ''}</p>
+                            <p className="text-xs text-zinc-400">Job keywords that appear in this CV's text — what ATS filters scan for.{kc.missing.length > 0 ? ` Not in the CV: ${kc.missing.join(', ')}.` : ''}</p>
                           </div>
                         </div>
                       );
@@ -6374,16 +6553,16 @@ export default function TailorWorkspace() {
                         handleAddSkillInteractive(skill, true);
                       }}
                     >
-                      <h4 className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <h4 className="text-xs text-emerald-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
                         <Check className="w-3 h-3" /> Matching Keywords
                       </h4>
                       <div className="flex flex-wrap gap-1 min-h-[40px] border border-dashed border-emerald-500/10 rounded p-1 items-center">
-                        {result.gapAnalysis.matchingKeywords.map((k, i) => (
-                          <span key={i} className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 flex items-center gap-1.5">
+                        {cleanKeywordLists(result.gapAnalysis.matchingKeywords, result.gapAnalysis.missingSkills).matching.map((k, i) => (
+                          <span key={i} className="text-xs px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 flex items-center gap-1.5">
                             {k}
                             <button
                               onClick={() => handleRemoveSkillInteractive(k)}
-                              className="hover:text-rose-400 hover:bg-white/10 rounded-full w-3.5 h-3.5 flex items-center justify-center transition-colors cursor-pointer text-[9px] font-bold"
+                              className="hover:text-rose-400 hover:bg-white/10 rounded-full w-3.5 h-3.5 flex items-center justify-center transition-colors cursor-pointer text-xs font-bold"
                               title={`Remove ${k} from CV`}
                             >
                               ×
@@ -6429,12 +6608,12 @@ export default function TailorWorkspace() {
                             }}
                             autoFocus
                             placeholder="Type skill..."
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-white w-20 focus:outline-none focus:border-indigo-500"
+                            className="text-xs px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-white w-20 focus:outline-none focus:border-indigo-500"
                           />
                         ) : (
                           <button
                             onClick={() => setIsAddingCustomSkill(true)}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/5 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 flex items-center gap-0.5 transition-colors cursor-pointer"
+                            className="text-xs px-1.5 py-0.5 rounded bg-emerald-500/5 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 flex items-center gap-0.5 transition-colors cursor-pointer"
                             title="Add custom skill"
                           >
                             <Plus className="w-2.5 h-2.5" />
@@ -6445,7 +6624,7 @@ export default function TailorWorkspace() {
                     </div>
 
                     <div className="p-3 bg-amber-500/5 border border-amber-500/10 rounded-xl">
-                      <h4 className="text-[10px] text-amber-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <h4 className="text-xs text-amber-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3" /> Missing / Skill Gaps
                       </h4>
                       <div className="flex flex-wrap gap-1 min-h-[40px]">
@@ -6456,24 +6635,21 @@ export default function TailorWorkspace() {
                               draggable={true}
                               onDragStart={(e) => e.dataTransfer.setData('text/plain', s)}
                               onClick={() => handleAddSkillInteractive(s, false)}
-                              className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 cursor-pointer hover:bg-amber-500/20 active:scale-95 transition-all select-none"
-                              title="Click or drag to add this skill to your profile"
+                              className="text-xs px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 cursor-pointer hover:bg-amber-500/20 active:scale-95 transition-all select-none"
+                              title="Add only if you really have this skill"
                             >
                               {s}
                             </span>
                           ))
                         ) : (
-                          <span className="text-[10px] text-zinc-500">Perfect keyword alignment!</span>
+                          <span className="text-xs text-zinc-500">Perfect keyword alignment!</span>
                         )}
                       </div>
                       {result.gapAnalysis.missingSkills.length > 0 && (
                         <button
                           type="button"
-                          onClick={() => {
-                            const missing = [...result.gapAnalysis.missingSkills];
-                            missing.forEach(s => handleAddSkillInteractive(s, true));
-                          }}
-                          className="mt-2 w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-amber-500/30 hover:border-amber-500/50"
+                          onClick={confirmAddAllMissing}
+                          className="mt-2 w-full py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 border border-amber-500/30 hover:border-amber-500/50"
                         >
                           <Plus className="w-3.5 h-3.5" />
                           Add All Missing Keywords ({result.gapAnalysis.missingSkills.length})
@@ -6483,7 +6659,7 @@ export default function TailorWorkspace() {
                   </div>
 
                   <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-xl text-xs space-y-3">
-                    <h4 className="font-bold text-indigo-300 border-b border-indigo-500/10 pb-1.5 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <h4 className="font-bold text-indigo-300 border-b border-indigo-500/10 pb-1.5 uppercase tracking-wider text-xs flex items-center gap-1.5">
                       <Award className="w-4 h-4 text-indigo-400" />
                       AI Placement Recommendation
                     </h4>
@@ -6547,26 +6723,31 @@ export default function TailorWorkspace() {
         </div>
 
         {/* Right Preview Pane */}
-        <div className={`w-full ${isDesktopPanelCollapsed ? 'col-span-1 lg:col-span-12' : 'col-span-1 lg:col-span-7'} bg-[var(--layout-surface-card-bg)]/30 flex flex-col overflow-y-auto h-[calc(100vh-125px)] lg:h-auto lg:max-h-[calc(100vh-73px)] transition-all duration-300 ${activeMobileTab === 'preview' ? 'block' : 'hidden lg:block'
+        <div className={`w-full ${isDesktopPanelCollapsed ? 'col-span-1 lg:col-span-12' : 'col-span-1 lg:col-span-7'} bg-[var(--layout-surface-card-bg)]/30 flex flex-col overflow-y-auto h-full min-h-0 pb-[60px] lg:pb-0 transition-all duration-300 ${activeMobileTab === 'preview' ? 'block' : 'hidden lg:block'
           }`}>
-          {/* Multi-Row Sticky Responsive Toolbar with HUD */}
-          <div className="sticky top-[49px] sm:top-0 z-40 no-print flex flex-col gap-2 px-3 sm:px-6 py-2 bg-[var(--layout-surface-panel-bg)]/95 backdrop-blur-md border-b border-white/5 font-sans">
+          {/* Preview toolbar: pinned on desktop only. On phones it scrolls away so the CV gets the screen (audit R1). */}
+          <div className="relative lg:sticky lg:top-0 z-20 no-print flex flex-col gap-2 px-3 sm:px-6 py-2 bg-[var(--layout-surface-panel-bg)]/95 backdrop-blur-md border-b border-white/5 font-sans">
             {/* Top Row: Document Switcher & Floating HUD */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-              <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 {/* Desktop Sidebar Collapse Toggle */}
                 <button
                   type="button"
                   onClick={() => setIsDesktopPanelCollapsed(!isDesktopPanelCollapsed)}
                   className="hidden lg:flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white border border-white/10 text-xs font-semibold cursor-pointer transition-all shadow-sm"
-                  title={isDesktopPanelCollapsed ? 'Show Strategy Panel' : 'Collapse Strategy Panel'}
+                  title={isDesktopPanelCollapsed ? 'Show the input panel' : 'Hide the input panel'}
+                  aria-label={isDesktopPanelCollapsed ? 'Show the input panel' : 'Hide the input panel'}
+                  aria-expanded={!isDesktopPanelCollapsed}
                 >
-                  <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isDesktopPanelCollapsed ? '' : 'rotate-180'}`} />
-                  <span>{isDesktopPanelCollapsed ? 'Show Strategy' : 'Hide Strategy'}</span>
+                  <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isDesktopPanelCollapsed ? '' : 'rotate-180'}`} aria-hidden="true" />
+                  <span className="hidden 2xl:inline">{isDesktopPanelCollapsed ? 'Show panel' : 'Hide panel'}</span>
                 </button>
 
-                <div className="flex gap-1.5 font-sans overflow-x-auto no-scrollbar py-0.5">
+                <div role="tablist" aria-label="Documents" className="flex gap-1.5 font-sans overflow-x-auto no-scrollbar py-0.5 min-w-0">
                   <button
+                    type="button"
+                    role="tab"
+                    aria-selected={previewTab === 'cv'}
                     onClick={() => setPreviewTab('cv')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${previewTab === 'cv'
                       ? 'bg-zinc-800 text-white shadow-sm'
@@ -6577,6 +6758,9 @@ export default function TailorWorkspace() {
                     <span>{cvLanguage === 'DE' ? 'Lebenslauf' : 'Resume'}</span>
                   </button>
                   <button
+                    type="button"
+                    role="tab"
+                    aria-selected={previewTab === 'coverLetter'}
                     onClick={() => setPreviewTab('coverLetter')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${previewTab === 'coverLetter'
                       ? 'bg-zinc-800 text-white shadow-sm'
@@ -6584,9 +6768,12 @@ export default function TailorWorkspace() {
                       }`}
                   >
                     <PenTool className="w-3.5 h-3.5" />
-                    <span>{clLanguage === 'DE' ? 'Anschreiben' : 'Cover Letter'}</span>
+                    <span>{clLanguage === 'DE' ? 'Anschreiben' : 'Cover letter'}</span>
                   </button>
                   <button
+                    type="button"
+                    role="tab"
+                    aria-selected={previewTab === 'outreach'}
                     onClick={() => setPreviewTab('outreach')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${previewTab === 'outreach'
                       ? 'bg-indigo-600 text-white shadow-sm'
@@ -6598,6 +6785,9 @@ export default function TailorWorkspace() {
                     {outreachData && <span className="w-2 h-2 rounded-full bg-emerald-400"></span>}
                   </button>
                   <button
+                    type="button"
+                    role="tab"
+                    aria-selected={previewTab === 'interviewPrep'}
                     onClick={() => setPreviewTab('interviewPrep')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${previewTab === 'interviewPrep'
                       ? 'bg-indigo-600 text-white shadow-sm'
@@ -6605,7 +6795,7 @@ export default function TailorWorkspace() {
                       }`}
                   >
                     <Target className="w-3.5 h-3.5" />
-                    <span>Interview Prep</span>
+                    <span>Interview prep</span>
                     {interviewPrepData && <span className="w-2 h-2 rounded-full bg-emerald-400"></span>}
                   </button>
                 </div>
@@ -6623,7 +6813,7 @@ export default function TailorWorkspace() {
                   setIsAutoFit(false);
                   setManualScale((s) => Math.max(0.4, Math.round((s - 0.1) * 10) / 10));
                 }}
-                onToggleAutoFit={() => setIsAutoFit(!isAutoFit)}
+                onToggleAutoFit={() => setIsAutoFit(true)}
                 numPages={numPages}
                 isStrictOnePage={lengthTarget.includes('1-Page')}
                 isAtsHighlightEnabled={isAtsHighlightEnabled}
@@ -6639,17 +6829,112 @@ export default function TailorWorkspace() {
               />
             </div>
 
-            {/* Row 2: Layout Presets & ATS Toolbar (Sticky on top of document) */}
-
+            {/* Row 2: one slim row. Status chips on the left, Compare + Design on the right.
+                All visual settings live in the Design panel (audit R1/R2, T4). */}
             {result && previewTab === 'cv' && (
-              <div className="pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-2.5 text-white font-sans text-xs">
-                {/* Top Group: 3-Way CV Format Mode Selector */}
+              <div className="pt-2 border-t border-white/5 flex items-center gap-2 text-white font-sans text-xs">
+                <div className="flex items-center gap-2 min-w-0 overflow-x-auto no-scrollbar [&>*]:whitespace-nowrap [&>*]:shrink-0">
+                  {editingAppId && result && (
+                    <span
+                      className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold border ${autosaveState === 'error' ? 'border-rose-500/40 text-rose-300' : 'border-white/10 text-zinc-400'}`}
+                      title={editingAppStatus === 'DRAFT' ? 'Saved as a draft. Click Track to add it to your application tracker. Drafts are deleted after 30 days.' : 'Changes are saved automatically to this application.'}
+                    >
+                      {autosaveState === 'pending' || autosaveState === 'saving'
+                        ? 'Saving…'
+                        : autosaveState === 'error'
+                          ? 'Not saved — click Track / Update'
+                          : editingAppStatus === 'DRAFT' ? 'Draft · saved' : 'All changes saved'}
+                    </span>
+                  )}
+
+                  {pendingBridgedClaims.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => { setSidePanelTab('ats'); setIsBridgeHighlightEnabled(true); }}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 transition-all cursor-pointer shadow-sm"
+                      title="Statements that go beyond your profile — review them before sending"
+                    >
+                      <GitMerge className="w-3 h-3 text-amber-400" />
+                      <span>Bridged: {pendingBridgedClaims.length} to review</span>
+                    </button>
+                  )}
+
+                  {(() => {
+                    const stats = getAtsMatchStats();
+                    if (!stats) return null;
+                    const colorClass = stats.percentage >= 75
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                      : stats.percentage >= 50
+                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                        : 'bg-rose-500/10 border-rose-500/30 text-rose-300';
+                    return (
+                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs font-bold ${colorClass}`} title={`Keyword coverage: ${stats.matched} of ${stats.total} job keywords appear in this CV's text — what ATS keyword filters scan for.${stats.missing.length ? ` Missing: ${stats.missing.join(', ')}` : ''}`}>
+                        <span>Keywords in CV: {stats.matched}/{stats.total} ({stats.percentage}%)</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsCompareModalOpen(true)}
+                    className="flex items-center gap-1.5 min-h-8 px-2.5 py-1 rounded-lg text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 transition-all cursor-pointer"
+                    title="Compare your profile text side by side with the tailored CV"
+                  >
+                    <GitCompare className="w-3.5 h-3.5 text-indigo-400" aria-hidden="true" />
+                    <span>Compare</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsAdjustSpacingOpen((prev) => !prev)}
+                    aria-haspopup="dialog"
+                    aria-expanded={isAdjustSpacingOpen}
+                    className={`flex items-center gap-1.5 min-h-8 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${isAdjustSpacingOpen
+                      ? 'bg-indigo-600 text-white border-indigo-500'
+                      : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700'
+                      }`}
+                    title="Format, spacing, template, colours and fine-tuning"
+                  >
+                    <Sliders className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Design</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Design panel: a right-hand popover on desktop, a bottom sheet on mobile. */}
+            {result && previewTab === 'cv' && isAdjustSpacingOpen && (
+              <Dialog
+                onClose={() => setIsAdjustSpacingOpen(false)}
+                label="Design"
+                className="fixed inset-0 z-[60] flex items-end lg:items-start lg:justify-end lg:pt-[calc(var(--app-header-h)+5.5rem)] lg:pr-6 bg-black/50 lg:bg-transparent"
+              >
+                <div className="absolute inset-0" onClick={() => setIsAdjustSpacingOpen(false)} />
+                <div className="relative w-full lg:w-[380px] max-h-[85dvh] lg:max-h-[calc(100dvh-var(--app-header-h)-7rem)] overflow-y-auto bg-zinc-900 border border-zinc-700/90 rounded-t-2xl lg:rounded-2xl p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl text-sm text-white space-y-5 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-bold text-white flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-indigo-400" aria-hidden="true" />
+                      Design
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setIsAdjustSpacingOpen(false)}
+                      aria-label="Close design panel"
+                      className="w-9 h-9 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 cursor-pointer"
+                    >
+                      <X className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  <section className="space-y-2">
+                    <h4 className="text-xs font-semibold text-zinc-400">CV format</h4>
                 {previewTab === 'cv' && (
-                  <div className="flex bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-0.5 font-sans w-full sm:w-auto">
+                  <div className="flex bg-white/5 backdrop-blur-md border border-white/10 rounded-lg p-0.5 font-sans w-full">
                     <button
                       type="button"
                       onClick={() => handleSetCvFormatMode('visual')}
-                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'visual'
+                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'visual'
                         ? 'bg-zinc-800 text-white shadow-sm'
                         : 'text-zinc-400 hover:text-zinc-200'
                         }`}
@@ -6659,7 +6944,7 @@ export default function TailorWorkspace() {
                     <button
                       type="button"
                       onClick={() => handleSetCvFormatMode('ats')}
-                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'ats'
+                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'ats'
                         ? 'bg-zinc-800 text-white shadow-sm'
                         : 'text-zinc-400 hover:text-zinc-200'
                         }`}
@@ -6669,7 +6954,7 @@ export default function TailorWorkspace() {
                     <button
                       type="button"
                       onClick={() => handleSetCvFormatMode('bullet-matrix')}
-                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-[10px] md:text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'bullet-matrix'
+                      className={`flex-1 sm:flex-initial px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${cvFormatMode === 'bullet-matrix'
                         ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-sm'
                         : 'text-zinc-400 hover:text-zinc-200'
                         }`}
@@ -6678,39 +6963,43 @@ export default function TailorWorkspace() {
                     </button>
                   </div>
                 )}
-                {/* Left Group: Layout & Spacing Presets */}
-                <div className="flex items-center gap-3 flex-wrap">
+                  </section>
+
+                  <section className="space-y-2">
+                    <h4 className="text-xs font-semibold text-zinc-400">Spacing</h4>
                   <div className="flex items-center gap-1.5">
                     <Sliders className="w-3.5 h-3.5 text-indigo-400" />
-                    <span className="font-semibold text-zinc-300 text-[11px]">Spacing:</span>
+                    <span className="font-semibold text-zinc-300 text-xs">Spacing:</span>
                     <div className="flex gap-1">
                       <button
                         type="button"
                         onClick={() => applyPreset('default')}
-                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs font-medium transition-colors cursor-pointer"
                       >
                         Default
                       </button>
                       <button
                         type="button"
                         onClick={() => applyPreset('compact')}
-                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs font-medium transition-colors cursor-pointer"
                       >
                         Compact
                       </button>
                       <button
                         type="button"
                         onClick={() => applyPreset('tight')}
-                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-[10px] font-medium transition-colors cursor-pointer"
+                        className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs font-medium transition-colors cursor-pointer"
                       >
                         Ultra-Tight
                       </button>
                     </div>
                   </div>
+                  </section>
 
-                  {/* Section Layout Order Dropdown */}
-                  <div className="flex items-center gap-1.5 border-l border-zinc-700/60 pl-2.5">
-                    <span className="font-semibold text-zinc-400 text-[10px]">Layout:</span>
+                  <section className="space-y-2">
+                    <h4 className="text-xs font-semibold text-zinc-400">Section order</h4>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-zinc-400 text-xs">Layout:</span>
                     <select
                       value={
                         sectionOrder[1] === 'work' ? 'work' : sectionOrder[1] === 'skills' ? 'skills' : 'education'
@@ -6721,21 +7010,23 @@ export default function TailorWorkspace() {
                         else if (val === 'skills') setSectionOrder(['summary', 'skills', 'projects', 'work', 'education', 'languages']);
                         else if (val === 'education') setSectionOrder(['summary', 'education', 'work', 'projects', 'skills', 'languages']);
                       }}
-                      className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                      className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
                     >
                       <option value="work">Work-First</option>
                       <option value="skills">Tech-First</option>
                       <option value="education">Academic-First</option>
                     </select>
                   </div>
+                  </section>
 
-                  {/* Modern Layout Template Selector */}
-                  <div className="flex items-center gap-1.5 border-l border-zinc-700/60 pl-2.5">
-                    <span className="font-semibold text-zinc-400 text-[10px]">Template:</span>
+                  <section className="space-y-2">
+                    <h4 className="text-xs font-semibold text-zinc-400">Template</h4>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-zinc-400 text-xs">Template:</span>
                     <select
                       value={cvLayoutTemplateId}
                       onChange={(e) => setCvLayoutTemplateId(e.target.value as CvLayoutTemplateId)}
-                      className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                      className="bg-zinc-800 border border-zinc-700 text-zinc-200 text-xs rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500 cursor-pointer"
                     >
                       {Object.values(LAYOUT_TEMPLATES).map((tmpl) => (
                         <option key={tmpl.id} value={tmpl.id}>
@@ -6744,10 +7035,12 @@ export default function TailorWorkspace() {
                       ))}
                     </select>
                   </div>
+                  </section>
 
-                  {/* Curated Color Themes Swatches */}
-                  <div className="flex items-center gap-1.5 border-l border-zinc-700/60 pl-2.5">
-                    <span className="font-semibold text-zinc-400 text-[10px]">Theme:</span>
+                  <section className="space-y-2">
+                    <h4 className="text-xs font-semibold text-zinc-400">Colour</h4>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-semibold text-zinc-400 text-xs">Theme:</span>
                     <div className="flex items-center gap-1">
                       {Object.values(COLOR_THEMES).map((theme) => (
                         <button
@@ -6764,117 +7057,43 @@ export default function TailorWorkspace() {
                       ))}
                     </div>
                   </div>
-                </div>
+                  </section>
 
-                {/* Right Group: ATS Highlights, Compare & Fine-Tune Popover */}
-                <div className="flex items-center gap-2 flex-wrap relative">
-                  <button
-                    type="button"
-                    onClick={() => setIsCompareModalOpen(true)}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer shadow-sm"
-                    title="Compare Master Profile text side-by-side with Tailored Document"
-                  >
-                    <GitCompare className="w-3 h-3 text-indigo-400" />
-                    <span>⚖️ Compare</span>
-                  </button>
-
-                  {result?.tailoredCv?.personalDetails?.photo && previewTab === 'cv' && (
-                    <button
-                      type="button"
-                      onClick={toggleCvPhoto}
-                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${showPhotoOnCv
-                        ? 'bg-sky-500/15 text-sky-300 border-sky-500/40'
-                        : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'}`}
-                      title="German CVs usually include a photo; UK/US employers usually expect CVs without one."
-                    >
-                      <span>📷 Photo {showPhotoOnCv ? '(ON)' : '(OFF)'}</span>
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => setIsAtsHighlightEnabled((prev) => !prev)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${isAtsHighlightEnabled
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm'
-                      : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
-                      }`}
-                    title="Highlight ATS Job Description keywords in preview text"
-                  >
-                    <Target className="w-3 h-3 text-emerald-400" />
-                    <span>ATS Highlights {isAtsHighlightEnabled ? '(ON)' : '(OFF)'}</span>
-                  </button>
-
-                  {editingAppId && result && (
-                    <span
-                      className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border ${autosaveState === 'error' ? 'border-rose-500/40 text-rose-300' : 'border-white/10 text-zinc-400'}`}
-                      title={editingAppStatus === 'DRAFT' ? 'Saved as a draft. Click Track to add it to your application tracker. Drafts are deleted after 30 days.' : 'Changes are saved automatically to this application.'}
-                    >
-                      {autosaveState === 'pending' || autosaveState === 'saving'
-                        ? 'Saving…'
-                        : autosaveState === 'error'
-                          ? 'Not saved — click Track / Update'
-                          : editingAppStatus === 'DRAFT' ? 'Draft · saved' : 'All changes saved'}
-                    </span>
-                  )}
-
-                  {pendingBridgedClaims.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => { setSidePanelTab('ats'); setIsBridgeHighlightEnabled(true); }}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 transition-all cursor-pointer shadow-sm"
-                      title="Statements that go beyond your Master Vault — review them before sending"
-                    >
-                      <GitMerge className="w-3 h-3 text-amber-400" />
-                      <span>Bridged: {pendingBridgedClaims.length} to review</span>
-                    </button>
-                  )}
-
-                  {(() => {
-                    const stats = getAtsMatchStats();
-                    if (!stats) return null;
-                    const colorClass = stats.percentage >= 75
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                      : stats.percentage >= 50
-                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
-                        : 'bg-rose-500/10 border-rose-500/30 text-rose-300';
-                    return (
-                      <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold ${colorClass}`} title={`Keyword coverage: ${stats.matched} of ${stats.total} job keywords appear in this CV's text — what ATS keyword filters scan for.${stats.missing.length ? ` Missing: ${stats.missing.join(', ')}` : ''}`}>
-                        <span>Keywords in CV: {stats.matched}/{stats.total} ({stats.percentage}%)</span>
-                      </div>
-                    );
-                  })()}
-
-                  <button
-                    type="button"
-                    onClick={() => setIsAdjustSpacingOpen((prev) => !prev)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all cursor-pointer border ${isAdjustSpacingOpen
-                      ? 'bg-indigo-600 text-white border-indigo-500 shadow-md'
-                      : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
-                      }`}
-                    title="Fine-tune exact pixel spacing and margins"
-                  >
-                    <Sliders className="w-3 h-3 text-indigo-400" />
-                    <span>⚙️ Fine-Tune</span>
-                  </button>
-
-                  {/* Fine-Tune Spacing Floating Popover */}
-                  {isAdjustSpacingOpen && (
-                    <div className="absolute right-0 top-9 z-50 bg-zinc-900/98 border border-zinc-700/90 rounded-2xl p-4 shadow-2xl backdrop-blur-xl text-xs text-white w-80 space-y-3 animate-in fade-in zoom-in-95 duration-150">
-                      <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                        <span className="font-bold text-indigo-300 text-[11px] uppercase tracking-wider flex items-center gap-1">
-                          <Sliders className="w-3.5 h-3.5 text-indigo-400" />
-                          Fine-Tune Page Spacing (Live)
-                        </span>
+                  <section className="space-y-2">
+                    <h4 className="text-xs font-semibold text-zinc-400">Preview options</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {result?.tailoredCv?.personalDetails?.photo && (
                         <button
                           type="button"
-                          onClick={() => setIsAdjustSpacingOpen(false)}
-                          className="text-zinc-400 hover:text-white p-0.5 rounded hover:bg-zinc-800 cursor-pointer"
+                          onClick={toggleCvPhoto}
+                          aria-pressed={showPhotoOnCv}
+                          className={`min-h-9 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${showPhotoOnCv
+                            ? 'bg-sky-500/15 text-sky-300 border-sky-500/40'
+                            : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'}`}
+                          title="German CVs usually include a photo; UK/US employers usually expect CVs without one."
                         >
-                          <X className="w-3.5 h-3.5" />
+                          Photo: {showPhotoOnCv ? 'shown' : 'hidden'}
                         </button>
-                      </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setIsAtsHighlightEnabled((prev) => !prev)}
+                        aria-pressed={isAtsHighlightEnabled}
+                        className={`min-h-9 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border flex items-center gap-1.5 ${isAtsHighlightEnabled
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300 border-zinc-700'
+                          }`}
+                        title="Highlight the job's keywords in the preview"
+                      >
+                        <Target className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
+                        Highlight job keywords: {isAtsHighlightEnabled ? 'on' : 'off'}
+                      </button>
+                    </div>
+                  </section>
 
-                      <div className="space-y-2.5 text-[11px]">
+                  <section className="space-y-2">
+                    <h4 className="text-xs font-semibold text-zinc-400">Fine-tune</h4>
+                      <div className="space-y-2.5 text-xs">
                         <div className="flex items-center justify-between">
                           <span className="text-zinc-400">Section Spacing:</span>
                           <div className="flex items-center gap-2">
@@ -6956,10 +7175,9 @@ export default function TailorWorkspace() {
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )}
+                  </section>
                 </div>
-              </div>
+              </Dialog>
             )}
           </div>
 
@@ -6990,7 +7208,7 @@ export default function TailorWorkspace() {
                         <Sparkles className="w-5 h-5 text-indigo-400" />
                         <h3 className="text-base font-bold text-white">AI Recruiter Outreach &amp; InMail Engine</h3>
                         {outreachData && editingAppId && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
                             <Check className="w-3 h-3" /> Saved
                           </span>
                         )}
@@ -7021,7 +7239,7 @@ export default function TailorWorkspace() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/5">
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-semibold text-zinc-400 uppercase">Recruiter / Contact Person Name (Optional)</label>
+                      <label className="text-xs font-semibold text-zinc-400 uppercase">Recruiter / Contact Person Name (Optional)</label>
                       <input
                         type="text"
                         value={outreachRecruiterName}
@@ -7031,7 +7249,7 @@ export default function TailorWorkspace() {
                       />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-semibold text-zinc-400 uppercase">Custom Angle or Directives (Optional)</label>
+                      <label className="text-xs font-semibold text-zinc-400 uppercase">Custom Angle or Directives (Optional)</label>
                       <input
                         type="text"
                         value={outreachCustomPrompt}
@@ -7058,8 +7276,7 @@ export default function TailorWorkspace() {
                         <button
                           type="button"
                           onClick={() => {
-                            navigator.clipboard.writeText(outreachData.linkedInInMail.message);
-                            showAlert({ title: 'Copied!', message: 'LinkedIn message copied to clipboard.', type: 'success' });
+                            copyOutreach(outreachData.linkedInInMail.message, 'LinkedIn message');
                           }}
                           className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
                         >
@@ -7069,7 +7286,7 @@ export default function TailorWorkspace() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Subject / Header</label>
+                        <label className="text-xs font-semibold text-zinc-400 uppercase">Subject / Header</label>
                         <input
                           type="text"
                           value={outreachData.linkedInInMail.subject}
@@ -7081,21 +7298,20 @@ export default function TailorWorkspace() {
                         />
                       </div>
 
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Message Body (Editable)</label>
-                        <textarea
-                          value={outreachData.linkedInInMail.message}
-                          onChange={e => setOutreachData({
-                            ...outreachData,
-                            linkedInInMail: { ...outreachData.linkedInInMail, message: e.target.value }
-                          })}
-                          rows={5}
-                          className="glass-input p-3 text-xs text-white font-sans w-full leading-relaxed resize-y"
-                        />
-                      </div>
+                      <OutreachTextarea
+                        id="outreach-linkedin"
+                        label="Message"
+                        value={outreachData.linkedInInMail.message}
+                        onChange={v => setOutreachData({
+                          ...outreachData,
+                          linkedInInMail: { ...outreachData.linkedInInMail, message: v }
+                        })}
+                        maxChars={LINKEDIN_NOTE_LIMIT}
+                        limitHint="LinkedIn connection notes allow 300 characters (200 on free accounts). InMail allows more."
+                      />
 
                       {outreachData.linkedInInMail.tips && (
-                        <div className="p-3 bg-blue-500/5 border border-blue-500/15 rounded-xl text-[11px] text-blue-300 flex items-start gap-2">
+                        <div className="p-3 bg-blue-500/5 border border-blue-500/15 rounded-xl text-xs text-blue-300 flex items-start gap-2">
                           <span className="font-bold">💡 Headhunter Tip:</span>
                           <span>{outreachData.linkedInInMail.tips}</span>
                         </div>
@@ -7114,8 +7330,7 @@ export default function TailorWorkspace() {
                         <button
                           type="button"
                           onClick={() => {
-                            navigator.clipboard.writeText(`Subject: ${outreachData.hiringManagerEmail.subject}\n\n${outreachData.hiringManagerEmail.message}`);
-                            showAlert({ title: 'Copied!', message: 'Email draft copied to clipboard.', type: 'success' });
+                            copyOutreach(`Subject: ${outreachData.hiringManagerEmail.subject}\n\n${outreachData.hiringManagerEmail.message}`, 'Email draft');
                           }}
                           className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
                         >
@@ -7125,7 +7340,7 @@ export default function TailorWorkspace() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Email Subject Line</label>
+                        <label className="text-xs font-semibold text-zinc-400 uppercase">Email Subject Line</label>
                         <input
                           type="text"
                           value={outreachData.hiringManagerEmail.subject}
@@ -7137,21 +7352,18 @@ export default function TailorWorkspace() {
                         />
                       </div>
 
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Email Body (Editable)</label>
-                        <textarea
-                          value={outreachData.hiringManagerEmail.message}
-                          onChange={e => setOutreachData({
-                            ...outreachData,
-                            hiringManagerEmail: { ...outreachData.hiringManagerEmail, message: e.target.value }
-                          })}
-                          rows={7}
-                          className="glass-input p-3 text-xs text-white font-sans w-full leading-relaxed resize-y"
-                        />
-                      </div>
+                      <OutreachTextarea
+                        id="outreach-email"
+                        label="Email body"
+                        value={outreachData.hiringManagerEmail.message}
+                        onChange={v => setOutreachData({
+                          ...outreachData,
+                          hiringManagerEmail: { ...outreachData.hiringManagerEmail, message: v }
+                        })}
+                      />
 
                       {outreachData.hiringManagerEmail.tips && (
-                        <div className="p-3 bg-indigo-500/5 border border-indigo-500/15 rounded-xl text-[11px] text-indigo-300 flex items-start gap-2">
+                        <div className="p-3 bg-indigo-500/5 border border-indigo-500/15 rounded-xl text-xs text-indigo-300 flex items-start gap-2">
                           <span className="font-bold">💡 Open-Rate Strategy:</span>
                           <span>{outreachData.hiringManagerEmail.tips}</span>
                         </div>
@@ -7170,8 +7382,7 @@ export default function TailorWorkspace() {
                         <button
                           type="button"
                           onClick={() => {
-                            navigator.clipboard.writeText(outreachData.warmReferralCoffeeChat.message);
-                            showAlert({ title: 'Copied!', message: 'Coffee chat message copied to clipboard.', type: 'success' });
+                            copyOutreach(outreachData.warmReferralCoffeeChat.message, 'Coffee chat message');
                           }}
                           className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
                         >
@@ -7181,7 +7392,7 @@ export default function TailorWorkspace() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Subject / Header</label>
+                        <label className="text-xs font-semibold text-zinc-400 uppercase">Subject / Header</label>
                         <input
                           type="text"
                           value={outreachData.warmReferralCoffeeChat.subject}
@@ -7193,21 +7404,18 @@ export default function TailorWorkspace() {
                         />
                       </div>
 
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-semibold text-zinc-400 uppercase">Message Body (Editable)</label>
-                        <textarea
-                          value={outreachData.warmReferralCoffeeChat.message}
-                          onChange={e => setOutreachData({
-                            ...outreachData,
-                            warmReferralCoffeeChat: { ...outreachData.warmReferralCoffeeChat, message: e.target.value }
-                          })}
-                          rows={6}
-                          className="glass-input p-3 text-xs text-white font-sans w-full leading-relaxed resize-y"
-                        />
-                      </div>
+                      <OutreachTextarea
+                        id="outreach-coffee"
+                        label="Message"
+                        value={outreachData.warmReferralCoffeeChat.message}
+                        onChange={v => setOutreachData({
+                          ...outreachData,
+                          warmReferralCoffeeChat: { ...outreachData.warmReferralCoffeeChat, message: v }
+                        })}
+                      />
 
                       {outreachData.warmReferralCoffeeChat.tips && (
-                        <div className="p-3 bg-purple-500/5 border border-purple-500/15 rounded-xl text-[11px] text-purple-300 flex items-start gap-2">
+                        <div className="p-3 bg-purple-500/5 border border-purple-500/15 rounded-xl text-xs text-purple-300 flex items-start gap-2">
                           <span className="font-bold">💡 Networking Tip:</span>
                           <span>{outreachData.warmReferralCoffeeChat.tips}</span>
                         </div>
@@ -7234,7 +7442,7 @@ export default function TailorWorkspace() {
                         <Target className="w-5 h-5 text-indigo-400" />
                         <h3 className="text-base font-bold text-white">AI Interview Prep Cheat-Sheet Copilot</h3>
                         {interviewPrepData && editingAppId && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-semibold flex items-center gap-1">
                             <Check className="w-3 h-3" /> Saved
                           </span>
                         )}
@@ -7264,7 +7472,7 @@ export default function TailorWorkspace() {
                   </div>
 
                   <div className="flex flex-col gap-1 pt-2 border-t border-white/5">
-                    <label className="text-[10px] font-semibold text-zinc-400 uppercase">Focus Area or Interview Stage (Optional)</label>
+                    <label className="text-xs font-semibold text-zinc-400 uppercase">Focus Area or Interview Stage (Optional)</label>
                     <input
                       type="text"
                       value={interviewPrepCustomPrompt}
@@ -7283,7 +7491,7 @@ export default function TailorWorkspace() {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-bold text-xs">
-                              ⚡ Elevator Pitch
+                              Elevator pitch
                             </span>
                             <h4 className="font-bold text-white text-sm">"Tell Me About Yourself" (30-Second Hook)</h4>
                           </div>
@@ -7313,7 +7521,7 @@ export default function TailorWorkspace() {
                             <Award className="w-4 h-4 text-indigo-400" />
                             Top 5 Predicted Interview Questions &amp; STAR Talking Points
                           </h4>
-                          <span className="text-[10px] text-zinc-400 font-semibold">Click to expand talking points</span>
+                          <span className="text-xs text-zinc-400 font-semibold">Click to expand talking points</span>
                         </div>
 
                         <div className="space-y-3">
@@ -7334,13 +7542,13 @@ export default function TailorWorkspace() {
                                     </span>
                                     <div>
                                       <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 font-bold uppercase tracking-wider">
+                                        <span className="text-xs px-2 py-0.5 rounded-full bg-white/10 text-zinc-300 font-bold uppercase tracking-wider">
                                           {q.category || 'Technical'}
                                         </span>
                                       </div>
                                       <h5 className="font-bold text-white text-xs leading-snug">{q.question}</h5>
                                       {q.intent && (
-                                        <p className="text-[11px] text-zinc-400 mt-1 italic">
+                                        <p className="text-xs text-zinc-400 mt-1 italic">
                                           <strong>Testing Intent:</strong> {q.intent}
                                         </p>
                                       )}
@@ -7352,12 +7560,12 @@ export default function TailorWorkspace() {
                                 {isExpanded && (
                                   <div className="px-4 pb-4 pt-2 border-t border-white/5 space-y-3 bg-black/20 text-xs">
                                     <div className="space-y-1.5">
-                                      <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider block">
+                                      <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider block">
                                         Suggested STAR Talking Points (From Your Real Experience):
                                       </span>
                                       <ul className="space-y-1.5 pl-1">
                                         {q.suggestedAnswerTalkingPoints.map((point, pIdx) => (
-                                          <li key={pIdx} className="flex items-start gap-2 text-zinc-200 text-[11px] leading-relaxed">
+                                          <li key={pIdx} className="flex items-start gap-2 text-zinc-200 text-xs leading-relaxed">
                                             <span className="text-indigo-400 font-bold mt-0.5">•</span>
                                             <span>{point}</span>
                                           </li>
@@ -7372,7 +7580,7 @@ export default function TailorWorkspace() {
                                           navigator.clipboard.writeText(`Question: ${q.question}\n\nTalking Points:\n${q.suggestedAnswerTalkingPoints.map(p => `- ${p}`).join('\n')}`);
                                           showAlert({ title: 'Copied!', message: 'Question & talking points copied to clipboard.', type: 'success' });
                                         }}
-                                        className="px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-white text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition-all"
+                                        className="px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1 cursor-pointer transition-all"
                                       >
                                         <CheckSquare className="w-3 h-3 text-emerald-400" />
                                         <span>Copy Question &amp; Answer Guide</span>
@@ -7413,7 +7621,7 @@ export default function TailorWorkspace() {
                                   <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />
                                 </button>
                               </div>
-                              {rq.context && <p className="text-[10px] text-zinc-400 italic">{rq.context}</p>}
+                              {rq.context && <p className="text-xs text-zinc-400 italic">{rq.context}</p>}
                             </div>
                           ))}
                         </div>
@@ -7435,7 +7643,7 @@ export default function TailorWorkspace() {
                               <p className="font-bold text-rose-300 flex items-center gap-1.5">
                                 <span>Trap:</span> {trap.trap}
                               </p>
-                              <p className="text-zinc-300 text-[11px] leading-relaxed">
+                              <p className="text-zinc-300 text-xs leading-relaxed">
                                 <strong>Navigation:</strong> {trap.recommendation}
                               </p>
                             </div>
@@ -7453,24 +7661,24 @@ export default function TailorWorkspace() {
                           </span>
                           <h4 className="font-bold text-white text-sm">Prepare to Back These Up</h4>
                         </div>
-                        <p className="text-[11px] text-zinc-400">
+                        <p className="text-xs text-zinc-400">
                           Your CV includes these bridged statements. Expect questions on them, and prepare so you can answer honestly and confidently.
                         </p>
                         <div className="space-y-2.5 pt-1">
                           {interviewPrepData.backItUp.map((item, bIdx) => (
                             <div key={bIdx} className="p-3 bg-amber-500/5 rounded-xl border border-amber-500/15 space-y-1.5 text-xs">
                               <p className="font-bold text-amber-200">{item.skill}</p>
-                              <p className="text-zinc-400 text-[11px] italic">"{item.claim}"</p>
+                              <p className="text-zinc-400 text-xs italic">"{item.claim}"</p>
                               {item.likelyProbe && (
-                                <p className="text-zinc-300 text-[11px]"><strong>Likely question:</strong> {item.likelyProbe}</p>
+                                <p className="text-zinc-300 text-xs"><strong>Likely question:</strong> {item.likelyProbe}</p>
                               )}
                               {Array.isArray(item.studyPlan) && item.studyPlan.length > 0 && (
-                                <ul className="list-disc pl-4 text-zinc-300 text-[11px] space-y-0.5">
+                                <ul className="list-disc pl-4 text-zinc-300 text-xs space-y-0.5">
                                   {item.studyPlan.map((step, sIdx) => <li key={sIdx}>{step}</li>)}
                                 </ul>
                               )}
                               {item.honestFraming && (
-                                <p className="text-zinc-300 text-[11px] leading-relaxed"><strong>How to frame it:</strong> {item.honestFraming}</p>
+                                <p className="text-zinc-300 text-xs leading-relaxed"><strong>How to frame it:</strong> {item.honestFraming}</p>
                               )}
                             </div>
                           ))}
@@ -7510,7 +7718,7 @@ export default function TailorWorkspace() {
                             key={secKey}
                             type="button"
                             onClick={() => handleToggleHideSection(secKey)}
-                            className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[10px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                            className="px-2 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors"
                           >
                             <Eye className="w-3 h-3" />
                             <span>Unhide {label}</span>
@@ -7520,7 +7728,7 @@ export default function TailorWorkspace() {
                       <button
                         type="button"
                         onClick={() => setHiddenSections([])}
-                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[10px] font-bold cursor-pointer transition-colors"
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold cursor-pointer transition-colors"
                       >
                         Unhide All
                       </button>
@@ -7699,11 +7907,11 @@ export default function TailorWorkspace() {
                                   highlightHtml={isAnyHighlightOn ? getHighlightedHtml(p) : undefined}
                                   className="focus:outline-none"
                                 />
-                                <div className="no-print opacity-0 group-hover:opacity-100 absolute -right-2 top-0 flex items-center gap-1 shrink-0 transition-opacity">
+                                <div className="no-print opacity-0 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100 absolute -right-2 top-0 flex items-center gap-1 shrink-0 transition-opacity">
                                   <button
                                     type="button"
                                     onClick={() => handleFetchClParagraphVariations(i, p)}
-                                    className="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 cursor-pointer px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 transition-all border border-indigo-200 shadow-sm"
+                                    className="text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 cursor-pointer px-2 py-0.5 rounded text-xs font-bold flex items-center gap-1 transition-all border border-indigo-200 shadow-sm"
                                     title="Polish paragraph with AI (2 Tokens)"
                                   >
                                     <Wand2 className="w-3 h-3 text-indigo-500" />
@@ -7779,10 +7987,10 @@ export default function TailorWorkspace() {
                               padding: '4px 8px'
                             }}
                           >
-                            <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded shadow-md font-bold">
+                            <span className="bg-rose-500 text-white text-xs px-2 py-0.5 rounded shadow-md font-bold">
                               Page {i + 1} Cutoff (A4 Height)
                             </span>
-                            <span className="bg-rose-500 text-white text-[9px] px-2 py-0.5 rounded shadow-md font-medium opacity-80">
+                            <span className="bg-rose-500 text-white text-xs px-2 py-0.5 rounded shadow-md font-medium opacity-80">
                               Content below overflows to Page {i + 2}
                             </span>
                           </div>
@@ -7794,12 +8002,21 @@ export default function TailorWorkspace() {
               </div>
             ) : refusal ? (
               <RefusalReport matchScore={refusal.matchScore} gapAnalysis={refusal.gapAnalysis || {}} tokenCost={20} />
+            ) : loading ? (
+              <div role="status" aria-live="polite" className="flex flex-col items-center justify-center p-12 text-center border border-dashed border-indigo-500/30 rounded-2xl w-full max-w-lg">
+                <Loader2 className="w-10 h-10 mb-3 text-indigo-400 animate-spin" aria-hidden="true" />
+                <h3 className="font-bold text-zinc-200 mb-1 text-base">Tailoring your CV and cover letter…</h3>
+                <p className="text-sm text-zinc-400 max-w-xs leading-relaxed">
+                  This usually takes 30–60 seconds. You can keep this tab open while it runs.
+                </p>
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center p-12 text-center text-zinc-500 border border-dashed border-white/10 rounded-2xl w-full max-w-lg">
-                <FileText className="w-12 h-12 mb-3 text-zinc-600" />
-                <h3 className="font-bold text-zinc-300 mb-1 text-md">Document Preview Engine</h3>
-                <p className="text-xs text-zinc-500 max-w-xs leading-relaxed">
-                  Inputs are empty. Provide the job details on the left and trigger tailoring to render high-fidelity, culturally conforming documents here.
+                <FileText className="w-12 h-12 mb-3 text-zinc-600" aria-hidden="true" />
+                <h3 className="font-bold text-zinc-300 mb-1 text-base">Your tailored CV will appear here</h3>
+                <p className="text-sm text-zinc-500 max-w-xs leading-relaxed">
+                  <span className="hidden lg:inline">Paste a job description in the panel on the left, then press Generate.</span>
+                  <span className="lg:hidden">Paste a job description in the Edit tab, then press Generate.</span>
                 </p>
               </div>
             )}
@@ -7820,7 +8037,7 @@ export default function TailorWorkspace() {
             <div className="space-y-3 font-sans text-xs">
               <div className="p-3.5 rounded-xl bg-zinc-900 border border-white/10 space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-white uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <span className="font-bold text-white uppercase tracking-wider text-xs flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
                     Target Job Summary
                   </span>
@@ -7830,7 +8047,7 @@ export default function TailorWorkspace() {
                       setIsMobileSheetOpen(false);
                       setActiveMobileTab('edit');
                     }}
-                    className="text-[10px] text-indigo-400 font-bold hover:underline cursor-pointer"
+                    className="text-xs text-indigo-400 font-bold hover:underline cursor-pointer"
                   >
                     Edit Details →
                   </button>
@@ -7838,7 +8055,7 @@ export default function TailorWorkspace() {
                 <p className="text-zinc-300 text-xs font-medium">
                   {roleName || 'Custom Role'} {companyName ? `@ ${companyName}` : ''}
                 </p>
-                <div className="flex gap-2 text-[10px] text-zinc-400">
+                <div className="flex gap-2 text-xs text-zinc-400">
                   <span>CV: <strong>{cvLanguage}</strong></span>
                   <span>•</span>
                   <span>Tone: <strong>{tone}</strong></span>
@@ -7890,17 +8107,14 @@ export default function TailorWorkspace() {
                       <span className="text-xl font-extrabold text-emerald-400">{result.matchScore}%</span>
                       <div>
                         <span className="font-bold text-white block text-xs">Profile fit</span>
-                        <span className="text-[10px] text-zinc-400">{(() => { const kc = getAtsMatchStats(); return kc ? `Keywords in CV: ${kc.matched}/${kc.total}` : `${result.gapAnalysis.matchingKeywords.length} matching / ${result.gapAnalysis.missingSkills.length} missing`; })()}</span>
+                        <span className="text-xs text-zinc-400">{(() => { const kc = getAtsMatchStats(); return kc ? `Keywords in CV: ${kc.matched}/${kc.total}` : `${result.gapAnalysis.matchingKeywords.length} matching / ${result.gapAnalysis.missingSkills.length} missing`; })()}</span>
                       </div>
                     </div>
                     {result.gapAnalysis.missingSkills.length > 0 && (
                       <button
                         type="button"
-                        onClick={() => {
-                          const missing = [...result.gapAnalysis.missingSkills];
-                          missing.forEach(s => handleAddSkillInteractive(s, true));
-                        }}
-                        className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold cursor-pointer"
+                        onClick={confirmAddAllMissing}
+                        className="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold cursor-pointer"
                       >
                         + Add All Missing
                       </button>
@@ -7909,14 +8123,14 @@ export default function TailorWorkspace() {
 
                   {result.gapAnalysis.missingSkills.length > 0 && (
                     <div className="space-y-1.5">
-                      <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">Tap to add missing skill:</span>
+                      <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">Tap to add missing skill:</span>
                       <div className="flex flex-wrap gap-1.5">
                         {result.gapAnalysis.missingSkills.map((s, i) => (
                           <button
                             key={i}
                             type="button"
                             onClick={() => handleAddSkillInteractive(s, false)}
-                            className="text-[10px] px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 font-medium cursor-pointer"
+                            className="text-xs px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 font-medium cursor-pointer"
                           >
                             + {s}
                           </button>
@@ -7936,7 +8150,7 @@ export default function TailorWorkspace() {
           {sidePanelTab === 'customization' && (
             <div className="space-y-3 font-sans text-xs">
               <div className="p-3 bg-zinc-900 border border-white/10 rounded-xl space-y-2">
-                <span className="font-bold text-white uppercase tracking-wider text-[10px] block">CV Template Style</span>
+                <span className="font-bold text-white uppercase tracking-wider text-xs block">CV Template Style</span>
                 <select
                   value={cvLayoutTemplateId}
                   onChange={(e) => setCvLayoutTemplateId(e.target.value as CvLayoutTemplateId)}
@@ -7951,7 +8165,7 @@ export default function TailorWorkspace() {
               </div>
 
               <div className="p-3 bg-zinc-900 border border-white/10 rounded-xl space-y-2">
-                <span className="font-bold text-white uppercase tracking-wider text-[10px] block">Section Hierarchy</span>
+                <span className="font-bold text-white uppercase tracking-wider text-xs block">Section Hierarchy</span>
                 <select
                   value={sectionOrder[1] === 'work' ? 'work' : sectionOrder[1] === 'skills' ? 'skills' : 'education'}
                   onChange={(e) => {
@@ -8044,7 +8258,7 @@ export default function TailorWorkspace() {
 
       {/* Premium Skill Confirmation Modal Overlay */}
       {skillModal.isOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <Dialog onClose={() => setSkillModal(prev => ({ ...prev, isOpen: false }))} label="Add skill" className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-sm bg-zinc-950 border border-white/10 rounded-2xl p-5 shadow-2xl space-y-4 font-sans text-left">
             <div className="flex justify-between items-center pb-2.5 border-b border-white/5">
               <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
@@ -8061,7 +8275,7 @@ export default function TailorWorkspace() {
 
             <div className="space-y-3.5 text-xs">
               <div className="flex flex-col gap-1.5">
-                <label className="text-zinc-400 font-semibold uppercase text-[9px] tracking-wider">Skill Name</label>
+                <label className="text-zinc-400 font-semibold uppercase text-xs tracking-wider">Skill Name</label>
                 <input
                   type="text"
                   value={skillModal.skillName}
@@ -8104,12 +8318,12 @@ export default function TailorWorkspace() {
               </button>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Section Regeneration Modal */}
       {regenModal.isOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
+        <Dialog onClose={() => setRegenModal({ isOpen: false, sectionKey: '', sectionTitle: '', currentContent: null })} label="Regenerate section" className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4 font-sans text-left">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
@@ -8120,7 +8334,7 @@ export default function TailorWorkspace() {
                   <h3 className="text-sm font-bold text-white uppercase tracking-wide">
                     Regenerate {regenModal.sectionTitle}
                   </h3>
-                  <p className="text-[11px] text-zinc-400">
+                  <p className="text-xs text-zinc-400">
                     Customize prompt instruction for AI section generation (5 Tokens)
                   </p>
                 </div>
@@ -8179,7 +8393,7 @@ export default function TailorWorkspace() {
 
             {/* Footer Actions */}
             <div className="flex items-center justify-between pt-2 border-t border-white/10">
-              <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
+              <div className="flex items-center gap-1.5 text-xs text-zinc-400">
                 <Coins className="w-3.5 h-3.5 text-amber-400" />
                 <span>Cost: <strong>5 Tokens</strong></span>
               </div>
@@ -8213,12 +8427,12 @@ export default function TailorWorkspace() {
               </div>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Bullet Point Polish Modal */}
       {bulletPolishModal.isOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
+        <Dialog onClose={() => setBulletPolishModal({ isOpen: false, expIndex: -1, bulletIndex: -1, originalBullet: '', variations: null })} label="Polish bullet point" className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-xl w-full shadow-2xl space-y-4 font-sans text-left">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
@@ -8229,8 +8443,8 @@ export default function TailorWorkspace() {
                   <h3 className="text-sm font-bold text-white uppercase tracking-wide">
                     Polish Bullet Point with AI
                   </h3>
-                  <p className="text-[11px] text-zinc-400">
-                    Select an AI variation to replace your bullet point (2 Tokens)
+                  <p className="text-xs text-zinc-400">
+                    Generate 3 rewrites, then pick one to replace your bullet (2 tokens per run)
                   </p>
                 </div>
               </div>
@@ -8259,13 +8473,13 @@ export default function TailorWorkspace() {
                 {/* STAR Variation */}
                 <div className="p-3 rounded-xl bg-zinc-950/80 border border-indigo-500/30 hover:border-indigo-500 transition-all space-y-2 group">
                   <div className="flex items-center justify-between">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
+                    <span className="px-2 py-0.5 rounded text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
                       STAR Formula (Metric Heavy)
                     </span>
                     <button
                       type="button"
                       onClick={() => handleApplyBulletVariation(bulletPolishModal.variations!.star)}
-                      className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                      className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors cursor-pointer"
                     >
                       Apply This
                     </button>
@@ -8276,13 +8490,13 @@ export default function TailorWorkspace() {
                 {/* Punchy Variation */}
                 <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                   <div className="flex items-center justify-between">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+                    <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
                       Concise & Punchy
                     </span>
                     <button
                       type="button"
                       onClick={() => handleApplyBulletVariation(bulletPolishModal.variations!.punchy)}
-                      className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                      className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium transition-colors cursor-pointer"
                     >
                       Apply This
                     </button>
@@ -8293,13 +8507,13 @@ export default function TailorWorkspace() {
                 {/* ATS Keyword Variation */}
                 <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                   <div className="flex items-center justify-between">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
+                    <span className="px-2 py-0.5 rounded text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
                       ATS Keyword-Dense
                     </span>
                     <button
                       type="button"
                       onClick={() => handleApplyBulletVariation(bulletPolishModal.variations!.ats)}
-                      className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                      className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium transition-colors cursor-pointer"
                     >
                       Apply This
                     </button>
@@ -8307,14 +8521,33 @@ export default function TailorWorkspace() {
                   <p className="text-xs text-zinc-200 leading-relaxed">{bulletPolishModal.variations.ats}</p>
                 </div>
               </div>
-            ) : null}
+            ) : (
+              <button
+                type="button"
+                onClick={runBulletPolish}
+                className="w-full min-h-11 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Sparkles className="w-4 h-4" aria-hidden="true" />
+                Generate 3 variations · 2 tokens
+              </button>
+            )}
+            {bulletPolishModal.variations && !isPolishingBullet && (
+              <button
+                type="button"
+                onClick={runBulletPolish}
+                className="w-full px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+                Regenerate · 2 tokens
+              </button>
+            )}
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Cover Letter Paragraph Polish Modal */}
       {clPolishModal.isOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
+        <Dialog onClose={() => setClPolishModal({ isOpen: false, paraIndex: -1, originalPara: '', variations: null })} label="Polish cover letter paragraph" className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 no-print">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6 max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl space-y-4 font-sans text-left overflow-hidden">
             <div className="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
               <div className="flex items-center gap-2">
@@ -8325,8 +8558,8 @@ export default function TailorWorkspace() {
                   <h3 className="text-sm font-bold text-white uppercase tracking-wide">
                     Polish Cover Letter Paragraph
                   </h3>
-                  <p className="text-[11px] text-zinc-400">
-                    Generate 3 tailored tone variations (2 Tokens)
+                  <p className="text-xs text-zinc-400">
+                    Add an optional instruction, then generate 3 rewrites (2 tokens per run)
                   </p>
                 </div>
               </div>
@@ -8341,7 +8574,7 @@ export default function TailorWorkspace() {
 
             <div className="overflow-y-auto pr-1 space-y-4 flex-1">
               <div className="p-3 rounded-xl bg-zinc-950/60 border border-zinc-800 space-y-1">
-                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">Original Paragraph:</span>
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block">Original Paragraph:</span>
                 <p className="text-xs text-zinc-300 italic leading-relaxed">{clPolishModal.originalPara}</p>
               </div>
 
@@ -8359,11 +8592,11 @@ export default function TailorWorkspace() {
                   <button
                     type="button"
                     disabled={isPolishingClPara}
-                    onClick={() => handleFetchClParagraphVariations(clPolishModal.paraIndex, clPolishModal.originalPara)}
-                    className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0"
+                    onClick={runClParagraphPolish}
+                    className="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0"
                   >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isPolishingClPara ? 'animate-spin' : ''}`} />
-                    <span>Re-Polish</span>
+                    <RefreshCw className={`w-3.5 h-3.5 ${isPolishingClPara ? 'animate-spin' : ''}`} aria-hidden="true" />
+                    <span>{clPolishModal.variations ? 'Regenerate' : 'Generate'} · 2 tokens</span>
                   </button>
                 </div>
               </div>
@@ -8378,13 +8611,13 @@ export default function TailorWorkspace() {
                   {/* Persuasive Variation */}
                   <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                     <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
+                      <span className="px-2 py-0.5 rounded text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
                         Persuasive & High Impact
                       </span>
                       <button
                         type="button"
                         onClick={() => handleApplyClParagraphVariation(clPolishModal.variations!.persuasive)}
-                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium transition-colors cursor-pointer"
                       >
                         Apply This
                       </button>
@@ -8395,13 +8628,13 @@ export default function TailorWorkspace() {
                   {/* Formal Corporate Variation */}
                   <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                     <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
-                        Formal Corporate (DIN 5008)
+                      <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+                        {clLanguage === 'DE' ? 'Formal (DIN 5008)' : 'Formal'}
                       </span>
                       <button
                         type="button"
                         onClick={() => handleApplyClParagraphVariation(clPolishModal.variations!.formal)}
-                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium transition-colors cursor-pointer"
                       >
                         Apply This
                       </button>
@@ -8412,13 +8645,13 @@ export default function TailorWorkspace() {
                   {/* Short & Concise Variation */}
                   <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                     <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
+                      <span className="px-2 py-0.5 rounded text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
                         Short & Concise (Direct)
                       </span>
                       <button
                         type="button"
                         onClick={() => handleApplyClParagraphVariation(clPolishModal.variations!.concise)}
-                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium transition-colors cursor-pointer"
                       >
                         Apply This
                       </button>
@@ -8429,12 +8662,12 @@ export default function TailorWorkspace() {
               ) : null}
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Project Description Polish Modal */}
       {projectPolishModal.isOpen && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 no-print">
+        <Dialog onClose={() => setProjectPolishModal({ isOpen: false, projectIndex: -1, originalDescription: '', projectName: '', variations: null })} label="Polish project description" className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 no-print">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl max-w-xl w-full flex flex-col shadow-2xl overflow-hidden font-sans">
             <div className="p-4 border-b border-white/10 flex items-center justify-between bg-zinc-950">
               <div className="flex items-center gap-2">
@@ -8455,7 +8688,7 @@ export default function TailorWorkspace() {
             <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto">
               {/* Original Description Display */}
               <div>
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">
                   Original Project Description:
                 </label>
                 <div className="p-3 rounded-xl bg-zinc-950/60 border border-white/5 text-xs text-zinc-300">
@@ -8465,7 +8698,7 @@ export default function TailorWorkspace() {
 
               {/* Custom Prompt Directives Box */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block">
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block">
                   Custom AI Directive (Optional):
                 </label>
                 <div className="flex gap-2">
@@ -8478,12 +8711,12 @@ export default function TailorWorkspace() {
                   />
                   <button
                     type="button"
-                    onClick={() => handleFetchProjectVariations(projectPolishModal.projectIndex, projectPolishModal.originalDescription, projectPolishModal.projectName)}
+                    onClick={runProjectPolish}
                     disabled={isPolishingProject}
                     className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shrink-0"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>{isPolishingProject ? 'Polishing...' : 'Re-generate'}</span>
+                    <span>{isPolishingProject ? 'Polishing…' : `${projectPolishModal.variations ? 'Regenerate' : 'Generate'} · 2 tokens`}</span>
                   </button>
                 </div>
               </div>
@@ -8492,20 +8725,20 @@ export default function TailorWorkspace() {
               {isPolishingProject ? (
                 <div className="py-8 flex flex-col items-center justify-center gap-2 text-indigo-400">
                   <Loader2 className="w-6 h-6 animate-spin" />
-                  <span className="text-xs font-semibold">Crafting project variations with DeepSeek AI...</span>
+                  <span className="text-xs font-semibold">Writing project variations…</span>
                 </div>
               ) : projectPolishModal.variations ? (
                 <div className="space-y-3 pt-2">
                   {/* ATS Keyword Aligned Variation */}
                   <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                     <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
-                        🎯 ATS Keyword Aligned
+                      <span className="px-2 py-0.5 rounded text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
+                        ATS keyword aligned
                       </span>
                       <button
                         type="button"
                         onClick={() => handleApplyProjectVariation(projectPolishModal.variations!.ats)}
-                        className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors cursor-pointer"
                       >
                         Apply Variation
                       </button>
@@ -8516,13 +8749,13 @@ export default function TailorWorkspace() {
                   {/* Impact & Metrics Variation */}
                   <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                     <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
-                        🚀 Impact & Metrics Driven
+                      <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+                        Impact & metrics
                       </span>
                       <button
                         type="button"
                         onClick={() => handleApplyProjectVariation(projectPolishModal.variations!.impact)}
-                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium transition-colors cursor-pointer"
                       >
                         Apply Variation
                       </button>
@@ -8533,13 +8766,13 @@ export default function TailorWorkspace() {
                   {/* Short & Punchy Variation */}
                   <div className="p-3 rounded-xl bg-zinc-950/80 border border-zinc-800 hover:border-zinc-700 transition-all space-y-2 group">
                     <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
-                        ⚡ Short & Concise
+                      <span className="px-2 py-0.5 rounded text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase">
+                        Short & concise
                       </span>
                       <button
                         type="button"
                         onClick={() => handleApplyProjectVariation(projectPolishModal.variations!.concise)}
-                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-[11px] font-medium transition-colors cursor-pointer"
+                        className="px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-medium transition-colors cursor-pointer"
                       >
                         Apply Variation
                       </button>
@@ -8550,12 +8783,12 @@ export default function TailorWorkspace() {
               ) : null}
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Compare Original vs Tailored Modal */}
       {isCompareModalOpen && result && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 no-print">
+        <Dialog onClose={() => setIsCompareModalOpen(false)} label="Compare original and tailored CV" className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 no-print">
           <div className="bg-zinc-950 border border-white/10 rounded-2xl max-w-5xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden font-sans">
             <div className="p-4 border-b border-white/10 flex items-center justify-between bg-zinc-900/50">
               <div className="flex items-center gap-2">
@@ -8573,10 +8806,10 @@ export default function TailorWorkspace() {
               </button>
             </div>
 
-            <div className="grid grid-cols-2 flex-1 overflow-y-auto divide-x divide-white/10 text-xs">
+            <div className="grid grid-cols-1 md:grid-cols-2 flex-1 overflow-y-auto divide-y md:divide-y-0 md:divide-x divide-white/10 text-xs">
               {/* Left: Original Master Profile */}
               <div className="p-6 space-y-4 bg-zinc-900/30">
-                <div className="sticky top-0 bg-zinc-950/90 backdrop-blur-sm p-2 rounded-lg border border-zinc-800 font-bold text-zinc-400 uppercase tracking-wider text-[11px] mb-3">
+                <div className="sticky top-0 bg-zinc-950/90 backdrop-blur-sm p-2 rounded-lg border border-zinc-800 font-bold text-zinc-400 uppercase tracking-wider text-xs mb-3">
                   📋 Original Master Profile
                 </div>
                 <div>
@@ -8584,18 +8817,18 @@ export default function TailorWorkspace() {
                   <p className="text-zinc-400">Target Occupation: {profile?.targetOccupation || 'Not specified'}</p>
                 </div>
                 <div>
-                  <h4 className="font-bold text-zinc-300 mb-1 uppercase tracking-wider text-[10px]">Master Summary</h4>
+                  <h4 className="font-bold text-zinc-300 mb-1 uppercase tracking-wider text-xs">Master Summary</h4>
                   <p className="text-zinc-400 bg-zinc-900 p-3 rounded-lg border border-white/5 whitespace-pre-wrap">
                     {profile?.summary || 'No master summary provided.'}
                   </p>
                 </div>
                 <div>
-                  <h4 className="font-bold text-zinc-300 mb-1 uppercase tracking-wider text-[10px]">Master Experience</h4>
+                  <h4 className="font-bold text-zinc-300 mb-1 uppercase tracking-wider text-xs">Master Experience</h4>
                   <div className="space-y-2">
                     {profile?.workExperience?.map((w: any, idx: number) => (
                       <div key={idx} className="p-2.5 rounded-lg bg-zinc-900 border border-white/5 text-zinc-400">
                         <span className="font-semibold text-zinc-200 block">{w.role} at {w.company}</span>
-                        <span className="text-[10px] text-zinc-500 block mb-1">{w.period}</span>
+                        <span className="text-xs text-zinc-500 block mb-1">{w.period}</span>
                         <p className="line-clamp-3">{w.description}</p>
                       </div>
                     ))}
@@ -8605,28 +8838,28 @@ export default function TailorWorkspace() {
 
               {/* Right: AI Tailored Output */}
               <div className="p-6 space-y-4 bg-zinc-950">
-                <div className="sticky top-0 bg-indigo-950/90 backdrop-blur-sm p-2 rounded-lg border border-indigo-800/50 font-bold text-indigo-300 uppercase tracking-wider text-[11px] mb-3 flex items-center justify-between">
+                <div className="sticky top-0 bg-indigo-950/90 backdrop-blur-sm p-2 rounded-lg border border-indigo-800/50 font-bold text-indigo-300 uppercase tracking-wider text-xs mb-3 flex items-center justify-between">
                   <span>✨ AI Tailored Document Output</span>
-                  <span className="text-emerald-400 text-[10px]">Profile fit: {result.matchScore}%</span>
+                  <span className="text-emerald-400 text-xs">Profile fit: {result.matchScore}%</span>
                 </div>
                 <div>
                   <h4 className="font-bold text-white mb-1">Full Name: {result.tailoredCv.personalDetails.fullName}</h4>
                   <p className="text-indigo-300 font-semibold">{roleName || 'Tailored Position'}</p>
                 </div>
                 <div>
-                  <h4 className="font-bold text-indigo-300 mb-1 uppercase tracking-wider text-[10px]">Tailored Summary</h4>
+                  <h4 className="font-bold text-indigo-300 mb-1 uppercase tracking-wider text-xs">Tailored Summary</h4>
                   <p className="text-zinc-200 bg-indigo-500/5 p-3 rounded-lg border border-indigo-500/20 whitespace-pre-wrap">
                     {result.tailoredCv.summary}
                   </p>
                 </div>
                 <div>
-                  <h4 className="font-bold text-indigo-300 mb-1 uppercase tracking-wider text-[10px]">Tailored Work Experience</h4>
+                  <h4 className="font-bold text-indigo-300 mb-1 uppercase tracking-wider text-xs">Tailored Work Experience</h4>
                   <div className="space-y-2">
                     {result.tailoredCv.workExperience?.map((w: any, idx: number) => (
                       <div key={idx} className="p-2.5 rounded-lg bg-indigo-500/5 border border-indigo-500/20 text-zinc-300">
                         <span className="font-semibold text-white block">{w.role} at {w.company}</span>
-                        <span className="text-[10px] text-indigo-400 block mb-1">{w.period}</span>
-                        <ul className="list-disc pl-4 space-y-1 text-zinc-300 text-[11px]">
+                        <span className="text-xs text-indigo-400 block mb-1">{w.period}</span>
+                        <ul className="list-disc pl-4 space-y-1 text-zinc-300 text-xs">
                           {getRenderedBullets(w, bulletStyle, lengthTarget, idx === 0).map((b: string, bIdx: number) => (
                             <li key={bIdx}>{b}</li>
                           ))}
@@ -8638,7 +8871,7 @@ export default function TailorWorkspace() {
               </div>
             </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* Floating Selection Toolbar (Self-contained to prevent page re-renders) */}
