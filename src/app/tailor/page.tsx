@@ -19,6 +19,8 @@ import BulletMatrixCvView from './components/BulletMatrixCvView';
 import CanvasViewport from './components/CanvasViewport';
 import CanvasFloatingHud from './components/CanvasFloatingHud';
 import MobileToolBottomSheet from './components/MobileToolBottomSheet';
+import { loadTailorInputs, saveTailorInputs, clearTailorInputs } from '@/lib/tailorInputsAutosave';
+import OutreachTextarea, { findPlaceholders, LINKEDIN_NOTE_LIMIT } from './components/OutreachTextarea';
 import RefusalReport from './components/RefusalReport';
 import { renderInline } from './components/MarkdownLite';
 import { hasVaultContent } from '@/lib/profileMerge';
@@ -691,6 +693,8 @@ export default function TailorWorkspace() {
   // Intake Method States
   const [intakeMethod, setIntakeMethod] = useState<'text' | 'url' | 'pdf'>('text');
   const [jobUrl, setJobUrl] = useState('');
+  const [restoredInputs, setRestoredInputs] = useState(false);
+  const [autosaveReady, setAutosaveReady] = useState(false);
   const [scraping, setScraping] = useState(false);
   const [scrapeError, setScrapeError] = useState<string | null>(null);
   const [scrapeWarning, setScrapeWarning] = useState<string | null>(null);
@@ -3985,9 +3989,69 @@ export default function TailorWorkspace() {
       if (appId) {
         setEditingAppId(appId);
         fetchApplicationForEditing(appId);
+      } else {
+        // Restore inputs typed before leaving the page (nothing is on the server yet).
+        const saved = loadTailorInputs();
+        if (saved) {
+          if (saved.jobDescription !== undefined) setJobDescription(saved.jobDescription);
+          if (saved.jobUrl !== undefined) setJobUrl(saved.jobUrl);
+          if (saved.intakeMethod) setIntakeMethod(saved.intakeMethod);
+          if (saved.companyName !== undefined) setCompanyName(saved.companyName);
+          if (saved.roleName !== undefined) setRoleName(saved.roleName);
+          if (saved.cvLanguage) setCvLanguage(saved.cvLanguage);
+          if (saved.clLanguage) setClLanguage(saved.clLanguage);
+          if (saved.salaryExpectation !== undefined) setSalaryExpectation(saved.salaryExpectation);
+          if (saved.noticePeriod !== undefined) setNoticePeriod(saved.noticePeriod);
+          if (saved.signingLocation !== undefined) setSigningLocation(saved.signingLocation);
+          if (saved.customNotes !== undefined) setCustomNotes(saved.customNotes);
+          if (saved.themeDirective !== undefined) setThemeDirective(saved.themeDirective);
+          if (saved.matchStrategy) setMatchStrategy(saved.matchStrategy);
+          if (saved.tone) setTone(saved.tone);
+          if (saved.lengthTarget) setLengthTarget(saved.lengthTarget);
+          setRestoredInputs(true);
+        }
       }
+      setAutosaveReady(true);
     }
   }, []);
+
+  // Autosave the inputs locally until a generation creates a server draft (audit 5, autosave).
+  useEffect(() => {
+    if (!autosaveReady || editingAppId || result) return;
+    const t = setTimeout(() => {
+      saveTailorInputs({
+        jobDescription, jobUrl, intakeMethod, companyName, roleName, cvLanguage, clLanguage,
+        salaryExpectation, noticePeriod, signingLocation, customNotes, themeDirective,
+        matchStrategy, tone, lengthTarget,
+      });
+    }, 500);
+    return () => clearTimeout(t);
+  }, [autosaveReady, editingAppId, result, jobDescription, jobUrl, intakeMethod, companyName, roleName, cvLanguage, clLanguage,
+    salaryExpectation, noticePeriod, signingLocation, customNotes, themeDirective, matchStrategy, tone, lengthTarget]);
+
+  // Copy an outreach message, but warn first if it still has [placeholders] (audit 7.6).
+  const copyOutreach = (text: string, what: string) => {
+    const doCopy = () => {
+      navigator.clipboard.writeText(text);
+      showToast({ title: 'Copied', message: `${what} copied to the clipboard.` });
+    };
+    const missing = findPlaceholders(text);
+    if (missing.length === 0) return doCopy();
+    showAlert({
+      title: 'Placeholders not filled in',
+      message: `This message still contains ${missing.join(', ')}. Replace them before sending, or copy it as it is.`,
+      type: 'warning',
+      confirmLabel: 'Copy anyway',
+      onConfirm: doCopy,
+    });
+  };
+
+  const discardRestoredInputs = () => {
+    clearTailorInputs();
+    setRestoredInputs(false);
+    setJobDescription(''); setJobUrl(''); setCompanyName(''); setRoleName('');
+    setSalaryExpectation(''); setNoticePeriod(''); setSigningLocation(''); setCustomNotes(''); setThemeDirective('');
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -4466,6 +4530,9 @@ export default function TailorWorkspace() {
       }
       setResult(data);
       fetchTokens();
+      // The server draft now holds these inputs; drop the local autosave copy.
+      clearTailorInputs();
+      setRestoredInputs(false);
       if ((data as any).applicationId) {
         // Saved server-side as a DRAFT; edits now auto-save to it
         setEditingAppId((data as any).applicationId);
@@ -4803,10 +4870,17 @@ export default function TailorWorkspace() {
       .replace(/\s+/g, '_');
 
     // 3. Document Label
-    const docLabel = type === 'cv' ? 'CV' : 'CL';
+    const docLabel = type === 'cv' ? 'CV' : 'Cover_Letter';
 
-    // 4. Construct format: company_name-Position-(CV/CL)
-    const baseName = `${cleanCompany}-${cleanPosition}-(${docLabel})`;
+    // 4. Applicant's last name first: recruiters file attachments by person
+    //    (audit 5, export filename preset: Lastname_Company_CV.pdf).
+    const fullName = (result?.tailoredCv?.personalDetails?.fullName || profile?.fullName || '').trim();
+    const lastName = fullName.split(/\s+/).filter(Boolean).pop() || '';
+    const cleanLast = lastName.replace(/[\\/:*?"<>|]/g, '');
+
+    const baseName = [cleanLast, cleanCompany !== 'Company' ? cleanCompany : cleanPosition, docLabel]
+      .filter(Boolean)
+      .join('_');
     return ext ? `${baseName}.${ext}` : baseName;
   };
 
@@ -5073,7 +5147,7 @@ export default function TailorWorkspace() {
 
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
-      const fileName = `${(result.tailoredCv.personalDetails.fullName || 'Resume').replace(/\s+/g, '_')}_Tailored_CV.docx`;
+      const fileName = getExportFileName('cv', 'docx');
       const a = document.createElement('a');
       a.href = url;
       a.download = fileName;
@@ -5849,6 +5923,14 @@ export default function TailorWorkspace() {
 
               {/* Step 1: the job. The one required input comes first (audit T1). */}
               <section aria-label="Job" className="space-y-3">
+                {restoredInputs && (
+                  <div role="status" className="flex items-center justify-between gap-3 p-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 text-sm text-zinc-200">
+                    <span>We restored what you typed last time.</span>
+                    <button type="button" onClick={discardRestoredInputs} className="shrink-0 text-xs font-semibold text-indigo-300 hover:text-white underline cursor-pointer">
+                      Start fresh
+                    </button>
+                  </div>
+                )}
               {/* Intake Method Toggle & Inputs */}
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-semibold text-zinc-300">Add the job from</label>
@@ -7180,8 +7262,7 @@ export default function TailorWorkspace() {
                         <button
                           type="button"
                           onClick={() => {
-                            navigator.clipboard.writeText(outreachData.linkedInInMail.message);
-                            showAlert({ title: 'Copied!', message: 'LinkedIn message copied to clipboard.', type: 'success' });
+                            copyOutreach(outreachData.linkedInInMail.message, 'LinkedIn message');
                           }}
                           className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
                         >
@@ -7203,18 +7284,17 @@ export default function TailorWorkspace() {
                         />
                       </div>
 
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-zinc-400 uppercase">Message Body (Editable)</label>
-                        <textarea
-                          value={outreachData.linkedInInMail.message}
-                          onChange={e => setOutreachData({
-                            ...outreachData,
-                            linkedInInMail: { ...outreachData.linkedInInMail, message: e.target.value }
-                          })}
-                          rows={5}
-                          className="glass-input p-3 text-xs text-white font-sans w-full leading-relaxed resize-y"
-                        />
-                      </div>
+                      <OutreachTextarea
+                        id="outreach-linkedin"
+                        label="Message"
+                        value={outreachData.linkedInInMail.message}
+                        onChange={v => setOutreachData({
+                          ...outreachData,
+                          linkedInInMail: { ...outreachData.linkedInInMail, message: v }
+                        })}
+                        maxChars={LINKEDIN_NOTE_LIMIT}
+                        limitHint="LinkedIn connection notes allow 300 characters (200 on free accounts). InMail allows more."
+                      />
 
                       {outreachData.linkedInInMail.tips && (
                         <div className="p-3 bg-blue-500/5 border border-blue-500/15 rounded-xl text-xs text-blue-300 flex items-start gap-2">
@@ -7236,8 +7316,7 @@ export default function TailorWorkspace() {
                         <button
                           type="button"
                           onClick={() => {
-                            navigator.clipboard.writeText(`Subject: ${outreachData.hiringManagerEmail.subject}\n\n${outreachData.hiringManagerEmail.message}`);
-                            showAlert({ title: 'Copied!', message: 'Email draft copied to clipboard.', type: 'success' });
+                            copyOutreach(`Subject: ${outreachData.hiringManagerEmail.subject}\n\n${outreachData.hiringManagerEmail.message}`, 'Email draft');
                           }}
                           className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
                         >
@@ -7259,18 +7338,15 @@ export default function TailorWorkspace() {
                         />
                       </div>
 
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-zinc-400 uppercase">Email Body (Editable)</label>
-                        <textarea
-                          value={outreachData.hiringManagerEmail.message}
-                          onChange={e => setOutreachData({
-                            ...outreachData,
-                            hiringManagerEmail: { ...outreachData.hiringManagerEmail, message: e.target.value }
-                          })}
-                          rows={7}
-                          className="glass-input p-3 text-xs text-white font-sans w-full leading-relaxed resize-y"
-                        />
-                      </div>
+                      <OutreachTextarea
+                        id="outreach-email"
+                        label="Email body"
+                        value={outreachData.hiringManagerEmail.message}
+                        onChange={v => setOutreachData({
+                          ...outreachData,
+                          hiringManagerEmail: { ...outreachData.hiringManagerEmail, message: v }
+                        })}
+                      />
 
                       {outreachData.hiringManagerEmail.tips && (
                         <div className="p-3 bg-indigo-500/5 border border-indigo-500/15 rounded-xl text-xs text-indigo-300 flex items-start gap-2">
@@ -7292,8 +7368,7 @@ export default function TailorWorkspace() {
                         <button
                           type="button"
                           onClick={() => {
-                            navigator.clipboard.writeText(outreachData.warmReferralCoffeeChat.message);
-                            showAlert({ title: 'Copied!', message: 'Coffee chat message copied to clipboard.', type: 'success' });
+                            copyOutreach(outreachData.warmReferralCoffeeChat.message, 'Coffee chat message');
                           }}
                           className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all"
                         >
@@ -7315,18 +7390,15 @@ export default function TailorWorkspace() {
                         />
                       </div>
 
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-zinc-400 uppercase">Message Body (Editable)</label>
-                        <textarea
-                          value={outreachData.warmReferralCoffeeChat.message}
-                          onChange={e => setOutreachData({
-                            ...outreachData,
-                            warmReferralCoffeeChat: { ...outreachData.warmReferralCoffeeChat, message: e.target.value }
-                          })}
-                          rows={6}
-                          className="glass-input p-3 text-xs text-white font-sans w-full leading-relaxed resize-y"
-                        />
-                      </div>
+                      <OutreachTextarea
+                        id="outreach-coffee"
+                        label="Message"
+                        value={outreachData.warmReferralCoffeeChat.message}
+                        onChange={v => setOutreachData({
+                          ...outreachData,
+                          warmReferralCoffeeChat: { ...outreachData.warmReferralCoffeeChat, message: v }
+                        })}
+                      />
 
                       {outreachData.warmReferralCoffeeChat.tips && (
                         <div className="p-3 bg-purple-500/5 border border-purple-500/15 rounded-xl text-xs text-purple-300 flex items-start gap-2">
